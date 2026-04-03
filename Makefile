@@ -1,14 +1,16 @@
+TEMPL := $(shell go env GOPATH)/bin/templ
+
 .PHONY: setup generate build run dev clean
 
 # First-time setup: install templ CLI, generate code, resolve deps
 setup:
 	go install github.com/a-h/templ/cmd/templ@latest
-	templ generate
+	$(TEMPL) generate
 	go mod tidy
 
 # Generate Go code from .templ files
 generate:
-	templ generate
+	$(TEMPL) generate
 
 # Build the binary
 build: generate

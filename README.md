@@ -9,6 +9,8 @@ A minimal web app to organise your board game collection. Browse, search, add, e
 - [Go](https://go.dev/dl/) 1.23+
 - No C compiler needed (uses pure-Go SQLite)
 
+> The Makefile resolves the `templ` CLI via `$(go env GOPATH)/bin/templ` automatically, so it works even if `GOPATH/bin` is not in your `PATH`.
+
 ## Quick Start
 
 ```sh
@@ -117,6 +119,8 @@ go mod tidy
 go install github.com/a-h/templ/cmd/templ@latest
 make generate
 ```
+
+> After cloning, run `make generate` before `make build` — the `*_templ.go` files are gitignored.
 
 ### Deploy
 
