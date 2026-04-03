@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"strconv"
 	"strings"
 
 	_ "modernc.org/sqlite"
@@ -134,9 +133,17 @@ func filterGames(genre, players, playtime string) ([]Game, error) {
 		args = append(args, genre)
 	}
 	if players != "" {
-		if n, err := strconv.Atoi(players); err == nil {
-			conditions = append(conditions, "min_players <= ? AND max_players >= ?")
-			args = append(args, n, n)
+		switch players {
+		case "1":
+			conditions = append(conditions, "min_players <= 1")
+		case "2only":
+			conditions = append(conditions, "min_players = 2 AND max_players = 2")
+		case "3":
+			conditions = append(conditions, "min_players <= 3")
+		case "4":
+			conditions = append(conditions, "min_players <= 4")
+		case "5plus":
+			conditions = append(conditions, "max_players >= 5")
 		}
 	}
 	if playtime != "" {
