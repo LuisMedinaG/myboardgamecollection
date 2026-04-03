@@ -8,7 +8,9 @@
       "players": { "min": 3, "max": 4 },
       "playtime": 90,
       "quickref": "Each turn: roll dice, collect resources, trade, build.\n\nEasy to forget:\n- Robber activates on a 7 (move robber, steal 1 card from adjacent player)\n- Players with 8+ cards on a 7 must discard half\n- Longest road needs 5+ segments\n- Largest army needs 3+ knight cards\n- You can trade 4:1 with the bank anytime\n- Ports let you trade 3:1 (general) or 2:1 (specific resource)",
-      "rulesUrl": "https://boardgamegeek.com/boardgame/13/catan"
+      "bggId": 13,
+      "location": "Shelf A",
+      "isBorrowed": false
     },
     {
       "id": "codenames",
@@ -18,7 +20,9 @@
       "players": { "min": 4, "max": 8 },
       "playtime": 20,
       "quickref": "Two teams, each with a spymaster. Spymasters give one-word clues + a number.\n\nEasy to forget:\n- Clue must be ONE word and a number\n- If you guess the assassin word, your team loses instantly\n- You always get one extra guess beyond the number given\n- Spymasters must keep a straight face",
-      "rulesUrl": "https://boardgamegeek.com/boardgame/178900/codenames"
+      "bggId": 178900,
+      "location": "Borrowed from Sarah",
+      "isBorrowed": true
     },
     {
       "id": "king-of-tokyo",
@@ -28,7 +32,9 @@
       "players": { "min": 2, "max": 6 },
       "playtime": 30,
       "quickref": "Roll 6 dice up to 3 times (Yahtzee-style). Score points, attack, heal, or gain energy.\n\nEasy to forget:\n- You cannot heal while in Tokyo\n- You MUST enter Tokyo if it's empty\n- When you take damage in Tokyo, you can yield (leave)\n- 3 of a kind scores that number in points; each extra die = +1 point\n- First to 20 points OR last monster standing wins",
-      "rulesUrl": "https://boardgamegeek.com/boardgame/70323/king-of-tokyo"
+      "bggId": 70323,
+      "location": "Shelf B",
+      "isBorrowed": false
     }
   ]
 }

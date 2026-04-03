@@ -27,12 +27,21 @@ async function initGame() {
     <span class="tag">${game.playtime} min</span>
   `;
 
+  // Show location and borrowed status
+  const status = document.getElementById("game-status");
+  const statusClass = game.isBorrowed ? "game-status--borrowed" : "game-status--owned";
+  status.className = "game-status " + statusClass;
+  status.innerHTML = `
+    <div><strong>${game.isBorrowed ? "Borrowed" : "Location"}:</strong> ${game.location}</div>
+  `;
+
   document.getElementById("quickref-text").textContent = game.quickref;
 
-  if (game.rulesUrl) {
-    const link = document.getElementById("rules-link");
-    link.href = game.rulesUrl;
-    link.style.display = "block";
+  // Add BGG link
+  if (game.bggId) {
+    const bggLink = document.getElementById("bgg-link");
+    bggLink.href = "https://boardgamegeek.com/boardgame/" + game.bggId;
+    bggLink.style.display = "block";
   }
 }
 

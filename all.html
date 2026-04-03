@@ -22,10 +22,11 @@
           var a = document.createElement("a");
           a.className = "game-list-item";
           a.href = "game.html?id=" + g.id;
+          var borrowed = g.isBorrowed ? ' <span style="color:#ff9800;font-weight:600;">📤 Borrowed</span>' : '';
           a.innerHTML =
             '<div>' +
-              '<div class="game-list-name">' + g.name + '</div>' +
-              '<div class="game-list-meta">' + g.players.min + '-' + g.players.max + ' players &middot; ' + g.playtime + ' min</div>' +
+              '<div class="game-list-name">' + g.name + borrowed + '</div>' +
+              '<div class="game-list-meta">' + g.players.min + '-' + g.players.max + ' players &middot; ' + g.playtime + ' min &middot; ' + g.location + '</div>' +
             '</div>';
           list.appendChild(a);
         });
