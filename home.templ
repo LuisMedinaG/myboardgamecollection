@@ -1,0 +1,22 @@
+package main
+
+import "fmt"
+
+templ home(gameCount int) {
+	@layout("Home") {
+		<header class="header">
+			<h1>My Board Game Collection</h1>
+			<p class="subtitle">{ fmt.Sprintf("%d", gameCount) } games in your collection</p>
+		</header>
+		<nav class="action-grid">
+			<a href="/games" class="action-card">
+				<span class="action-icon">&#127922;</span>
+				<span class="action-label">Browse Games</span>
+			</a>
+			<a href="/games/new" class="action-card">
+				<span class="action-icon">&#10133;</span>
+				<span class="action-label">Add Game</span>
+			</a>
+		</nav>
+	}
+}

@@ -1,0 +1,41 @@
+package main
+
+import "fmt"
+
+templ gameDetail(game Game) {
+	@layout(game.Name) {
+		<a href="/games" class="back-btn">&#8592; All Games</a>
+		<div class="game-header">
+			<h1 class="game-title">{ game.Name }</h1>
+			<div class="game-meta">
+				<span class="tag">{ capitalize(game.Genre) }</span>
+				if game.Subgenre != "" {
+					<span class="tag">{ formatSubgenre(game.Subgenre) }</span>
+				}
+				<span class="tag">{ game.PlayersStr() } players</span>
+				<span class="tag">{ game.PlaytimeStr() }</span>
+			</div>
+		</div>
+		if game.QuickRef != "" {
+			<div class="quickref">
+				<h3 class="quickref-title">Quick Reference</h3>
+				<div class="quickref-text">{ game.QuickRef }</div>
+			</div>
+		}
+		if game.RulesURL != "" {
+			<a href={ templ.SafeURL(game.RulesURL) } target="_blank" rel="noopener" class="rules-link">
+				View Full Rules
+			</a>
+		}
+		<div class="game-actions">
+			<a href={ templ.SafeURL(fmt.Sprintf("/games/%d/edit", game.ID)) } class="btn btn-secondary">Edit</a>
+			<button
+				class="btn btn-danger"
+				hx-post={ fmt.Sprintf("/games/%d/delete", game.ID) }
+				hx-confirm="Delete this game? This cannot be undone."
+			>
+				Delete
+			</button>
+		</div>
+	}
+}

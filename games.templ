@@ -1,0 +1,57 @@
+package main
+
+import "fmt"
+
+templ gamesPage(data GamesPageData) {
+	@layout("All Games") {
+		<a href="/" class="back-btn">&#8592; Home</a>
+		<div class="filters" hx-get="/games" hx-target="#games-result" hx-trigger="change" hx-push-url="true" hx-swap="innerHTML">
+			<select name="genre" class="filter-select">
+				<option value="">All Genres</option>
+				for _, g := range data.Genres {
+					<option value={ g } selected?={ g == data.Genre }>{ capitalize(g) }</option>
+				}
+			</select>
+			<select name="players" class="filter-select">
+				<option value="">Any Players</option>
+				for i := 1; i <= 10; i++ {
+					<option value={ fmt.Sprintf("%d", i) } selected?={ fmt.Sprintf("%d", i) == data.Players }>{ fmt.Sprintf("%d players", i) }</option>
+				}
+			</select>
+			<select name="playtime" class="filter-select">
+				<option value="">Any Duration</option>
+				<option value="short" selected?={ data.Playtime == "short" }>&lt; 30 min</option>
+				<option value="medium" selected?={ data.Playtime == "medium" }>30–60 min</option>
+				<option value="long" selected?={ data.Playtime == "long" }>&gt; 60 min</option>
+			</select>
+		</div>
+		<div id="games-result">
+			@gamesResult(data.Games)
+		</div>
+	}
+}
+
+templ gamesResult(games []Game) {
+	<h2 class="step-title">
+		if len(games) == 1 {
+			1 game
+		} else {
+			{ fmt.Sprintf("%d games", len(games)) }
+		}
+	</h2>
+	if len(games) == 0 {
+		<p class="empty-state">No games match these filters.</p>
+	} else {
+		<div class="game-list">
+			for _, g := range games {
+				<a href={ templ.SafeURL(fmt.Sprintf("/games/%d", g.ID)) } class="game-list-item">
+					<div>
+						<div class="game-list-name">{ g.Name }</div>
+						<div class="game-list-meta">{ g.PlayersStr() } players · { g.PlaytimeStr() }</div>
+					</div>
+					<span class="chevron">&#8250;</span>
+				</a>
+			}
+		</div>
+	}
+}

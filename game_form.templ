@@ -1,0 +1,159 @@
+package main
+
+import (
+	"fmt"
+	"slices"
+)
+
+var playtimeBuckets = []int{5, 15, 30, 60, 120}
+
+func closestPlaytime(minutes int) int {
+	closest := playtimeBuckets[0]
+	for _, b := range playtimeBuckets {
+		if abs(b-minutes) < abs(closest-minutes) {
+			closest = b
+		}
+	}
+	return closest
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
+}
+
+templ gameForm(game Game, genres []string, subgenres []string, editing bool) {
+	@layout(formTitle(editing)) {
+		if editing {
+			<a href={ templ.SafeURL(fmt.Sprintf("/games/%d", game.ID)) } class="back-btn">&#8592; Back</a>
+		} else {
+			<a href="/games" class="back-btn">&#8592; Back</a>
+		}
+		<h2 class="step-title">{ formTitle(editing) }</h2>
+		<form
+			method="POST"
+			if editing {
+				action={ templ.SafeURL(fmt.Sprintf("/games/%d", game.ID)) }
+			} else {
+				action="/games"
+			}
+			class="game-form"
+		>
+			<label class="form-label">
+				Name
+				<input type="text" name="name" value={ game.Name } required class="form-input" placeholder="e.g. Catan"/>
+			</label>
+			<div class="form-row">
+				<label class="form-label">
+					Genre
+					<select
+						name="genre"
+						class="form-input"
+						onchange="toggleNewInput(this,'genre-new-wrap')"
+					>
+						<option value="">-- select --</option>
+						for _, g := range genres {
+							<option value={ g } selected?={ game.Genre == g }>{ g }</option>
+						}
+						<option value=newItemSentinel selected?={ game.Genre != "" && !slices.Contains(genres, game.Genre) }>+ Add new genre...</option>
+					</select>
+					<span id="genre-new-wrap" style={ newInputStyle(game.Genre, genres) }>
+						<input
+							type="text"
+							name="genre_new"
+							class="form-input"
+							placeholder="New genre name"
+							style="margin-top:0.5rem"
+							if !slices.Contains(genres, game.Genre) {
+								value={ game.Genre }
+							}
+						/>
+					</span>
+				</label>
+				<label class="form-label">
+					Subgenre
+					<select
+						name="subgenre"
+						class="form-input"
+						onchange="toggleNewInput(this,'subgenre-new-wrap')"
+					>
+						<option value="">-- select --</option>
+						for _, s := range subgenres {
+							<option value={ s } selected?={ game.Subgenre == s }>{ s }</option>
+						}
+						<option value=newItemSentinel selected?={ game.Subgenre != "" && !slices.Contains(subgenres, game.Subgenre) }>+ Add new subgenre...</option>
+					</select>
+					<span id="subgenre-new-wrap" style={ newInputStyle(game.Subgenre, subgenres) }>
+						<input
+							type="text"
+							name="subgenre_new"
+							class="form-input"
+							placeholder="New subgenre name"
+							style="margin-top:0.5rem"
+							if !slices.Contains(subgenres, game.Subgenre) {
+								value={ game.Subgenre }
+							}
+						/>
+					</span>
+				</label>
+			</div>
+			<div class="form-row">
+				<label class="form-label">
+					Min Players
+					<input type="number" name="min_players" value={ fmt.Sprintf("%d", game.MinPlayers) } min="1" max="99" class="form-input"/>
+				</label>
+				<label class="form-label">
+					Max Players
+					<input type="number" name="max_players" value={ fmt.Sprintf("%d", game.MaxPlayers) } min="1" max="99" class="form-input"/>
+				</label>
+				<label class="form-label">
+					Playtime
+					<select name="playtime" class="form-input">
+						<option value="5" selected?={ closestPlaytime(game.Playtime) == 5 }>5 min</option>
+						<option value="15" selected?={ closestPlaytime(game.Playtime) == 15 }>15 min</option>
+						<option value="30" selected?={ closestPlaytime(game.Playtime) == 30 }>30 min</option>
+						<option value="60" selected?={ closestPlaytime(game.Playtime) == 60 }>1 hr</option>
+						<option value="120" selected?={ closestPlaytime(game.Playtime) == 120 }>2 hr+</option>
+					</select>
+				</label>
+			</div>
+			<label class="form-label">
+				Quick Reference
+				<textarea name="quickref" rows="8" class="form-input form-textarea" placeholder="Rules summary, easy-to-forget rules, etc.">{ game.QuickRef }</textarea>
+			</label>
+			<label class="form-label">
+				Rules URL
+				<input type="url" name="rules_url" value={ game.RulesURL } class="form-input" placeholder="https://boardgamegeek.com/..."/>
+			</label>
+			<button type="submit" class="btn btn-primary">
+				if editing {
+					Save Changes
+				} else {
+					Add Game
+				}
+			</button>
+		</form>
+		<script>
+			function toggleNewInput(select, wrapperId) {
+				document.getElementById(wrapperId).style.display =
+					select.value === '__new__' ? '' : 'none';
+			}
+		</script>
+	}
+}
+
+func newInputStyle(current string, list []string) string {
+	if current != "" && !slices.Contains(list, current) {
+		return ""
+	}
+	return "display:none"
+}
+
+func formTitle(editing bool) string {
+	if editing {
+		return "Edit Game"
+	}
+	return "Add Game"
+}
