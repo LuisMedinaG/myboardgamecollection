@@ -20,17 +20,16 @@
       <label for="genre">Genre *</label>
       <select id="genre" name="genre" required>
         <option value="">Select genre</option>
-        <option value="family">Family</option>
-        <option value="party">Party</option>
-        <option value="strategy">Strategy</option>
-        <option value="cooperative">Cooperative</option>
-        <option value="abstract">Abstract</option>
       </select>
+      <input type="text" id="genre-new" placeholder="New genre name" style="display:none;margin-top:0.5rem;">
     </div>
 
     <div class="form-group">
       <label for="subgenre">Sub-genre *</label>
-      <input type="text" id="subgenre" name="subgenre" placeholder="e.g., dice-game" required>
+      <select id="subgenre" name="subgenre" required>
+        <option value="">Select sub-genre</option>
+      </select>
+      <input type="text" id="subgenre-new" placeholder="New sub-genre name" style="display:none;margin-top:0.5rem;">
     </div>
 
     <div class="form-row">
@@ -45,8 +44,15 @@
     </div>
 
     <div class="form-group">
-      <label for="playtime">Play Time (min) *</label>
-      <input type="number" id="playtime" name="playtime" min="1" required>
+      <label for="playtime">Play Time *</label>
+      <select id="playtime" name="playtime" required>
+        <option value="">Select duration</option>
+        <option value="5">5 min</option>
+        <option value="15">15 min</option>
+        <option value="30">30 min</option>
+        <option value="60">1 hour</option>
+        <option value="120">2+ hours</option>
+      </select>
     </div>
 
     <div class="form-group">
@@ -76,16 +82,122 @@
 
   <script src="js/data.js"></script>
   <script>
+    const GENRE_SUBGENRE_MAP = {
+      family: ["dice-game", "card-game", "board-game"],
+      party: ["word-game", "bluffing", "trivia"],
+      strategy: ["resource-management", "worker-placement", "area-control"],
+      cooperative: ["puzzle", "adventure", "survival"],
+      abstract: ["pattern", "logic", "connection"],
+      drinking: ["party-game", "challenge"]
+    };
+
+    const genreSelect = document.getElementById("genre");
+    const subgenreSelect = document.getElementById("subgenre");
+    const genreNewInput = document.getElementById("genre-new");
+    const subgenreNewInput = document.getElementById("subgenre-new");
+
+    // Populate genre dropdown from data
+    async function initForm() {
+      const games = await loadGames();
+      const allGenres = new Set(games.map(g => g.genre));
+      Array.from(allGenres).sort().forEach(genre => {
+        const opt = document.createElement("option");
+        opt.value = genre;
+        opt.textContent = genre.charAt(0).toUpperCase() + genre.slice(1);
+        genreSelect.appendChild(opt);
+      });
+
+      // Add "Add new genre" option
+      const addNewGenre = document.createElement("option");
+      addNewGenre.value = "__add_new__";
+      addNewGenre.textContent = "+ Add new genre";
+      genreSelect.appendChild(addNewGenre);
+    }
+
+    initForm();
+
+    // Genre change listener
+    genreSelect.addEventListener("change", function() {
+      genreNewInput.style.display = this.value === "__add_new__" ? "block" : "none";
+      if (this.value === "__add_new__") {
+        genreNewInput.focus();
+      }
+      updateSubgenreDropdown();
+    });
+
+    // Update subgenre dropdown based on genre
+    function updateSubgenreDropdown() {
+      subgenreSelect.innerHTML = '<option value="">Select sub-genre</option>';
+
+      let selectedGenre = genreSelect.value;
+      if (selectedGenre === "__add_new__") {
+        subgenreSelect.disabled = true;
+        subgenreNewInput.style.display = "block";
+        return;
+      }
+
+      const subgenres = GENRE_SUBGENRE_MAP[selectedGenre] || [];
+      subgenres.sort().forEach(sub => {
+        const opt = document.createElement("option");
+        opt.value = sub;
+        opt.textContent = sub.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+        subgenreSelect.appendChild(opt);
+      });
+
+      // Add "Add new sub-genre" option
+      const addNewSub = document.createElement("option");
+      addNewSub.value = "__add_new__";
+      addNewSub.textContent = "+ Add new sub-genre";
+      subgenreSelect.appendChild(addNewSub);
+
+      subgenreSelect.disabled = false;
+      subgenreNewInput.style.display = "none";
+    }
+
+    // Sub-genre change listener
+    subgenreSelect.addEventListener("change", function() {
+      subgenreNewInput.style.display = this.value === "__add_new__" ? "block" : "none";
+      if (this.value === "__add_new__") {
+        subgenreNewInput.focus();
+      }
+    });
+
+    // Form submission
     document.getElementById("add-game-form").addEventListener("submit", async function(e) {
       e.preventDefault();
 
-      // Get form data
       const form = e.target;
+      let genre = genreSelect.value;
+      let subgenre = subgenreSelect.value;
+
+      // Handle new genre
+      if (genre === "__add_new__") {
+        genre = genreNewInput.value.trim().toLowerCase();
+        if (!genre) {
+          alert("Please enter a genre name");
+          return;
+        }
+      }
+
+      // Handle new sub-genre
+      if (subgenre === "__add_new__") {
+        subgenre = subgenreNewInput.value.trim().toLowerCase().replace(/\s+/g, "-");
+        if (!subgenre) {
+          alert("Please enter a sub-genre name");
+          return;
+        }
+      }
+
+      if (!genre || !subgenre) {
+        alert("Please select or add genre and sub-genre");
+        return;
+      }
+
       const newGame = {
         id: form.name.value.toLowerCase().replace(/\s+/g, "-"),
         name: form.name.value,
-        genre: form.genre.value,
-        subgenre: form.subgenre.value,
+        genre: genre,
+        subgenre: subgenre,
         players: {
           min: parseInt(form.minPlayers.value),
           max: parseInt(form.maxPlayers.value)
@@ -97,18 +209,15 @@
         isBorrowed: form.isBorrowed.checked
       };
 
-      // Load games from both data.json and localStorage
+      // Load games and check for duplicates
       let games = await loadGames();
-      const localGames = JSON.parse(localStorage.getItem("customGames") || "[]");
-
-      // Combine and check for duplicates
-      const allGames = [...games, ...localGames];
-      if (allGames.some(g => g.id === newGame.id)) {
+      if (games.some(g => g.id === newGame.id)) {
         alert("A game with this ID already exists. Try a different name.");
         return;
       }
 
       // Save to localStorage
+      const localGames = JSON.parse(localStorage.getItem("customGames") || "[]");
       localGames.push(newGame);
       localStorage.setItem("customGames", JSON.stringify(localGames));
 
