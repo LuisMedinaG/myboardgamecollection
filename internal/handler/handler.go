@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"myboardgamecollection/internal/bgg"
+	"myboardgamecollection/internal/httpx"
 	"myboardgamecollection/internal/render"
 	"myboardgamecollection/internal/store"
 )
@@ -30,6 +31,24 @@ func requireID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 		return 0, false
 	}
 	return id, true
+}
+
+// requireUserID reads the authenticated user's ID from the request context.
+// It writes a 401 and returns (0, false) if the user is not in context (should
+// not happen when RequireAuth middleware is in place, but guards against misuse).
+func (h *Handler) requireUserID(w http.ResponseWriter, r *http.Request) (int64, bool) {
+	id, ok := httpx.UserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return 0, false
+	}
+	return id, true
+}
+
+// currentUsername returns the BGG username of the authenticated user from
+// context, or "" if the context has no user (e.g. login page).
+func (h *Handler) currentUsername(r *http.Request) string {
+	return httpx.UsernameFromContext(r.Context())
 }
 
 func isHTMX(r *http.Request) bool {

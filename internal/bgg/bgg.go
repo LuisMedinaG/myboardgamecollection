@@ -37,15 +37,15 @@ func parseCookieString(raw string) []*http.Cookie {
 	return req.Cookies()
 }
 
-// ImportCollection syncs all games from a user's BGG collection.
-// Returns the number of new games added and existing games updated.
-func (c *Client) ImportCollection(ctx context.Context, s *store.Store, username string) (added, updated int, err error) {
+// ImportCollection syncs all games from a user's BGG collection into the given
+// userID's data. Returns the number of new games added and existing games updated.
+func (c *Client) ImportCollection(ctx context.Context, s *store.Store, username string, userID int64) (added, updated int, err error) {
 	items, err := c.bgg.GetCollection(ctx, username, gobgg.SetCollectionTypes(gobgg.CollectionTypeOwn))
 	if err != nil {
 		return 0, 0, fmt.Errorf("fetching collection for %q: %w", username, err)
 	}
 
-	owned, err := s.OwnedBGGIDs()
+	owned, err := s.OwnedBGGIDs(userID)
 	if err != nil {
 		return 0, 0, fmt.Errorf("loading owned IDs: %w", err)
 	}
@@ -58,11 +58,11 @@ func (c *Client) ImportCollection(ctx context.Context, s *store.Store, username 
 
 		game := thingToGame(things[0])
 		if owned[item.ID] {
-			if updateErr := s.UpdateGame(game); updateErr == nil {
+			if updateErr := s.UpdateGame(game, userID); updateErr == nil {
 				updated++
 			}
 		} else {
-			if _, createErr := s.CreateGame(game); createErr == nil {
+			if _, createErr := s.CreateGame(game, userID); createErr == nil {
 				added++
 			}
 		}

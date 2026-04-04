@@ -39,13 +39,6 @@ func main() {
 		dbPath = p
 	}
 
-	adminUsername := os.Getenv("ADMIN_USERNAME")
-	adminPassword := os.Getenv("ADMIN_PASSWORD")
-	if (adminUsername == "") != (adminPassword == "") {
-		slog.Error("ADMIN_USERNAME and ADMIN_PASSWORD must either both be set or both be empty")
-		os.Exit(1)
-	}
-
 	// Initialize store (database).
 	s, err := store.New(dbPath)
 	if err != nil {
@@ -54,11 +47,13 @@ func main() {
 	}
 	defer s.Close()
 
-	if err := s.SeedIfEmpty(); err != nil {
-		slog.Warn("seed failed", "error", err)
-	}
 	if err := s.PopulateTaxonomy(); err != nil {
 		slog.Warn("taxonomy migration failed", "error", err)
+	}
+
+	// Purge expired sessions at startup (best-effort, non-fatal).
+	if err := s.DeleteExpiredSessions(); err != nil {
+		slog.Warn("failed to purge expired sessions", "error", err)
 	}
 
 	// Initialize BGG client (optional): token takes priority, then cookie.
@@ -80,11 +75,13 @@ func main() {
 	_ = os.MkdirAll("data/images", 0o755)
 
 	mux := http.NewServeMux()
-	adminGET := func(hf http.HandlerFunc) http.Handler {
-		return httpx.Chain(http.HandlerFunc(hf), httpx.MethodGuard(http.MethodGet), httpx.AdminAuth(adminUsername, adminPassword))
+
+	// Middleware helpers.
+	auth := func(hf http.HandlerFunc) http.Handler {
+		return httpx.Chain(hf, httpx.MethodGuard(http.MethodGet), httpx.RequireAuth(s))
 	}
-	adminPOST := func(hf http.HandlerFunc) http.Handler {
-		return httpx.Chain(http.HandlerFunc(hf), httpx.MethodGuard(http.MethodPost), httpx.AdminAuth(adminUsername, adminPassword), httpx.SameOrigin())
+	authPOST := func(hf http.HandlerFunc) http.Handler {
+		return httpx.Chain(hf, httpx.MethodGuard(http.MethodPost), httpx.RequireAuth(s), httpx.SameOrigin())
 	}
 
 	// Static files (embedded).
@@ -98,33 +95,37 @@ func main() {
 		uploads.ServeHTTP(w, r)
 	}))
 
-	// Routes.
-	mux.HandleFunc("GET /{$}", h.HandleHome)
-	mux.HandleFunc("GET /games", h.HandleGames)
-	mux.HandleFunc("GET /games/{id}", h.HandleGameDetail)
-	mux.Handle("POST /games/bulk-vibes", adminPOST(h.HandleBulkVibeAssign))
-	mux.Handle("POST /games/{id}/delete", adminPOST(h.HandleGameDelete))
-
-	mux.Handle("GET /games/{id}/edit", adminGET(h.HandleGameEdit))
-	mux.Handle("POST /games/{id}/vibes", adminPOST(h.HandleGameVibesSave))
-
-	mux.HandleFunc("GET /discover", h.HandleDiscover)
-
-	mux.Handle("GET /vibes", adminGET(h.HandleVibes))
-	mux.Handle("POST /vibes", adminPOST(h.HandleVibeCreate))
-	mux.Handle("POST /vibes/batch-update", adminPOST(h.HandleVibeBatchUpdate))
-	mux.Handle("POST /vibes/{id}", adminPOST(h.HandleVibeUpdate))
-	mux.Handle("POST /vibes/{id}/delete", adminPOST(h.HandleVibeDelete))
-
-	mux.HandleFunc("GET /games/{id}/rules", h.HandleRules)
-	mux.Handle("POST /games/{id}/rules/url", adminPOST(h.HandleRulesURLUpdate))
-	mux.Handle("POST /games/{id}/rules/upload", adminPOST(h.HandlePlayerAidUpload))
-	mux.Handle("POST /games/{id}/rules/aids/{aid_id}/delete", adminPOST(h.HandlePlayerAidDelete))
-
-	mux.Handle("GET /import", adminGET(h.HandleImport))
-	mux.Handle("POST /import", adminPOST(h.HandleImportSync))
-
+	// Public routes (no auth required).
+	mux.Handle("GET /login", httpx.Chain(http.HandlerFunc(h.HandleLoginPage), httpx.MethodGuard(http.MethodGet)))
+	mux.Handle("POST /login", httpx.Chain(http.HandlerFunc(h.HandleLogin), httpx.MethodGuard(http.MethodPost), httpx.SameOrigin()))
+	mux.Handle("POST /logout", httpx.Chain(http.HandlerFunc(h.HandleLogout), httpx.MethodGuard(http.MethodPost), httpx.SameOrigin()))
 	mux.HandleFunc("GET /images/{bgg_id}", h.HandleImage)
+
+	// Authenticated routes.
+	mux.Handle("GET /{$}", auth(h.HandleHome))
+	mux.Handle("GET /games", auth(h.HandleGames))
+	mux.Handle("GET /games/{id}", auth(h.HandleGameDetail))
+	mux.Handle("POST /games/bulk-vibes", authPOST(h.HandleBulkVibeAssign))
+	mux.Handle("POST /games/{id}/delete", authPOST(h.HandleGameDelete))
+
+	mux.Handle("GET /games/{id}/edit", auth(h.HandleGameEdit))
+	mux.Handle("POST /games/{id}/vibes", authPOST(h.HandleGameVibesSave))
+
+	mux.Handle("GET /discover", auth(h.HandleDiscover))
+
+	mux.Handle("GET /vibes", auth(h.HandleVibes))
+	mux.Handle("POST /vibes", authPOST(h.HandleVibeCreate))
+	mux.Handle("POST /vibes/batch-update", authPOST(h.HandleVibeBatchUpdate))
+	mux.Handle("POST /vibes/{id}", authPOST(h.HandleVibeUpdate))
+	mux.Handle("POST /vibes/{id}/delete", authPOST(h.HandleVibeDelete))
+
+	mux.Handle("GET /games/{id}/rules", auth(h.HandleRules))
+	mux.Handle("POST /games/{id}/rules/url", authPOST(h.HandleRulesURLUpdate))
+	mux.Handle("POST /games/{id}/rules/upload", authPOST(h.HandlePlayerAidUpload))
+	mux.Handle("POST /games/{id}/rules/aids/{aid_id}/delete", authPOST(h.HandlePlayerAidDelete))
+
+	mux.Handle("GET /import", auth(h.HandleImport))
+	mux.Handle("POST /import", authPOST(h.HandleImportSync))
 
 	server := &http.Server{
 		Addr:              ":" + port,

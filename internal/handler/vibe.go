@@ -12,24 +12,32 @@ import (
 )
 
 func (h *Handler) HandleVibes(w http.ResponseWriter, r *http.Request) {
-	vibes, err := h.Store.AllVibes()
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
+		return
+	}
+	vibes, err := h.Store.AllVibes(userID)
 	if err != nil {
 		slog.Error("AllVibes", "error", err)
 	}
-	if err := h.Renderer.Page(w, "vibes", "Manage Vibes", viewmodel.VibesPageData{Vibes: vibes}); err != nil {
+	if err := h.Renderer.Page(w, "vibes", "Manage Vibes", viewmodel.VibesPageData{Vibes: vibes}, h.currentUsername(r)); err != nil {
 		http.Error(w, "render error", http.StatusInternalServerError)
 	}
 }
 
 func (h *Handler) HandleVibeCreate(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
+		return
+	}
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
 		http.Error(w, "name is required", http.StatusBadRequest)
 		return
 	}
-	if _, err := h.Store.CreateVibe(name); err != nil {
+	if _, err := h.Store.CreateVibe(name, userID); err != nil {
 		if strings.Contains(err.Error(), "UNIQUE") {
-			h.renderVibesWithError(w, fmt.Sprintf("A vibe named %q already exists.", name))
+			h.renderVibesWithError(w, r, userID, fmt.Sprintf("A vibe named %q already exists.", name))
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -43,14 +51,18 @@ func (h *Handler) HandleVibeUpdate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
+		return
+	}
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
 		http.Error(w, "name is required", http.StatusBadRequest)
 		return
 	}
-	if err := h.Store.UpdateVibe(id, name); err != nil {
+	if err := h.Store.UpdateVibe(id, name, userID); err != nil {
 		if strings.Contains(err.Error(), "UNIQUE") {
-			h.renderVibesWithError(w, fmt.Sprintf("A vibe named %q already exists.", name))
+			h.renderVibesWithError(w, r, userID, fmt.Sprintf("A vibe named %q already exists.", name))
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -60,6 +72,10 @@ func (h *Handler) HandleVibeUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleVibeBatchUpdate(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
+		return
+	}
 	raw := r.FormValue("updates")
 	if raw == "" {
 		http.Error(w, "no updates provided", http.StatusBadRequest)
@@ -83,9 +99,9 @@ func (h *Handler) HandleVibeBatchUpdate(w http.ResponseWriter, r *http.Request) 
 			http.Error(w, "name is required", http.StatusBadRequest)
 			return
 		}
-		if err := h.Store.UpdateVibe(id, name); err != nil {
+		if err := h.Store.UpdateVibe(id, name, userID); err != nil {
 			if strings.Contains(err.Error(), "UNIQUE") {
-				h.renderVibesWithError(w, fmt.Sprintf("A vibe named %q already exists.", name))
+				h.renderVibesWithError(w, r, userID, fmt.Sprintf("A vibe named %q already exists.", name))
 				return
 			}
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -101,7 +117,11 @@ func (h *Handler) HandleVibeDelete(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := h.Store.DeleteVibe(id); err != nil {
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
+		return
+	}
+	if err := h.Store.DeleteVibe(id, userID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -113,12 +133,16 @@ func (h *Handler) HandleGameEdit(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	game, err := h.Store.GetGame(id)
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
+		return
+	}
+	game, err := h.Store.GetGame(id, userID)
 	if err != nil {
 		http.Error(w, "game not found", http.StatusNotFound)
 		return
 	}
-	vibes, err := h.Store.AllVibes()
+	vibes, err := h.Store.AllVibes(userID)
 	if err != nil {
 		slog.Error("AllVibes", "error", err)
 	}
@@ -131,7 +155,7 @@ func (h *Handler) HandleGameEdit(w http.ResponseWriter, r *http.Request) {
 		gvMap[v.ID] = true
 	}
 	data := viewmodel.GameEditData{Game: game, AllVibes: vibes, GameVibes: gvMap}
-	if err := h.Renderer.Page(w, "game_edit", "Edit — "+game.Name, data); err != nil {
+	if err := h.Renderer.Page(w, "game_edit", "Edit — "+game.Name, data, h.currentUsername(r)); err != nil {
 		http.Error(w, "render error", http.StatusInternalServerError)
 	}
 }
@@ -139,6 +163,15 @@ func (h *Handler) HandleGameEdit(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) HandleGameVibesSave(w http.ResponseWriter, r *http.Request) {
 	id, ok := requireID(w, r)
 	if !ok {
+		return
+	}
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
+		return
+	}
+	// Verify game belongs to user before mutating vibes.
+	if _, err := h.Store.GetGame(id, userID); err != nil {
+		http.Error(w, "game not found", http.StatusNotFound)
 		return
 	}
 	if err := r.ParseForm(); err != nil {
@@ -159,10 +192,10 @@ func (h *Handler) HandleGameVibesSave(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/games/%d", id), http.StatusSeeOther)
 }
 
-func (h *Handler) renderVibesWithError(w http.ResponseWriter, errMsg string) {
-	vibes, err := h.Store.AllVibes()
+func (h *Handler) renderVibesWithError(w http.ResponseWriter, r *http.Request, userID int64, errMsg string) {
+	vibes, err := h.Store.AllVibes(userID)
 	if err != nil {
 		slog.Error("AllVibes", "error", err)
 	}
-	h.Renderer.Page(w, "vibes", "Manage Vibes", viewmodel.VibesPageData{Vibes: vibes, Error: errMsg})
+	h.Renderer.Page(w, "vibes", "Manage Vibes", viewmodel.VibesPageData{Vibes: vibes, Error: errMsg}, h.currentUsername(r))
 }

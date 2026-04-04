@@ -5,23 +5,39 @@ import (
 	"net/http"
 	"strconv"
 
+	"myboardgamecollection/internal/store"
 	"myboardgamecollection/internal/viewmodel"
 )
 
 func (h *Handler) HandleGames(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
+		return
+	}
+
 	q := r.URL.Query().Get("q")
 	category := r.URL.Query().Get("category")
 	players := r.URL.Query().Get("players")
 	playtime := r.URL.Query().Get("playtime")
 
-	games, err := h.Store.FilterGames(q, category, players, playtime)
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+
+	games, total, err := h.Store.FilterGames(q, category, players, playtime, page, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	categories, _ := h.Store.DistinctCategories()
-	vibes, _ := h.Store.AllVibes()
+	totalPages := (total + store.GamesPageSize - 1) / store.GamesPageSize
+	if totalPages < 1 {
+		totalPages = 1
+	}
+
+	categories, _ := h.Store.DistinctCategories(userID)
+	vibes, _ := h.Store.AllVibes(userID)
 
 	data := viewmodel.GamesPageData{
 		Games:      games,
@@ -31,15 +47,18 @@ func (h *Handler) HandleGames(w http.ResponseWriter, r *http.Request) {
 		Category:   category,
 		Players:    players,
 		Playtime:   playtime,
+		Page:       page,
+		TotalPages: totalPages,
+		TotalCount: total,
 	}
 
 	if isHTMX(r) {
-		if err := h.Renderer.Partial(w, "games_result", data.Games); err != nil {
+		if err := h.Renderer.Partial(w, "games_result", data); err != nil {
 			http.Error(w, "failed to render partial", http.StatusInternalServerError)
 		}
 		return
 	}
-	if err := h.Renderer.Page(w, "games", "My Games", data); err != nil {
+	if err := h.Renderer.Page(w, "games", "My Games", data, h.currentUsername(r)); err != nil {
 		http.Error(w, "failed to render page", http.StatusInternalServerError)
 	}
 }
@@ -49,7 +68,11 @@ func (h *Handler) HandleGameDetail(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	game, err := h.Store.GetGame(id)
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
+		return
+	}
+	game, err := h.Store.GetGame(id, userID)
 	if err != nil {
 		http.Error(w, "game not found", http.StatusNotFound)
 		return
@@ -58,7 +81,7 @@ func (h *Handler) HandleGameDetail(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("GetPlayerAids", "gameID", id, "error", err)
 	}
-	if err := h.Renderer.Page(w, "game_detail", game.Name, viewmodel.GameDetailData{Game: game, Aids: aids}); err != nil {
+	if err := h.Renderer.Page(w, "game_detail", game.Name, viewmodel.GameDetailData{Game: game, Aids: aids}, h.currentUsername(r)); err != nil {
 		http.Error(w, "failed to render page", http.StatusInternalServerError)
 	}
 }
@@ -98,7 +121,11 @@ func (h *Handler) HandleGameDelete(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := h.Store.DeleteGame(id); err != nil {
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
+		return
+	}
+	if err := h.Store.DeleteGame(id, userID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

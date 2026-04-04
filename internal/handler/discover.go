@@ -11,11 +11,16 @@ import (
 )
 
 func (h *Handler) HandleDiscover(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
+		return
+	}
+
 	vibeIDStr := r.URL.Query().Get("vibe")
 
 	// No vibe selected — show vibe grid.
 	if vibeIDStr == "" {
-		h.renderDiscoverGrid(w, r)
+		h.renderDiscoverGrid(w, r, userID)
 		return
 	}
 
@@ -25,7 +30,7 @@ func (h *Handler) HandleDiscover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vibe, err := h.Store.GetVibe(vibeID)
+	vibe, err := h.Store.GetVibe(vibeID, userID)
 	if err != nil {
 		http.Error(w, "vibe not found", http.StatusNotFound)
 		return
@@ -37,7 +42,7 @@ func (h *Handler) HandleDiscover(w http.ResponseWriter, r *http.Request) {
 	players := r.URL.Query().Get("players")
 	playtime := r.URL.Query().Get("playtime")
 
-	games, err := h.Store.FilterGamesByVibe(vibeID, typ, category, mechanic, players, playtime)
+	games, err := h.Store.FilterGamesByVibe(vibeID, typ, category, mechanic, players, playtime, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -51,13 +56,13 @@ func (h *Handler) HandleDiscover(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	if err := h.Renderer.Page(w, "discover", "Discover — "+vibe.Name, data); err != nil {
+	if err := h.Renderer.Page(w, "discover", "Discover — "+vibe.Name, data, h.currentUsername(r)); err != nil {
 		http.Error(w, "render error", http.StatusInternalServerError)
 	}
 }
 
-func (h *Handler) renderDiscoverGrid(w http.ResponseWriter, r *http.Request) {
-	vibes, err := h.Store.AllVibes()
+func (h *Handler) renderDiscoverGrid(w http.ResponseWriter, r *http.Request, userID int64) {
+	vibes, err := h.Store.AllVibes(userID)
 	if err != nil {
 		slog.Error("AllVibes", "error", err)
 	}
@@ -68,7 +73,7 @@ func (h *Handler) renderDiscoverGrid(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	if err := h.Renderer.Page(w, "discover", "Discover", data); err != nil {
+	if err := h.Renderer.Page(w, "discover", "Discover", data, h.currentUsername(r)); err != nil {
 		http.Error(w, "render error", http.StatusInternalServerError)
 	}
 }

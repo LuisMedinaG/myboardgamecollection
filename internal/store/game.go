@@ -25,9 +25,9 @@ func sanitizeFTSQuery(q string) string {
 	return strings.Join(words, " ")
 }
 
-// GetAllGames returns all games ordered by name.
-func (s *Store) GetAllGames() ([]model.Game, error) {
-	rows, err := s.db.Query("SELECT " + gameColumns + " FROM games ORDER BY name")
+// GetAllGames returns all games for a user, ordered by name.
+func (s *Store) GetAllGames(userID int64) ([]model.Game, error) {
+	rows, err := s.db.Query("SELECT "+gameColumns+" FROM games WHERE user_id = ? ORDER BY name", userID)
 	if err != nil {
 		return nil, err
 	}
@@ -35,22 +35,36 @@ func (s *Store) GetAllGames() ([]model.Game, error) {
 	return scanGames(rows)
 }
 
-// GetGame returns a single game by ID.
-func (s *Store) GetGame(id int64) (model.Game, error) {
-	return scanGame(s.db.QueryRow("SELECT "+gameColumns+" FROM games WHERE id = ?", id))
+// GetGame returns a single game by ID, verifying it belongs to the given user.
+func (s *Store) GetGame(id, userID int64) (model.Game, error) {
+	return scanGame(s.db.QueryRow(
+		"SELECT "+gameColumns+" FROM games WHERE id = ? AND user_id = ?", id, userID,
+	))
 }
 
-// GetGameByBGGID returns a game by its BoardGameGeek ID.
-func (s *Store) GetGameByBGGID(bggID int64) (model.Game, error) {
-	return scanGame(s.db.QueryRow("SELECT "+gameColumns+" FROM games WHERE bgg_id = ?", bggID))
+// GetGameByBGGID returns a game by its BoardGameGeek ID for the given user.
+func (s *Store) GetGameByBGGID(bggID, userID int64) (model.Game, error) {
+	return scanGame(s.db.QueryRow(
+		"SELECT "+gameColumns+" FROM games WHERE bgg_id = ? AND user_id = ?", bggID, userID,
+	))
 }
 
-// CreateGame inserts a new game, populates the taxonomy tables, and returns its ID.
-func (s *Store) CreateGame(g model.Game) (int64, error) {
+// GetThumbnailByBGGID returns the thumbnail URL for any game with the given
+// BGG ID, regardless of which user owns it. Used by the image cache handler,
+// which is a public route where there is no authenticated user in context.
+func (s *Store) GetThumbnailByBGGID(bggID int64) (string, error) {
+	var thumbnail string
+	err := s.db.QueryRow("SELECT thumbnail FROM games WHERE bgg_id = ? LIMIT 1", bggID).Scan(&thumbnail)
+	return thumbnail, err
+}
+
+// CreateGame inserts a new game owned by userID, populates taxonomy, and returns its ID.
+func (s *Store) CreateGame(g model.Game, userID int64) (int64, error) {
 	res, err := s.db.Exec(
-		"INSERT INTO games (bgg_id, name, description, year_published, image, thumbnail, min_players, max_players, play_time, categories, mechanics, types, rules_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		"INSERT INTO games (bgg_id, name, description, year_published, image, thumbnail, min_players, max_players, play_time, categories, mechanics, types, rules_url, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		g.BGGID, g.Name, g.Description, g.YearPublished, g.Image, g.Thumbnail,
 		g.MinPlayers, g.MaxPlayers, g.PlayTime, g.Categories, g.Mechanics, g.Types, g.RulesURL,
+		userID,
 	)
 	if err != nil {
 		return 0, err
@@ -59,45 +73,45 @@ func (s *Store) CreateGame(g model.Game) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	// Keep normalized taxonomy tables in sync.
 	if err := s.upsertGameTaxonomy(id, g.Categories, g.Mechanics); err != nil {
 		return id, err
 	}
 	return id, nil
 }
 
-// UpdateGame refreshes a game's BGG data by its BGG ID.
-func (s *Store) UpdateGame(g model.Game) error {
+// UpdateGame refreshes a game's BGG data. Only updates the game if it belongs to userID.
+func (s *Store) UpdateGame(g model.Game, userID int64) error {
 	_, err := s.db.Exec(
-		"UPDATE games SET name=?, description=?, year_published=?, image=?, thumbnail=?, min_players=?, max_players=?, play_time=?, categories=?, mechanics=?, types=? WHERE bgg_id=?",
+		"UPDATE games SET name=?, description=?, year_published=?, image=?, thumbnail=?, min_players=?, max_players=?, play_time=?, categories=?, mechanics=?, types=? WHERE bgg_id=? AND user_id=?",
 		g.Name, g.Description, g.YearPublished, g.Image, g.Thumbnail,
-		g.MinPlayers, g.MaxPlayers, g.PlayTime, g.Categories, g.Mechanics, g.Types, g.BGGID,
+		g.MinPlayers, g.MaxPlayers, g.PlayTime, g.Categories, g.Mechanics, g.Types,
+		g.BGGID, userID,
 	)
 	return err
 }
 
-// UpdateGameRulesURL sets the rules URL for a game.
-func (s *Store) UpdateGameRulesURL(id int64, rulesURL string) error {
-	_, err := s.db.Exec("UPDATE games SET rules_url = ? WHERE id = ?", rulesURL, id)
+// UpdateGameRulesURL sets the rules URL for a game owned by userID.
+func (s *Store) UpdateGameRulesURL(id int64, rulesURL string, userID int64) error {
+	_, err := s.db.Exec("UPDATE games SET rules_url = ? WHERE id = ? AND user_id = ?", rulesURL, id, userID)
 	return err
 }
 
-// DeleteGame removes a game by ID.
-func (s *Store) DeleteGame(id int64) error {
-	_, err := s.db.Exec("DELETE FROM games WHERE id = ?", id)
+// DeleteGame removes a game owned by userID.
+func (s *Store) DeleteGame(id, userID int64) error {
+	_, err := s.db.Exec("DELETE FROM games WHERE id = ? AND user_id = ?", id, userID)
 	return err
 }
 
-// GameCount returns the total number of games.
-func (s *Store) GameCount() int {
+// GameCount returns the total number of games owned by userID.
+func (s *Store) GameCount(userID int64) int {
 	var count int
-	_ = s.db.QueryRow("SELECT COUNT(*) FROM games").Scan(&count)
+	_ = s.db.QueryRow("SELECT COUNT(*) FROM games WHERE user_id = ?", userID).Scan(&count)
 	return count
 }
 
-// OwnedBGGIDs returns a set of BGG IDs already in the collection.
-func (s *Store) OwnedBGGIDs() (map[int64]bool, error) {
-	rows, err := s.db.Query("SELECT bgg_id FROM games")
+// OwnedBGGIDs returns a set of BGG IDs already in the user's collection.
+func (s *Store) OwnedBGGIDs(userID int64) (map[int64]bool, error) {
+	rows, err := s.db.Query("SELECT bgg_id FROM games WHERE user_id = ?", userID)
 	if err != nil {
 		return nil, err
 	}
@@ -113,17 +127,26 @@ func (s *Store) OwnedBGGIDs() (map[int64]bool, error) {
 	return m, rows.Err()
 }
 
-// FilterGames returns games matching the given query, category, players, and playtime filters.
-func (s *Store) FilterGames(q, category, players, playtime string) ([]model.Game, error) {
-	var conditions []string
-	var args []any
+// GamesPageSize is the number of games returned per page by FilterGames.
+const GamesPageSize = 20
+
+// buildGameConditions constructs the shared WHERE conditions and argument list
+// used by both FilterGames and the accompanying count query. userID is always
+// included so results are scoped to the requesting user.
+func buildGameConditions(q, category, players, playtime string, userID int64) ([]string, []any) {
+	conditions := []string{"user_id = ?"}
+	args := []any{userID}
 
 	if q != "" {
-		conditions = append(conditions, "id IN (SELECT rowid FROM games_fts WHERE games_fts MATCH ?)")
-		args = append(args, sanitizeFTSQuery(q))
+		// Guard: sanitizeFTSQuery may return "" if the input is all special
+		// chars. Passing an empty string to MATCH would be an FTS5 error.
+		if safe := sanitizeFTSQuery(q); safe != "" {
+			conditions = append(conditions, "id IN (SELECT rowid FROM games_fts WHERE games_fts MATCH ?)")
+			args = append(args, safe)
+		}
 	}
 	if category != "" {
-		// Use the normalized table: exact match, no LIKE substring ambiguity.
+		// Exact match via normalized table — no LIKE substring ambiguity.
 		conditions = append(conditions, "id IN (SELECT game_id FROM game_categories gc JOIN categories c ON c.id = gc.category_id WHERE c.name = ?)")
 		args = append(args, category)
 	}
@@ -133,28 +156,42 @@ func (s *Store) FilterGames(q, category, players, playtime string) ([]model.Game
 	if cond := filter.PlaytimeCondition(playtime, ""); cond != "" {
 		conditions = append(conditions, cond)
 	}
-
-	query := "SELECT " + gameColumns + " FROM games"
-	if len(conditions) > 0 {
-		query += " WHERE " + strings.Join(conditions, " AND ")
-	}
-	query += " ORDER BY name"
-
-	rows, err := s.db.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	return scanGames(rows)
+	return conditions, args
 }
 
-// FilterGamesByVibe returns games tagged with the given vibe, with optional extra filters.
-func (s *Store) FilterGamesByVibe(vibeID int64, typ, category, mechanic, players, playtime string) ([]model.Game, error) {
-	var conditions []string
-	var args []any
+// FilterGames returns one page of games matching the given filters plus the
+// total number of matching games (for pagination). Page is 1-based.
+func (s *Store) FilterGames(q, category, players, playtime string, page int, userID int64) ([]model.Game, int, error) {
+	conditions, args := buildGameConditions(q, category, players, playtime, userID)
+	where := " WHERE " + strings.Join(conditions, " AND ")
 
-	conditions = append(conditions, "g.id IN (SELECT game_id FROM game_vibes WHERE vibe_id = ?)")
-	args = append(args, vibeID)
+	var total int
+	if err := s.db.QueryRow("SELECT COUNT(*) FROM games"+where, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	if page < 1 {
+		page = 1
+	}
+	offset := (page - 1) * GamesPageSize
+	query := "SELECT " + gameColumns + " FROM games" + where + " ORDER BY name LIMIT ? OFFSET ?"
+
+	rows, err := s.db.Query(query, append(args, GamesPageSize, offset)...)
+	if err != nil {
+		return nil, total, err
+	}
+	defer rows.Close()
+	games, err := scanGames(rows)
+	return games, total, err
+}
+
+// FilterGamesByVibe returns games tagged with the given vibe, scoped to userID.
+func (s *Store) FilterGamesByVibe(vibeID int64, typ, category, mechanic, players, playtime string, userID int64) ([]model.Game, error) {
+	conditions := []string{
+		"g.user_id = ?",
+		"g.id IN (SELECT game_id FROM game_vibes WHERE vibe_id = ?)",
+	}
+	args := []any{userID, vibeID}
 
 	if typ != "" {
 		conditions = append(conditions, "g.types LIKE ?")
@@ -176,9 +213,7 @@ func (s *Store) FilterGamesByVibe(vibeID int64, typ, category, mechanic, players
 	}
 
 	query := "SELECT g.id, g.bgg_id, g.name, g.description, g.year_published, g.image, g.thumbnail, g.min_players, g.max_players, g.play_time, g.categories, g.mechanics, g.types, g.rules_url FROM games g"
-	if len(conditions) > 0 {
-		query += " WHERE " + strings.Join(conditions, " AND ")
-	}
+	query += " WHERE " + strings.Join(conditions, " AND ")
 	query += " ORDER BY g.name"
 
 	rows, err := s.db.Query(query, args...)
@@ -189,9 +224,15 @@ func (s *Store) FilterGamesByVibe(vibeID int64, typ, category, mechanic, players
 	return scanGames(rows)
 }
 
-// DistinctCategories returns all category names from the normalized table, sorted.
-func (s *Store) DistinctCategories() ([]string, error) {
-	rows, err := s.db.Query("SELECT name FROM categories ORDER BY name")
+// DistinctCategories returns all category names for the user's games, sorted.
+func (s *Store) DistinctCategories(userID int64) ([]string, error) {
+	rows, err := s.db.Query(`
+		SELECT DISTINCT c.name
+		FROM categories c
+		JOIN game_categories gc ON c.id = gc.category_id
+		JOIN games g ON g.id = gc.game_id
+		WHERE g.user_id = ?
+		ORDER BY c.name`, userID)
 	if err != nil {
 		return nil, err
 	}

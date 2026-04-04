@@ -2,9 +2,9 @@ package store
 
 import "myboardgamecollection/internal/model"
 
-// AllVibes returns all vibes ordered by name.
-func (s *Store) AllVibes() ([]model.Vibe, error) {
-	rows, err := s.db.Query("SELECT id, name FROM vibes ORDER BY name")
+// AllVibes returns all vibes owned by userID, ordered by name.
+func (s *Store) AllVibes(userID int64) ([]model.Vibe, error) {
+	rows, err := s.db.Query("SELECT id, name FROM vibes WHERE user_id = ? ORDER BY name", userID)
 	if err != nil {
 		return nil, err
 	}
@@ -20,35 +20,37 @@ func (s *Store) AllVibes() ([]model.Vibe, error) {
 	return vibes, rows.Err()
 }
 
-// GetVibe returns a single vibe by ID.
-func (s *Store) GetVibe(id int64) (model.Vibe, error) {
+// GetVibe returns a single vibe by ID, verifying it belongs to userID.
+func (s *Store) GetVibe(id, userID int64) (model.Vibe, error) {
 	var v model.Vibe
-	err := s.db.QueryRow("SELECT id, name FROM vibes WHERE id = ?", id).Scan(&v.ID, &v.Name)
+	err := s.db.QueryRow("SELECT id, name FROM vibes WHERE id = ? AND user_id = ?", id, userID).
+		Scan(&v.ID, &v.Name)
 	return v, err
 }
 
-// CreateVibe inserts a new vibe and returns its ID.
-func (s *Store) CreateVibe(name string) (int64, error) {
-	res, err := s.db.Exec("INSERT INTO vibes (name) VALUES (?)", name)
+// CreateVibe inserts a new vibe owned by userID and returns its ID.
+func (s *Store) CreateVibe(name string, userID int64) (int64, error) {
+	res, err := s.db.Exec("INSERT INTO vibes (name, user_id) VALUES (?, ?)", name, userID)
 	if err != nil {
 		return 0, err
 	}
 	return res.LastInsertId()
 }
 
-// UpdateVibe renames a vibe.
-func (s *Store) UpdateVibe(id int64, name string) error {
-	_, err := s.db.Exec("UPDATE vibes SET name = ? WHERE id = ?", name, id)
+// UpdateVibe renames a vibe, verifying ownership.
+func (s *Store) UpdateVibe(id int64, name string, userID int64) error {
+	_, err := s.db.Exec("UPDATE vibes SET name = ? WHERE id = ? AND user_id = ?", name, id, userID)
 	return err
 }
 
-// DeleteVibe removes a vibe by ID.
-func (s *Store) DeleteVibe(id int64) error {
-	_, err := s.db.Exec("DELETE FROM vibes WHERE id = ?", id)
+// DeleteVibe removes a vibe, verifying ownership.
+func (s *Store) DeleteVibe(id, userID int64) error {
+	_, err := s.db.Exec("DELETE FROM vibes WHERE id = ? AND user_id = ?", id, userID)
 	return err
 }
 
 // VibesForGame returns all vibes associated with a game.
+// Ownership is verified at the handler level (GetGame checks user_id).
 func (s *Store) VibesForGame(gameID int64) ([]model.Vibe, error) {
 	rows, err := s.db.Query(`
 		SELECT v.id, v.name FROM vibes v

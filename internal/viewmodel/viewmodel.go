@@ -1,11 +1,23 @@
 package viewmodel
 
-import "myboardgamecollection/internal/model"
+import (
+	"net/url"
+	"strconv"
 
-// PageData wraps a title and arbitrary data for full-page renders.
+	"myboardgamecollection/internal/model"
+)
+
+// PageData wraps a title, the current user's BGG username, and page-specific
+// data for full-page renders. User is empty on the login page.
 type PageData struct {
 	Title string
+	User  string // BGG username of the logged-in user; empty if not authenticated
 	Data  any
+}
+
+// LoginPageData holds data for the login page.
+type LoginPageData struct {
+	Error string
 }
 
 // GamesPageData holds data for the games list page.
@@ -17,6 +29,34 @@ type GamesPageData struct {
 	Category   string
 	Players    string
 	Playtime   string
+	Page       int
+	TotalPages int
+	TotalCount int
+}
+
+// PageURL builds a /games URL that preserves all active filters and sets the
+// given page number. Page 1 is omitted from the URL to keep links clean.
+func (d GamesPageData) PageURL(page int) string {
+	params := url.Values{}
+	if d.Q != "" {
+		params.Set("q", d.Q)
+	}
+	if d.Category != "" {
+		params.Set("category", d.Category)
+	}
+	if d.Players != "" {
+		params.Set("players", d.Players)
+	}
+	if d.Playtime != "" {
+		params.Set("playtime", d.Playtime)
+	}
+	if page > 1 {
+		params.Set("page", strconv.Itoa(page))
+	}
+	if len(params) == 0 {
+		return "/games"
+	}
+	return "/games?" + params.Encode()
 }
 
 // GameDetailData holds data for the game detail page.
@@ -85,6 +125,7 @@ type PlayerAidsListData struct {
 type ImportPageData struct {
 	Username string
 	Enabled  bool
+	CanSync  bool // false when the daily sync limit has been reached
 }
 
 // ImportResultData holds data for the import result partial.
