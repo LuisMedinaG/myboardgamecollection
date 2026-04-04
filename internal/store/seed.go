@@ -6,13 +6,6 @@ import (
 	"myboardgamecollection/internal/model"
 )
 
-func (s *Store) seedDefaultVibes() error {
-	defaults := []string{"Party", "Family Dinner", "Light Friend Night", "Heavy Euro", "Strangers Meeting"}
-	for _, name := range defaults {
-		_, _ = s.db.Exec("INSERT OR IGNORE INTO vibes (name) VALUES (?)", name)
-	}
-	return nil
-}
 
 // SeedIfEmpty populates the games table with sample data when it is empty.
 func (s *Store) SeedIfEmpty() error {
