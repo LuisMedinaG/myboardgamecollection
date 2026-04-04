@@ -102,6 +102,7 @@ func main() {
 	mux.HandleFunc("GET /{$}", h.HandleHome)
 	mux.HandleFunc("GET /games", h.HandleGames)
 	mux.HandleFunc("GET /games/{id}", h.HandleGameDetail)
+	mux.Handle("POST /games/bulk-vibes", adminPOST(h.HandleBulkVibeAssign))
 	mux.Handle("POST /games/{id}/delete", adminPOST(h.HandleGameDelete))
 
 	mux.Handle("GET /games/{id}/edit", adminGET(h.HandleGameEdit))

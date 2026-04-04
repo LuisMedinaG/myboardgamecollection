@@ -7,18 +7,23 @@
 {{ else }}
     <div class="game-list">
         {{ range . }}
-        <a href="/games/{{ .ID }}" class="game-list-item">
-            {{ if .Thumbnail }}
-            <img src="{{ .ThumbnailURL }}" class="game-cover" alt="{{ .Name }}">
-            {{ else }}
-            <div class="game-cover game-cover-placeholder"></div>
-            {{ end }}
-            <div class="game-list-info">
-                <div class="game-list-name">{{ .Name }}</div>
-                <div class="game-list-meta">{{ .PlayersStr }} players · {{ .PlaytimeStr }}</div>
-            </div>
-            <span class="chevron">&#8250;</span>
-        </a>
+        <div class="game-list-item-wrap">
+            <label class="game-select-check" style="display:none;">
+                <input type="checkbox" name="game_ids" value="{{ .ID }}" form="bulk-vibe-form">
+            </label>
+            <a href="/games/{{ .ID }}" class="game-list-item game-list-link">
+                {{ if .Thumbnail }}
+                <img src="{{ .ThumbnailURL }}" class="game-cover" alt="{{ .Name }}">
+                {{ else }}
+                <div class="game-cover game-cover-placeholder"></div>
+                {{ end }}
+                <div class="game-list-info">
+                    <div class="game-list-name">{{ .Name }}</div>
+                    <div class="game-list-meta">{{ .PlayersStr }} players · {{ .PlaytimeStr }}</div>
+                </div>
+                <span class="chevron">&#8250;</span>
+            </a>
+        </div>
         {{ end }}
     </div>
 {{ end }}

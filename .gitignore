@@ -7,8 +7,9 @@ myboardgamecollection
 *.db-wal
 *.db-shm
 
-# Runtime uploads
+# Runtime data directories
 data/uploads/
+data/images/
 
 # Go test / coverage
 *.test

@@ -70,6 +70,24 @@ func (s *Store) VibesForGame(gameID int64) ([]model.Vibe, error) {
 	return vibes, rows.Err()
 }
 
+// AddVibesToGames adds vibes to multiple games (keeps existing associations).
+func (s *Store) AddVibesToGames(gameIDs, vibeIDs []int64) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, gid := range gameIDs {
+		for _, vid := range vibeIDs {
+			_, err := tx.Exec("INSERT OR IGNORE INTO game_vibes (game_id, vibe_id) VALUES (?, ?)", gid, vid)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return tx.Commit()
+}
+
 // SetGameVibes replaces all vibe associations for a game.
 func (s *Store) SetGameVibes(gameID int64, vibeIDs []int64) error {
 	tx, err := s.db.Begin()
