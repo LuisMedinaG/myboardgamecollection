@@ -11,11 +11,6 @@ primary_region = 'iad'
 
 [env]
   PORT = "8080"
-  DB_PATH = "/data/games.db"
-
-[mounts]
-  source = "boardgame_data"
-  destination = "/data"
 
 [http_service]
   internal_port = 8080
