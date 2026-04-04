@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"myboardgamecollection/internal/viewmodel"
 )
@@ -125,7 +124,11 @@ func (h *Handler) HandlePlayerAidUpload(w http.ResponseWriter, r *http.Request) 
 
 	reader := io.MultiReader(bytes.NewReader(buffer[:n]), file)
 
-	filename := fmt.Sprintf("game_%d_%d%s", id, time.Now().UnixMilli(), ext)
+	filename, err := randomFilename(ext)
+	if err != nil {
+		http.Error(w, "failed to generate filename", http.StatusInternalServerError)
+		return
+	}
 
 	uploadDir := filepath.Join("data", "uploads")
 	if err := os.MkdirAll(uploadDir, 0o755); err != nil {

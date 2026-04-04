@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,6 +14,17 @@ import (
 
 func parseAidID(r *http.Request) (int64, error) {
 	return strconv.ParseInt(r.PathValue("aid_id"), 10, 64)
+}
+
+// randomFilename generates a cryptographically random hex filename with the
+// given extension (e.g. ".jpg"). Using random names instead of timestamps or
+// game IDs prevents enumeration of uploads and avoids leaking internal IDs.
+func randomFilename(ext string) (string, error) {
+	b := make([]byte, 16) // 128-bit random → 32 hex chars
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b) + ext, nil
 }
 
 func allowedImageExtension(contentType string) (string, bool) {

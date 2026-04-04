@@ -113,17 +113,25 @@ func (s *Store) OwnedBGGIDs() (map[int64]bool, error) {
 	return m, rows.Err()
 }
 
-// FilterGames returns games matching the given query, category, players, and playtime filters.
-func (s *Store) FilterGames(q, category, players, playtime string) ([]model.Game, error) {
+// GamesPageSize is the number of games returned per page by FilterGames.
+const GamesPageSize = 20
+
+// buildGameConditions constructs the shared WHERE conditions and argument list
+// used by both FilterGames and the accompanying count query.
+func buildGameConditions(q, category, players, playtime string) ([]string, []any) {
 	var conditions []string
 	var args []any
 
 	if q != "" {
-		conditions = append(conditions, "id IN (SELECT rowid FROM games_fts WHERE games_fts MATCH ?)")
-		args = append(args, sanitizeFTSQuery(q))
+		// Guard: sanitizeFTSQuery may return "" if the input is all special
+		// chars. Passing an empty string to MATCH would be an FTS5 error.
+		if safe := sanitizeFTSQuery(q); safe != "" {
+			conditions = append(conditions, "id IN (SELECT rowid FROM games_fts WHERE games_fts MATCH ?)")
+			args = append(args, safe)
+		}
 	}
 	if category != "" {
-		// Use the normalized table: exact match, no LIKE substring ambiguity.
+		// Exact match via normalized table — no LIKE substring ambiguity.
 		conditions = append(conditions, "id IN (SELECT game_id FROM game_categories gc JOIN categories c ON c.id = gc.category_id WHERE c.name = ?)")
 		args = append(args, category)
 	}
@@ -133,19 +141,39 @@ func (s *Store) FilterGames(q, category, players, playtime string) ([]model.Game
 	if cond := filter.PlaytimeCondition(playtime, ""); cond != "" {
 		conditions = append(conditions, cond)
 	}
+	return conditions, args
+}
 
-	query := "SELECT " + gameColumns + " FROM games"
+// FilterGames returns one page of games matching the given filters plus the
+// total number of matching games (for pagination). Page is 1-based.
+func (s *Store) FilterGames(q, category, players, playtime string, page int) ([]model.Game, int, error) {
+	conditions, args := buildGameConditions(q, category, players, playtime)
+
+	where := ""
 	if len(conditions) > 0 {
-		query += " WHERE " + strings.Join(conditions, " AND ")
+		where = " WHERE " + strings.Join(conditions, " AND ")
 	}
-	query += " ORDER BY name"
 
-	rows, err := s.db.Query(query, args...)
+	// Count all matching rows first (same WHERE, no LIMIT).
+	var total int
+	if err := s.db.QueryRow("SELECT COUNT(*) FROM games"+where, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	// Paginated result set.
+	if page < 1 {
+		page = 1
+	}
+	offset := (page - 1) * GamesPageSize
+	query := "SELECT " + gameColumns + " FROM games" + where + " ORDER BY name LIMIT ? OFFSET ?"
+
+	rows, err := s.db.Query(query, append(args, GamesPageSize, offset)...)
 	if err != nil {
-		return nil, err
+		return nil, total, err
 	}
 	defer rows.Close()
-	return scanGames(rows)
+	games, err := scanGames(rows)
+	return games, total, err
 }
 
 // FilterGamesByVibe returns games tagged with the given vibe, with optional extra filters.

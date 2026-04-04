@@ -1,6 +1,11 @@
 package viewmodel
 
-import "myboardgamecollection/internal/model"
+import (
+	"net/url"
+	"strconv"
+
+	"myboardgamecollection/internal/model"
+)
 
 // PageData wraps a title and arbitrary data for full-page renders.
 type PageData struct {
@@ -17,6 +22,34 @@ type GamesPageData struct {
 	Category   string
 	Players    string
 	Playtime   string
+	Page       int
+	TotalPages int
+	TotalCount int
+}
+
+// PageURL builds a /games URL that preserves all active filters and sets the
+// given page number. Page 1 is omitted from the URL to keep links clean.
+func (d GamesPageData) PageURL(page int) string {
+	params := url.Values{}
+	if d.Q != "" {
+		params.Set("q", d.Q)
+	}
+	if d.Category != "" {
+		params.Set("category", d.Category)
+	}
+	if d.Players != "" {
+		params.Set("players", d.Players)
+	}
+	if d.Playtime != "" {
+		params.Set("playtime", d.Playtime)
+	}
+	if page > 1 {
+		params.Set("page", strconv.Itoa(page))
+	}
+	if len(params) == 0 {
+		return "/games"
+	}
+	return "/games?" + params.Encode()
 }
 
 // GameDetailData holds data for the game detail page.

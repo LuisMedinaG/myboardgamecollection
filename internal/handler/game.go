@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"myboardgamecollection/internal/store"
 	"myboardgamecollection/internal/viewmodel"
 )
 
@@ -14,10 +15,20 @@ func (h *Handler) HandleGames(w http.ResponseWriter, r *http.Request) {
 	players := r.URL.Query().Get("players")
 	playtime := r.URL.Query().Get("playtime")
 
-	games, err := h.Store.FilterGames(q, category, players, playtime)
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+
+	games, total, err := h.Store.FilterGames(q, category, players, playtime, page)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	totalPages := (total + store.GamesPageSize - 1) / store.GamesPageSize
+	if totalPages < 1 {
+		totalPages = 1
 	}
 
 	categories, _ := h.Store.DistinctCategories()
@@ -31,10 +42,13 @@ func (h *Handler) HandleGames(w http.ResponseWriter, r *http.Request) {
 		Category:   category,
 		Players:    players,
 		Playtime:   playtime,
+		Page:       page,
+		TotalPages: totalPages,
+		TotalCount: total,
 	}
 
 	if isHTMX(r) {
-		if err := h.Renderer.Partial(w, "games_result", data.Games); err != nil {
+		if err := h.Renderer.Partial(w, "games_result", data); err != nil {
 			http.Error(w, "failed to render partial", http.StatusInternalServerError)
 		}
 		return
