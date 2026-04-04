@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"myboardgamecollection/internal/viewmodel"
 )
@@ -18,10 +19,12 @@ func (h *Handler) HandleGames(w http.ResponseWriter, r *http.Request) {
 	}
 
 	categories, _ := h.Store.DistinctCategories()
+	vibes, _ := h.Store.AllVibes()
 
 	data := viewmodel.GamesPageData{
 		Games:      games,
 		Categories: categories,
+		AllVibes:   vibes,
 		Category:   category,
 		Players:    players,
 		Playtime:   playtime,
@@ -53,6 +56,36 @@ func (h *Handler) HandleGameDetail(w http.ResponseWriter, r *http.Request) {
 	if err := h.Renderer.Page(w, "game_detail", game.Name, viewmodel.GameDetailData{Game: game, Aids: aids}); err != nil {
 		http.Error(w, "failed to render page", http.StatusInternalServerError)
 	}
+}
+
+func (h *Handler) HandleBulkVibeAssign(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	var gameIDs []int64
+	for _, v := range r.Form["game_ids"] {
+		id, err := strconv.ParseInt(v, 10, 64)
+		if err == nil {
+			gameIDs = append(gameIDs, id)
+		}
+	}
+	var vibeIDs []int64
+	for _, v := range r.Form["vibes"] {
+		id, err := strconv.ParseInt(v, 10, 64)
+		if err == nil {
+			vibeIDs = append(vibeIDs, id)
+		}
+	}
+	if len(gameIDs) == 0 || len(vibeIDs) == 0 {
+		http.Error(w, "select at least one game and one vibe", http.StatusBadRequest)
+		return
+	}
+	if err := h.Store.AddVibesToGames(gameIDs, vibeIDs); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/games", http.StatusSeeOther)
 }
 
 func (h *Handler) HandleGameDelete(w http.ResponseWriter, r *http.Request) {

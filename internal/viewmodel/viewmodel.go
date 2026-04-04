@@ -12,6 +12,7 @@ type PageData struct {
 type GamesPageData struct {
 	Games      []model.Game
 	Categories []string
+	AllVibes   []model.Vibe
 	Category   string
 	Players    string
 	Playtime   string
@@ -87,6 +88,7 @@ type ImportPageData struct {
 
 // ImportResultData holds data for the import result partial.
 type ImportResultData struct {
-	Count  int
-	ErrMsg string
+	Count   int
+	Updated int
+	ErrMsg  string
 }

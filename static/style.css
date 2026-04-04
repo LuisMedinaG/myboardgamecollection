@@ -1120,6 +1120,94 @@ body {
   cursor: not-allowed;
 }
 
+/* Multi-select mode */
+.game-list-item-wrap {
+  display: flex;
+  align-items: stretch;
+}
+
+.game-list-item-wrap .game-list-item {
+  flex: 1;
+  min-width: 0;
+}
+
+.game-select-check {
+  display: flex;
+  align-items: center;
+  padding: 0 0.5rem 0 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: var(--radius) 0 0 var(--radius);
+  cursor: pointer;
+}
+
+.game-select-check + .game-list-item {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.game-select-check input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* Floating bulk action bar */
+.bulk-bar {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1.25rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+}
+
+#bulk-count {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* Modal overlay */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 200;
+}
+
+.modal-card {
+  background: var(--surface);
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.modal-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
 /* Responsive */
 @media (max-width: 400px) {
   .filters {
