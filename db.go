@@ -451,6 +451,8 @@ func filterGamesByVibe(vibeID int64, typ, category, mechanic, players, playtime 
 		switch players {
 		case "1":
 			conditions = append(conditions, "g.min_players <= 1")
+		case "2":
+			conditions = append(conditions, "g.min_players <= 2")
 		case "2only":
 			conditions = append(conditions, "g.min_players = 2 AND g.max_players = 2")
 		case "3":

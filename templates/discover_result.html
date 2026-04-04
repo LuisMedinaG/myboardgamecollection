@@ -37,6 +37,7 @@
         {{ if .Players }}
         <span class="filter-chip">
             {{ if eq .Players "1" }}Solo{{ end }}
+            {{ if eq .Players "2" }}Up to 2{{ end }}
             {{ if eq .Players "2only" }}2 only{{ end }}
             {{ if eq .Players "3" }}Up to 3{{ end }}
             {{ if eq .Players "4" }}Up to 4{{ end }}
@@ -90,27 +91,26 @@
     </div>
     {{ end }}
 
-    {{/* Player count filter */}}
-    {{ if eq .Players "" }}
+    {{/* Player count filter — only show options that match current games */}}
+    {{ if and (eq .Players "") (gt (len .ValidPlayers) 0) }}
     <div class="filter-row">
         <span class="filter-row-label">Players:</span>
         <div class="filter-btn-group">
-            <a href="/discover?vibe={{ .VibeID }}{{ if .Type }}&type={{ .Type }}{{ end }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Mechanic }}&mechanic={{ .Mechanic }}{{ end }}&players=1{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="filter-btn">Solo</a>
-            <a href="/discover?vibe={{ .VibeID }}{{ if .Type }}&type={{ .Type }}{{ end }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Mechanic }}&mechanic={{ .Mechanic }}{{ end }}&players=3{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="filter-btn">Up to 3</a>
-            <a href="/discover?vibe={{ .VibeID }}{{ if .Type }}&type={{ .Type }}{{ end }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Mechanic }}&mechanic={{ .Mechanic }}{{ end }}&players=4{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="filter-btn">Up to 4</a>
-            <a href="/discover?vibe={{ .VibeID }}{{ if .Type }}&type={{ .Type }}{{ end }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Mechanic }}&mechanic={{ .Mechanic }}{{ end }}&players=5plus{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="filter-btn">5+</a>
+            {{ range .ValidPlayers }}
+            <a href="/discover?vibe={{ $.VibeID }}{{ if $.Type }}&type={{ $.Type }}{{ end }}{{ if $.Category }}&category={{ $.Category }}{{ end }}{{ if $.Mechanic }}&mechanic={{ $.Mechanic }}{{ end }}&players={{ .Value }}{{ if $.Playtime }}&playtime={{ $.Playtime }}{{ end }}" class="filter-btn">{{ .Label }}</a>
+            {{ end }}
         </div>
     </div>
     {{ end }}
 
-    {{/* Play time filter */}}
-    {{ if eq .Playtime "" }}
+    {{/* Play time filter — only show options that match current games */}}
+    {{ if and (eq .Playtime "") (gt (len .ValidPlaytimes) 0) }}
     <div class="filter-row">
         <span class="filter-row-label">Duration:</span>
         <div class="filter-btn-group">
-            <a href="/discover?vibe={{ .VibeID }}{{ if .Type }}&type={{ .Type }}{{ end }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Mechanic }}&mechanic={{ .Mechanic }}{{ end }}{{ if .Players }}&players={{ .Players }}{{ end }}&playtime=short" class="filter-btn">&lt; 30 min</a>
-            <a href="/discover?vibe={{ .VibeID }}{{ if .Type }}&type={{ .Type }}{{ end }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Mechanic }}&mechanic={{ .Mechanic }}{{ end }}{{ if .Players }}&players={{ .Players }}{{ end }}&playtime=medium" class="filter-btn">30–60 min</a>
-            <a href="/discover?vibe={{ .VibeID }}{{ if .Type }}&type={{ .Type }}{{ end }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Mechanic }}&mechanic={{ .Mechanic }}{{ end }}{{ if .Players }}&players={{ .Players }}{{ end }}&playtime=long" class="filter-btn">&gt; 60 min</a>
+            {{ range .ValidPlaytimes }}
+            <a href="/discover?vibe={{ $.VibeID }}{{ if $.Type }}&type={{ $.Type }}{{ end }}{{ if $.Category }}&category={{ $.Category }}{{ end }}{{ if $.Mechanic }}&mechanic={{ $.Mechanic }}{{ end }}{{ if $.Players }}&players={{ $.Players }}{{ end }}&playtime={{ .Value }}" class="filter-btn">{{ .Label }}</a>
+            {{ end }}
         </div>
     </div>
     {{ end }}

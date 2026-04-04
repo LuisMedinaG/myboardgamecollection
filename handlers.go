@@ -342,17 +342,19 @@ func handleDiscover(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := DiscoverPageData{
-		VibeID:     vibeID,
-		VibeName:   vibe.Name,
-		Games:      games,
-		Types:      typesForGames(games),
-		Categories: categoriesForGames(games),
-		Mechanics:  mechanicsForGames(games),
-		Type:       typ,
-		Category:   category,
-		Mechanic:   mechanic,
-		Players:    players,
-		Playtime:   playtime,
+		VibeID:         vibeID,
+		VibeName:       vibe.Name,
+		Games:          games,
+		Types:          typesForGames(games),
+		Categories:     categoriesForGames(games),
+		Mechanics:      mechanicsForGames(games),
+		Type:           typ,
+		Category:       category,
+		Mechanic:       mechanic,
+		Players:        players,
+		Playtime:       playtime,
+		ValidPlayers:   validPlayerOptions(games),
+		ValidPlaytimes: validPlaytimeOptions(games),
 	}
 
 	if isHTMX(r) {
@@ -479,6 +481,52 @@ func handleVibeDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/vibes", http.StatusSeeOther)
+}
+
+func validPlayerOptions(games []Game) []PlayerOption {
+	all := []struct {
+		value string
+		label string
+		match func(Game) bool
+	}{
+		{"1", "Solo", func(g Game) bool { return g.MinPlayers <= 1 }},
+		{"2", "Up to 2", func(g Game) bool { return g.MinPlayers <= 2 }},
+		{"3", "Up to 3", func(g Game) bool { return g.MinPlayers <= 3 }},
+		{"4", "Up to 4", func(g Game) bool { return g.MinPlayers <= 4 }},
+		{"5plus", "5+", func(g Game) bool { return g.MaxPlayers >= 5 }},
+	}
+	var opts []PlayerOption
+	for _, o := range all {
+		for _, g := range games {
+			if o.match(g) {
+				opts = append(opts, PlayerOption{Value: o.value, Label: o.label})
+				break
+			}
+		}
+	}
+	return opts
+}
+
+func validPlaytimeOptions(games []Game) []PlaytimeOption {
+	all := []struct {
+		value string
+		label string
+		match func(Game) bool
+	}{
+		{"short", "< 30 min", func(g Game) bool { return g.PlayTime < 30 }},
+		{"medium", "30–60 min", func(g Game) bool { return g.PlayTime >= 30 && g.PlayTime <= 60 }},
+		{"long", "> 60 min", func(g Game) bool { return g.PlayTime > 60 }},
+	}
+	var opts []PlaytimeOption
+	for _, o := range all {
+		for _, g := range games {
+			if o.match(g) {
+				opts = append(opts, PlaytimeOption{Value: o.value, Label: o.label})
+				break
+			}
+		}
+	}
+	return opts
 }
 
 func allowedImageExtension(contentType string) (string, bool) {

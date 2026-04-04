@@ -90,11 +90,25 @@ type DiscoverPageData struct {
 	Types      []string
 	Categories []string
 	Mechanics  []string
-	Type       string
-	Category   string
-	Mechanic   string
-	Players    string
-	Playtime   string
+	Type           string
+	Category       string
+	Mechanic       string
+	Players        string
+	Playtime       string
+	ValidPlayers   []PlayerOption
+	ValidPlaytimes []PlaytimeOption
+}
+
+// PlayerOption represents a player count filter that has matching games.
+type PlayerOption struct {
+	Value string
+	Label string
+}
+
+// PlaytimeOption represents a playtime filter that has matching games.
+type PlaytimeOption struct {
+	Value string
+	Label string
 }
 
 // GameEditData holds data for the game edit (vibe tagging) page.
