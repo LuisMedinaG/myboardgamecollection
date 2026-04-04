@@ -100,3 +100,9 @@ type CollectionEntry struct {
 	Thumbnail     string
 	AlreadyOwned  bool
 }
+
+// User represents a registered user of the application.
+type User struct {
+	ID          int64
+	BGGUsername string
+}

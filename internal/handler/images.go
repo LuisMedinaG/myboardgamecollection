@@ -33,15 +33,17 @@ func (h *Handler) HandleImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Cache miss — look up the upstream URL in the database.
-	game, err := h.Store.GetGameByBGGID(bggID)
-	if err != nil || game.Thumbnail == "" {
+	// Cache miss — look up the upstream thumbnail URL in the database.
+	// This is intentionally user-agnostic: the same bgg_id has the same
+	// thumbnail regardless of which user owns it.
+	thumbnail, err := h.Store.GetThumbnailByBGGID(bggID)
+	if err != nil || thumbnail == "" {
 		http.NotFound(w, r)
 		return
 	}
 
 	// Download the image.
-	resp, err := imageHTTPClient.Get(game.Thumbnail)
+	resp, err := imageHTTPClient.Get(thumbnail)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		if err == nil {
 			resp.Body.Close()

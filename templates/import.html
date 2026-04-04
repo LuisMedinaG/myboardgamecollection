@@ -3,41 +3,39 @@
 <div class="import-hero">
     <div class="import-card">
         <p class="import-desc">
-            Import your board game collection from
+            Sync your board game collection from
             <a href="https://boardgamegeek.com" target="_blank" rel="noopener">BoardGameGeek.com</a>.
-            To get started, enter your BoardGameGeek username.
         </p>
         {{ if not .Enabled }}
         <div class="import-error">
-            BGG import is disabled. Set <code>BGG_TOKEN</code> or <code>BGG_COOKIE</code> and restart the app to enable sync.
+            BGG sync is disabled. Set <code>BGG_TOKEN</code> or <code>BGG_COOKIE</code> and restart the app to enable it.
+        </div>
+        {{ end }}
+        {{ if and .Enabled (not .CanSync) }}
+        <div class="import-error">
+            You have already synced today. Come back tomorrow to sync again.
         </div>
         {{ end }}
         <hr class="import-divider">
+        <p class="import-username-label">Syncing as: <strong>{{ .Username }}</strong></p>
         <form
             hx-post="/import"
             hx-target="#import-result"
             hx-indicator="#import-spinner"
             class="import-form"
         >
-            <div class="import-input-row">
-                <input
-                    type="text"
-                    name="username"
-                    value="{{ .Username }}"
-                    placeholder="BoardGameGeek Username"
-                    required
-                    {{ if not .Enabled }}disabled{{ end }}
-                    class="form-input import-input"
-                >
-                <button type="submit" class="btn btn-primary import-btn" {{ if not .Enabled }}disabled{{ end }}>
-                    &#128269;
-                </button>
-            </div>
+            <button
+                type="submit"
+                class="btn btn-primary import-btn"
+                {{ if or (not .Enabled) (not .CanSync) }}disabled{{ end }}
+            >
+                &#128269; Sync from BGG
+            </button>
         </form>
         <div id="import-spinner" class="htmx-indicator">
             <div class="import-loading">
                 <div class="spinner-inline"></div>
-                <span>Importing your collection... This may take a minute.</span>
+                <span>Syncing your collection&hellip; This may take a minute.</span>
             </div>
         </div>
         <div id="import-result"></div>

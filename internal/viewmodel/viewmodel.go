@@ -7,10 +7,17 @@ import (
 	"myboardgamecollection/internal/model"
 )
 
-// PageData wraps a title and arbitrary data for full-page renders.
+// PageData wraps a title, the current user's BGG username, and page-specific
+// data for full-page renders. User is empty on the login page.
 type PageData struct {
 	Title string
+	User  string // BGG username of the logged-in user; empty if not authenticated
 	Data  any
+}
+
+// LoginPageData holds data for the login page.
+type LoginPageData struct {
+	Error string
 }
 
 // GamesPageData holds data for the games list page.
@@ -118,6 +125,7 @@ type PlayerAidsListData struct {
 type ImportPageData struct {
 	Username string
 	Enabled  bool
+	CanSync  bool // false when the daily sync limit has been reached
 }
 
 // ImportResultData holds data for the import result partial.

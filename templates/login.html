@@ -1,0 +1,29 @@
+{{ define "content" }}
+<div class="login-hero">
+    <div class="login-card">
+        <h1 class="login-title">Board Game Collection</h1>
+        <p class="login-desc">
+            Enter your <a href="https://boardgamegeek.com" target="_blank" rel="noopener">BoardGameGeek</a>
+            username to access your collection.
+        </p>
+        <form method="post" action="/login" class="login-form">
+            <input
+                type="text"
+                name="username"
+                placeholder="BGG Username"
+                required
+                autofocus
+                class="form-input login-input"
+            >
+            <button type="submit" class="btn btn-primary login-btn">Continue</button>
+        </form>
+        {{ if .Error }}
+        <div class="login-error">{{ .Error }}</div>
+        {{ end }}
+        <p class="login-note">
+            No account needed — your BGG username is your identity.
+            Your games sync from BoardGameGeek on the Import page.
+        </p>
+    </div>
+</div>
+{{ end }}

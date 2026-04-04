@@ -7,10 +7,11 @@ import (
 )
 
 
-// SeedIfEmpty populates the games table with sample data when it is empty.
-func (s *Store) SeedIfEmpty() error {
+// SeedIfEmpty populates the games table with sample data for the given user
+// when they have no games yet. Pass a valid userID obtained after login.
+func (s *Store) SeedIfEmpty(userID int64) error {
 	var count int
-	if err := s.db.QueryRow("SELECT COUNT(*) FROM games").Scan(&count); err != nil {
+	if err := s.db.QueryRow("SELECT COUNT(*) FROM games WHERE user_id = ?", userID).Scan(&count); err != nil {
 		return err
 	}
 	if count > 0 {
@@ -72,7 +73,7 @@ func (s *Store) SeedIfEmpty() error {
 	}
 
 	for _, g := range seeds {
-		if _, err := s.CreateGame(g); err != nil {
+		if _, err := s.CreateGame(g, userID); err != nil {
 			return fmt.Errorf("seed %q: %w", g.Name, err)
 		}
 	}

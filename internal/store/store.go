@@ -30,6 +30,9 @@ func New(path string) (*Store, error) {
 	if err := s.createTables(); err != nil {
 		return nil, err
 	}
+	if err := s.migrateUserData(); err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 
@@ -142,6 +145,36 @@ func (s *Store) createTables() error {
 		return err
 	}
 
+	// Users and sessions for multi-user support.
+	_, err = s.db.Exec(`
+		CREATE TABLE IF NOT EXISTS users (
+			id               INTEGER PRIMARY KEY AUTOINCREMENT,
+			bgg_username     TEXT    NOT NULL UNIQUE,
+			created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			last_sync_at     DATETIME,
+			sync_count_today INTEGER NOT NULL DEFAULT 0,
+			sync_date        TEXT    NOT NULL DEFAULT ''
+		)
+	`)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(`
+		CREATE TABLE IF NOT EXISTS sessions (
+			token      TEXT PRIMARY KEY,
+			user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			expires_at DATETIME NOT NULL
+		)
+	`)
+	if err != nil {
+		return err
+	}
+
+	// Migration: add user_id columns to games and vibes (no-op if already present).
+	_, _ = s.db.Exec("ALTER TABLE games ADD COLUMN user_id INTEGER REFERENCES users(id)")
+	_, _ = s.db.Exec("ALTER TABLE vibes ADD COLUMN user_id INTEGER REFERENCES users(id)")
+
 	// FTS5 virtual table for full-text search over game name + description.
 	// content=games makes the FTS index reference the games table rows.
 	_, err = s.db.Exec(`
@@ -177,6 +210,29 @@ func (s *Store) createTables() error {
 		return err
 	}
 	return nil
+}
+
+// migrateUserData assigns games and vibes that were created before multi-user
+// support (user_id IS NULL) to the user stored in config["bgg_username"]. This
+// is a one-time, idempotent migration for upgrading single-user installations.
+func (s *Store) migrateUserData() error {
+	var orphaned int
+	if err := s.db.QueryRow("SELECT COUNT(*) FROM games WHERE user_id IS NULL").Scan(&orphaned); err != nil || orphaned == 0 {
+		return err
+	}
+	username := s.GetConfig("bgg_username")
+	if username == "" {
+		return nil // no known owner; leave orphaned rows for now
+	}
+	userID, err := s.FindOrCreateUser(username)
+	if err != nil {
+		return err
+	}
+	if _, err := s.db.Exec("UPDATE games SET user_id = ? WHERE user_id IS NULL", userID); err != nil {
+		return err
+	}
+	_, err = s.db.Exec("UPDATE vibes SET user_id = ? WHERE user_id IS NULL", userID)
+	return err
 }
 
 // PopulateTaxonomy fills the normalized category and mechanic tables from the

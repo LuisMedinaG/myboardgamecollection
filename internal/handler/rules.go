@@ -21,7 +21,11 @@ func (h *Handler) HandleRules(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	game, err := h.Store.GetGame(id)
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
+		return
+	}
+	game, err := h.Store.GetGame(id, userID)
 	if err != nil {
 		http.Error(w, "game not found", http.StatusNotFound)
 		return
@@ -36,7 +40,7 @@ func (h *Handler) HandleRules(w http.ResponseWriter, r *http.Request) {
 		PlayerAids: aids,
 		EmbedURL:   driveEmbedURL(game.RulesURL),
 	}
-	if err := h.Renderer.Page(w, "rules", game.Name+" — Rules", data); err != nil {
+	if err := h.Renderer.Page(w, "rules", game.Name+" — Rules", data, h.currentUsername(r)); err != nil {
 		http.Error(w, "failed to render page", http.StatusInternalServerError)
 	}
 }
@@ -46,18 +50,22 @@ func (h *Handler) HandleRulesURLUpdate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
+		return
+	}
 	rulesURL := strings.TrimSpace(r.FormValue("rules_url"))
 	if err := validateRulesURL(rulesURL); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := h.Store.UpdateGameRulesURL(id, rulesURL); err != nil {
+	if err := h.Store.UpdateGameRulesURL(id, rulesURL, userID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	if isHTMX(r) {
-		game, err := h.Store.GetGame(id)
+		game, err := h.Store.GetGame(id, userID)
 		if err != nil {
 			http.Error(w, "game not found", http.StatusNotFound)
 			return
@@ -82,6 +90,15 @@ func (h *Handler) HandleRulesURLUpdate(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) HandlePlayerAidUpload(w http.ResponseWriter, r *http.Request) {
 	id, ok := requireID(w, r)
 	if !ok {
+		return
+	}
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
+		return
+	}
+	// Verify game ownership before accepting the upload.
+	if _, err := h.Store.GetGame(id, userID); err != nil {
+		http.Error(w, "game not found", http.StatusNotFound)
 		return
 	}
 
@@ -172,9 +189,18 @@ func (h *Handler) HandlePlayerAidDelete(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "invalid aid id", http.StatusBadRequest)
 		return
 	}
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
+		return
+	}
 
 	aid, err := h.Store.GetPlayerAid(aidID)
 	if err != nil {
+		http.Error(w, "player aid not found", http.StatusNotFound)
+		return
+	}
+	// Verify the parent game belongs to this user.
+	if _, err := h.Store.GetGame(aid.GameID, userID); err != nil {
 		http.Error(w, "player aid not found", http.StatusNotFound)
 		return
 	}
