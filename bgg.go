@@ -15,8 +15,16 @@ func initBGG(token string) {
 	bggClient = gobgg.NewBGGClient(gobgg.SetAuthToken(token))
 }
 
+func isBGGConfigured() bool {
+	return bggClient != nil
+}
+
 // fetchBGGCollection fetches a user's board game collection from BGG.
 func fetchBGGCollection(ctx context.Context, username string) ([]CollectionEntry, error) {
+	if !isBGGConfigured() {
+		return nil, fmt.Errorf("BGG import is not configured")
+	}
+
 	items, err := bggClient.GetCollection(ctx, username, gobgg.SetCollectionTypes(gobgg.CollectionTypeOwn))
 	if err != nil {
 		return nil, fmt.Errorf("fetching collection for %q: %w", username, err)
@@ -27,11 +35,11 @@ func fetchBGGCollection(ctx context.Context, username string) ([]CollectionEntry
 	var out []CollectionEntry
 	for _, item := range items {
 		out = append(out, CollectionEntry{
-			BGGID:        item.ID,
-			Name:         item.Name,
+			BGGID:         item.ID,
+			Name:          item.Name,
 			YearPublished: item.YearPublished,
-			Thumbnail:    item.Thumbnail,
-			AlreadyOwned: owned[item.ID],
+			Thumbnail:     item.Thumbnail,
+			AlreadyOwned:  owned[item.ID],
 		})
 	}
 	return out, nil
@@ -39,6 +47,10 @@ func fetchBGGCollection(ctx context.Context, username string) ([]CollectionEntry
 
 // importBGGGame fetches full details from BGG and creates a game in the collection.
 func importBGGGame(ctx context.Context, bggID int64) (int64, error) {
+	if !isBGGConfigured() {
+		return 0, fmt.Errorf("BGG import is not configured")
+	}
+
 	// Check if already owned
 	if g, err := getGameByBGGID(bggID); err == nil {
 		return g.ID, nil
@@ -86,6 +98,10 @@ func importBGGGame(ctx context.Context, bggID int64) (int64, error) {
 // importBGGCollection imports all games from a user's BGG collection.
 // Returns the number of new games imported.
 func importBGGCollection(ctx context.Context, username string) (int, error) {
+	if !isBGGConfigured() {
+		return 0, fmt.Errorf("BGG import is not configured")
+	}
+
 	items, err := bggClient.GetCollection(ctx, username, gobgg.SetCollectionTypes(gobgg.CollectionTypeOwn))
 	if err != nil {
 		return 0, fmt.Errorf("fetching collection for %q: %w", username, err)

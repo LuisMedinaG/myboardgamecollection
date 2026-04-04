@@ -95,3 +95,9 @@ type ImportResultData struct {
 	Count  int
 	ErrMsg string
 }
+
+// ImportPageData holds data for the BGG import page.
+type ImportPageData struct {
+	Username string
+	Enabled  bool
+}

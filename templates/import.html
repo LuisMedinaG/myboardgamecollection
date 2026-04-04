@@ -7,6 +7,11 @@
             <a href="https://boardgamegeek.com" target="_blank" rel="noopener">BoardGameGeek.com</a>.
             To get started, enter your BoardGameGeek username.
         </p>
+        {{ if not .Enabled }}
+        <div class="import-error">
+            BGG import is disabled. Set <code>BGG_TOKEN</code> and restart the app to enable sync.
+        </div>
+        {{ end }}
         <hr class="import-divider">
         <form
             hx-post="/import"
@@ -18,12 +23,13 @@
                 <input
                     type="text"
                     name="username"
-                    value="{{ . }}"
+                    value="{{ .Username }}"
                     placeholder="BoardGameGeek Username"
                     required
+                    {{ if not .Enabled }}disabled{{ end }}
                     class="form-input import-input"
                 >
-                <button type="submit" class="btn btn-primary import-btn">
+                <button type="submit" class="btn btn-primary import-btn" {{ if not .Enabled }}disabled{{ end }}>
                     &#128269;
                 </button>
             </div>

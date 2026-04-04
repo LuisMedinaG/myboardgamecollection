@@ -48,7 +48,11 @@ func main() {
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 
 	// Uploaded files (on disk)
-	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("data/uploads"))))
+	uploads := http.StripPrefix("/uploads/", http.FileServer(http.Dir("data/uploads")))
+	mux.Handle("GET /uploads/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		uploads.ServeHTTP(w, r)
+	}))
 
 	// Routes
 	mux.HandleFunc("GET /{$}", handleHome)

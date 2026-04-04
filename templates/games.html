@@ -38,7 +38,20 @@
                     var chip = document.createElement('span');
                     chip.className = 'filter-chip';
                     var text = sel.options[sel.selectedIndex].text;
-                    chip.innerHTML = labels[sel.name] + ': <strong>' + text + '</strong> <button class="chip-remove" data-name="' + sel.name + '">&times;</button>';
+                    chip.appendChild(document.createTextNode(labels[sel.name] + ': '));
+
+                    var strong = document.createElement('strong');
+                    strong.textContent = text;
+                    chip.appendChild(strong);
+                    chip.appendChild(document.createTextNode(' '));
+
+                    var button = document.createElement('button');
+                    button.className = 'chip-remove';
+                    button.setAttribute('data-name', sel.name);
+                    button.setAttribute('type', 'button');
+                    button.textContent = '\u00D7';
+                    chip.appendChild(button);
+
                     container.appendChild(chip);
                 }
             });

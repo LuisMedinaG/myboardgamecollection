@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,7 +26,9 @@ func isHTMX(r *http.Request) bool {
 func handleHome(w http.ResponseWriter, r *http.Request) {
 	var count int
 	_ = db.QueryRow("SELECT COUNT(*) FROM games").Scan(&count)
-	renderPage(w, "home", "Home", count)
+	if err := renderPage(w, "home", "Home", count); err != nil {
+		http.Error(w, "failed to render page", http.StatusInternalServerError)
+	}
 }
 
 func handleGames(w http.ResponseWriter, r *http.Request) {
@@ -50,10 +53,14 @@ func handleGames(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if isHTMX(r) {
-		renderPartial(w, "games_result", data.Games)
+		if err := renderPartial(w, "games_result", data.Games); err != nil {
+			http.Error(w, "failed to render partial", http.StatusInternalServerError)
+		}
 		return
 	}
-	renderPage(w, "games", "My Games", data)
+	if err := renderPage(w, "games", "My Games", data); err != nil {
+		http.Error(w, "failed to render page", http.StatusInternalServerError)
+	}
 }
 
 func handleGameDetail(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +75,9 @@ func handleGameDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	aids, _ := getPlayerAids(id)
-	renderPage(w, "game_detail", game.Name, GameDetailData{Game: game, Aids: aids})
+	if err := renderPage(w, "game_detail", game.Name, GameDetailData{Game: game, Aids: aids}); err != nil {
+		http.Error(w, "failed to render page", http.StatusInternalServerError)
+	}
 }
 
 func handleGameDelete(w http.ResponseWriter, r *http.Request) {
@@ -93,8 +102,13 @@ func handleGameDelete(w http.ResponseWriter, r *http.Request) {
 // BGG import
 
 func handleImport(w http.ResponseWriter, r *http.Request) {
-	username := getConfig("bgg_username")
-	renderPage(w, "import", "Import Collection", username)
+	data := ImportPageData{
+		Username: getConfig("bgg_username"),
+		Enabled:  isBGGConfigured(),
+	}
+	if err := renderPage(w, "import", "Import Collection", data); err != nil {
+		http.Error(w, "failed to render page", http.StatusInternalServerError)
+	}
 }
 
 func handleImportSync(w http.ResponseWriter, r *http.Request) {
@@ -108,11 +122,15 @@ func handleImportSync(w http.ResponseWriter, r *http.Request) {
 
 	count, err := importBGGCollection(r.Context(), username)
 	if err != nil {
-		renderPartial(w, "import_result", ImportResultData{Count: 0, ErrMsg: fmt.Sprintf("Import failed: %v", err)})
+		if err := renderPartial(w, "import_result", ImportResultData{Count: 0, ErrMsg: fmt.Sprintf("Import failed: %v", err)}); err != nil {
+			http.Error(w, "failed to render partial", http.StatusInternalServerError)
+		}
 		return
 	}
 
-	renderPartial(w, "import_result", ImportResultData{Count: count})
+	if err := renderPartial(w, "import_result", ImportResultData{Count: count}); err != nil {
+		http.Error(w, "failed to render partial", http.StatusInternalServerError)
+	}
 }
 
 // Rules
@@ -135,7 +153,9 @@ func handleRules(w http.ResponseWriter, r *http.Request) {
 		PlayerAids: aids,
 		EmbedURL:   driveEmbedURL(game.RulesURL),
 	}
-	renderPage(w, "rules", data.Game.Name+" — Rules", data)
+	if err := renderPage(w, "rules", data.Game.Name+" — Rules", data); err != nil {
+		http.Error(w, "failed to render page", http.StatusInternalServerError)
+	}
 }
 
 func handleRulesURLUpdate(w http.ResponseWriter, r *http.Request) {
@@ -158,7 +178,9 @@ func handleRulesURLUpdate(w http.ResponseWriter, r *http.Request) {
 			PlayerAids: aids,
 			EmbedURL:   driveEmbedURL(game.RulesURL),
 		}
-		renderPartial(w, "rules_content", data)
+		if err := renderPartial(w, "rules_content", data); err != nil {
+			http.Error(w, "failed to render partial", http.StatusInternalServerError)
+		}
 		return
 	}
 	http.Redirect(w, r, fmt.Sprintf("/games/%d/rules", id), http.StatusSeeOther)
@@ -185,13 +207,28 @@ func handlePlayerAidUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
+	buffer := make([]byte, 512)
+	n, err := file.Read(buffer)
+	if err != nil && err != io.EOF {
+		http.Error(w, "failed to read uploaded file", http.StatusBadRequest)
+		return
+	}
+
+	contentType := http.DetectContentType(buffer[:n])
+	ext, ok := allowedImageExtension(contentType)
+	if !ok {
+		http.Error(w, "unsupported file type; upload PNG, JPEG, GIF, or WebP", http.StatusBadRequest)
+		return
+	}
+
 	label := strings.TrimSpace(r.FormValue("label"))
 	if label == "" {
 		label = strings.TrimSuffix(header.Filename, filepath.Ext(header.Filename))
 	}
 
-	// Generate unique filename
-	ext := filepath.Ext(header.Filename)
+	reader := io.MultiReader(bytes.NewReader(buffer[:n]), file)
+
+	// Generate unique filename using the detected content type.
 	filename := fmt.Sprintf("game_%d_%d%s", id, time.Now().UnixMilli(), ext)
 
 	// Save file
@@ -208,7 +245,7 @@ func handlePlayerAidUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer dst.Close()
 
-	if _, err := io.Copy(dst, file); err != nil {
+	if _, err := io.Copy(dst, reader); err != nil {
 		http.Error(w, "failed to save file", http.StatusInternalServerError)
 		return
 	}
@@ -220,7 +257,9 @@ func handlePlayerAidUpload(w http.ResponseWriter, r *http.Request) {
 
 	if isHTMX(r) {
 		aids, _ := getPlayerAids(id)
-		renderPartial(w, "player_aids_list", PlayerAidsListData{GameID: id, Aids: aids})
+		if err := renderPartial(w, "player_aids_list", PlayerAidsListData{GameID: id, Aids: aids}); err != nil {
+			http.Error(w, "failed to render partial", http.StatusInternalServerError)
+		}
 		return
 	}
 	http.Redirect(w, r, fmt.Sprintf("/games/%d/rules", id), http.StatusSeeOther)
@@ -249,10 +288,27 @@ func handlePlayerAidDelete(w http.ResponseWriter, r *http.Request) {
 
 	if isHTMX(r) {
 		aids, _ := getPlayerAids(aid.GameID)
-		renderPartial(w, "player_aids_list", PlayerAidsListData{GameID: aid.GameID, Aids: aids})
+		if err := renderPartial(w, "player_aids_list", PlayerAidsListData{GameID: aid.GameID, Aids: aids}); err != nil {
+			http.Error(w, "failed to render partial", http.StatusInternalServerError)
+		}
 		return
 	}
 	http.Redirect(w, r, fmt.Sprintf("/games/%d/rules", aid.GameID), http.StatusSeeOther)
+}
+
+func allowedImageExtension(contentType string) (string, bool) {
+	switch contentType {
+	case "image/png":
+		return ".png", true
+	case "image/jpeg":
+		return ".jpg", true
+	case "image/gif":
+		return ".gif", true
+	case "image/webp":
+		return ".webp", true
+	default:
+		return "", false
+	}
 }
 
 // driveEmbedURL converts a Google Drive sharing URL to an embeddable preview URL.
