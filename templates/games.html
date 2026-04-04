@@ -1,6 +1,9 @@
 {{ define "content" }}
 <a href="/" class="back-btn">&#8592; Home</a>
 <div class="filters" id="game-filters" hx-get="/games" hx-target="#games-result" hx-trigger="change" hx-push-url="true" hx-swap="innerHTML" hx-include="this">
+    <input type="search" name="q" value="{{ .Q }}" placeholder="Search games…" class="filter-search"
+           hx-trigger="input changed delay:300ms, search"
+           hx-get="/games" hx-target="#games-result" hx-push-url="true" hx-swap="innerHTML" hx-include="#game-filters">
     <select name="category" class="filter-select">
         <option value="">All Categories</option>
         {{ range .Categories }}

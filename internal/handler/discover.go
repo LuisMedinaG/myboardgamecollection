@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -56,7 +57,10 @@ func (h *Handler) HandleDiscover(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) renderDiscoverGrid(w http.ResponseWriter, r *http.Request) {
-	vibes, _ := h.Store.AllVibes()
+	vibes, err := h.Store.AllVibes()
+	if err != nil {
+		slog.Error("AllVibes", "error", err)
+	}
 	data := viewmodel.DiscoverPageData{Vibes: vibes}
 	if isHTMX(r) {
 		if err := h.Renderer.Partial(w, "discover_result", data); err != nil {

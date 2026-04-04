@@ -12,6 +12,7 @@ type PageData struct {
 type GamesPageData struct {
 	Games      []model.Game
 	Categories []string
+	Q          string
 	Category   string
 	Players    string
 	Playtime   string

@@ -1,11 +1,29 @@
 package store
 
 import (
+	"regexp"
 	"strings"
 
 	"myboardgamecollection/internal/filter"
 	"myboardgamecollection/internal/model"
 )
+
+// ftsSpecialChars matches characters that have special meaning in FTS5 queries.
+var ftsSpecialChars = regexp.MustCompile(`[^a-zA-Z0-9 ]`)
+
+// sanitizeFTSQuery strips FTS5 operator characters and builds a prefix-match
+// query ("word1* word2*") safe for use in a MATCH expression.
+func sanitizeFTSQuery(q string) string {
+	safe := strings.TrimSpace(ftsSpecialChars.ReplaceAllString(q, " "))
+	words := strings.Fields(safe)
+	if len(words) == 0 {
+		return ""
+	}
+	for i, w := range words {
+		words[i] = w + "*"
+	}
+	return strings.Join(words, " ")
+}
 
 // GetAllGames returns all games ordered by name.
 func (s *Store) GetAllGames() ([]model.Game, error) {
@@ -27,7 +45,7 @@ func (s *Store) GetGameByBGGID(bggID int64) (model.Game, error) {
 	return scanGame(s.db.QueryRow("SELECT "+gameColumns+" FROM games WHERE bgg_id = ?", bggID))
 }
 
-// CreateGame inserts a new game and returns its ID.
+// CreateGame inserts a new game, populates the taxonomy tables, and returns its ID.
 func (s *Store) CreateGame(g model.Game) (int64, error) {
 	res, err := s.db.Exec(
 		"INSERT INTO games (bgg_id, name, description, year_published, image, thumbnail, min_players, max_players, play_time, categories, mechanics, types, rules_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -37,7 +55,15 @@ func (s *Store) CreateGame(g model.Game) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return res.LastInsertId()
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	// Keep normalized taxonomy tables in sync.
+	if err := s.upsertGameTaxonomy(id, g.Categories, g.Mechanics); err != nil {
+		return id, err
+	}
+	return id, nil
 }
 
 // UpdateGameRulesURL sets the rules URL for a game.
@@ -77,14 +103,19 @@ func (s *Store) OwnedBGGIDs() (map[int64]bool, error) {
 	return m, rows.Err()
 }
 
-// FilterGames returns games matching the given category, players, and playtime filters.
-func (s *Store) FilterGames(category, players, playtime string) ([]model.Game, error) {
+// FilterGames returns games matching the given query, category, players, and playtime filters.
+func (s *Store) FilterGames(q, category, players, playtime string) ([]model.Game, error) {
 	var conditions []string
 	var args []any
 
+	if q != "" {
+		conditions = append(conditions, "id IN (SELECT rowid FROM games_fts WHERE games_fts MATCH ?)")
+		args = append(args, sanitizeFTSQuery(q))
+	}
 	if category != "" {
-		conditions = append(conditions, "categories LIKE ?")
-		args = append(args, "%"+category+"%")
+		// Use the normalized table: exact match, no LIKE substring ambiguity.
+		conditions = append(conditions, "id IN (SELECT game_id FROM game_categories gc JOIN categories c ON c.id = gc.category_id WHERE c.name = ?)")
+		args = append(args, category)
 	}
 	if cond := filter.PlayerCondition(players, ""); cond != "" {
 		conditions = append(conditions, cond)
@@ -120,12 +151,12 @@ func (s *Store) FilterGamesByVibe(vibeID int64, typ, category, mechanic, players
 		args = append(args, "%"+typ+"%")
 	}
 	if category != "" {
-		conditions = append(conditions, "g.categories LIKE ?")
-		args = append(args, "%"+category+"%")
+		conditions = append(conditions, "g.id IN (SELECT game_id FROM game_categories gc JOIN categories c ON c.id = gc.category_id WHERE c.name = ?)")
+		args = append(args, category)
 	}
 	if mechanic != "" {
-		conditions = append(conditions, "g.mechanics LIKE ?")
-		args = append(args, "%"+mechanic+"%")
+		conditions = append(conditions, "g.id IN (SELECT game_id FROM game_mechanics gm JOIN mechanics m ON m.id = gm.mechanic_id WHERE m.name = ?)")
+		args = append(args, mechanic)
 	}
 	if cond := filter.PlayerCondition(players, "g."); cond != "" {
 		conditions = append(conditions, cond)
@@ -148,24 +179,21 @@ func (s *Store) FilterGamesByVibe(vibeID int64, typ, category, mechanic, players
 	return scanGames(rows)
 }
 
-// DistinctCategories returns all unique categories across all games, sorted.
+// DistinctCategories returns all category names from the normalized table, sorted.
 func (s *Store) DistinctCategories() ([]string, error) {
-	rows, err := s.db.Query("SELECT categories FROM games WHERE categories != ''")
+	rows, err := s.db.Query("SELECT name FROM categories ORDER BY name")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var raw []string
+	var cats []string
 	for rows.Next() {
-		var cats string
-		if err := rows.Scan(&cats); err != nil {
+		var name string
+		if err := rows.Scan(&name); err != nil {
 			return nil, err
 		}
-		raw = append(raw, cats)
+		cats = append(cats, name)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return filter.SplitDedupSort(raw), nil
+	return cats, rows.Err()
 }

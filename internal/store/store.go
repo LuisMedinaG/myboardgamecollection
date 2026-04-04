@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"strings"
 
 	"myboardgamecollection/internal/model"
 
@@ -99,7 +100,166 @@ func (s *Store) createTables() error {
 	}
 	// Migration: add types column if missing (for existing DBs).
 	_, _ = s.db.Exec("ALTER TABLE games ADD COLUMN types TEXT NOT NULL DEFAULT ''")
+
+	// Normalized category and mechanic tables (used for filtering).
+	// The comma-string columns on games remain as a denormalized display cache.
+	_, err = s.db.Exec(`
+		CREATE TABLE IF NOT EXISTS categories (
+			id   INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL UNIQUE
+		)
+	`)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(`
+		CREATE TABLE IF NOT EXISTS game_categories (
+			game_id     INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+			category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+			PRIMARY KEY (game_id, category_id)
+		)
+	`)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(`
+		CREATE TABLE IF NOT EXISTS mechanics (
+			id   INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL UNIQUE
+		)
+	`)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(`
+		CREATE TABLE IF NOT EXISTS game_mechanics (
+			game_id     INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+			mechanic_id INTEGER NOT NULL REFERENCES mechanics(id) ON DELETE CASCADE,
+			PRIMARY KEY (game_id, mechanic_id)
+		)
+	`)
+	if err != nil {
+		return err
+	}
+
+	// FTS5 virtual table for full-text search over game name + description.
+	// content=games makes the FTS index reference the games table rows.
+	_, err = s.db.Exec(`
+		CREATE VIRTUAL TABLE IF NOT EXISTS games_fts
+		USING fts5(name, description, content=games, content_rowid=id)
+	`)
+	if err != nil {
+		return err
+	}
+	// Triggers keep the FTS index in sync when games are inserted or deleted.
+	_, err = s.db.Exec(`
+		CREATE TRIGGER IF NOT EXISTS games_fts_insert AFTER INSERT ON games BEGIN
+			INSERT INTO games_fts(rowid, name, description)
+			VALUES (new.id, new.name, new.description);
+		END
+	`)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(`
+		CREATE TRIGGER IF NOT EXISTS games_fts_delete AFTER DELETE ON games BEGIN
+			INSERT INTO games_fts(games_fts, rowid, name, description)
+			VALUES ('delete', old.id, old.name, old.description);
+		END
+	`)
+	if err != nil {
+		return err
+	}
+	// Rebuild the FTS index from the content table. This is idempotent and
+	// ensures rows that existed before the FTS table was created are indexed.
+	_, err = s.db.Exec("INSERT INTO games_fts(games_fts) VALUES ('rebuild')")
+	if err != nil {
+		return err
+	}
 	return nil
+}
+
+// PopulateTaxonomy fills the normalized category and mechanic tables from the
+// denormalized comma-string columns on every existing game row. It is safe to
+// call on every startup because all inserts use INSERT OR IGNORE.
+func (s *Store) PopulateTaxonomy() error {
+	rows, err := s.db.Query("SELECT id, categories, mechanics FROM games")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	type entry struct {
+		id         int64
+		categories string
+		mechanics  string
+	}
+	var entries []entry
+	for rows.Next() {
+		var e entry
+		if err := rows.Scan(&e.id, &e.categories, &e.mechanics); err != nil {
+			return err
+		}
+		entries = append(entries, e)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, e := range entries {
+		if err := s.upsertGameTaxonomy(e.id, e.categories, e.mechanics); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// upsertGameTaxonomy inserts category and mechanic rows (and their join rows)
+// for a single game. All inserts are INSERT OR IGNORE so it is idempotent.
+func (s *Store) upsertGameTaxonomy(gameID int64, categories, mechanics string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	for _, name := range splitTaxonomy(categories) {
+		if _, err := tx.Exec("INSERT OR IGNORE INTO categories (name) VALUES (?)", name); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(
+			"INSERT OR IGNORE INTO game_categories (game_id, category_id) SELECT ?, id FROM categories WHERE name = ?",
+			gameID, name,
+		); err != nil {
+			return err
+		}
+	}
+
+	for _, name := range splitTaxonomy(mechanics) {
+		if _, err := tx.Exec("INSERT OR IGNORE INTO mechanics (name) VALUES (?)", name); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(
+			"INSERT OR IGNORE INTO game_mechanics (game_id, mechanic_id) SELECT ?, id FROM mechanics WHERE name = ?",
+			gameID, name,
+		); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+// splitTaxonomy splits a comma-separated tag string into trimmed, non-empty terms.
+func splitTaxonomy(s string) []string {
+	var out []string
+	for _, v := range strings.Split(s, ", ") {
+		v = strings.TrimSpace(v)
+		if v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
 }
 
 const gameColumns = "id, bgg_id, name, description, year_published, image, thumbnail, min_players, max_players, play_time, categories, mechanics, types, rules_url"

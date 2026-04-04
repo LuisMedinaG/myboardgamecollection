@@ -9,7 +9,7 @@
         {{ range . }}
         <a href="/games/{{ .ID }}" class="game-list-item">
             {{ if .Thumbnail }}
-            <img src="{{ .Thumbnail }}" class="game-cover" alt="{{ .Name }}">
+            <img src="{{ .ThumbnailURL }}" class="game-cover" alt="{{ .Name }}">
             {{ else }}
             <div class="game-cover game-cover-placeholder"></div>
             {{ end }}

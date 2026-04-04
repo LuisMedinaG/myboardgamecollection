@@ -1,17 +1,19 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 
 	"myboardgamecollection/internal/viewmodel"
 )
 
 func (h *Handler) HandleGames(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query().Get("q")
 	category := r.URL.Query().Get("category")
 	players := r.URL.Query().Get("players")
 	playtime := r.URL.Query().Get("playtime")
 
-	games, err := h.Store.FilterGames(category, players, playtime)
+	games, err := h.Store.FilterGames(q, category, players, playtime)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -22,6 +24,7 @@ func (h *Handler) HandleGames(w http.ResponseWriter, r *http.Request) {
 	data := viewmodel.GamesPageData{
 		Games:      games,
 		Categories: categories,
+		Q:          q,
 		Category:   category,
 		Players:    players,
 		Playtime:   playtime,
@@ -39,9 +42,8 @@ func (h *Handler) HandleGames(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleGameDetail(w http.ResponseWriter, r *http.Request) {
-	id, err := parseID(r)
-	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+	id, ok := requireID(w, r)
+	if !ok {
 		return
 	}
 	game, err := h.Store.GetGame(id)
@@ -49,16 +51,18 @@ func (h *Handler) HandleGameDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "game not found", http.StatusNotFound)
 		return
 	}
-	aids, _ := h.Store.GetPlayerAids(id)
+	aids, err := h.Store.GetPlayerAids(id)
+	if err != nil {
+		slog.Error("GetPlayerAids", "gameID", id, "error", err)
+	}
 	if err := h.Renderer.Page(w, "game_detail", game.Name, viewmodel.GameDetailData{Game: game, Aids: aids}); err != nil {
 		http.Error(w, "failed to render page", http.StatusInternalServerError)
 	}
 }
 
 func (h *Handler) HandleGameDelete(w http.ResponseWriter, r *http.Request) {
-	id, err := parseID(r)
-	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+	id, ok := requireID(w, r)
+	if !ok {
 		return
 	}
 	if err := h.Store.DeleteGame(id); err != nil {

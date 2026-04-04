@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,7 +12,10 @@ import (
 )
 
 func (h *Handler) HandleVibes(w http.ResponseWriter, r *http.Request) {
-	vibes, _ := h.Store.AllVibes()
+	vibes, err := h.Store.AllVibes()
+	if err != nil {
+		slog.Error("AllVibes", "error", err)
+	}
 	if err := h.Renderer.Page(w, "vibes", "Manage Vibes", viewmodel.VibesPageData{Vibes: vibes}); err != nil {
 		http.Error(w, "render error", http.StatusInternalServerError)
 	}
@@ -35,9 +39,8 @@ func (h *Handler) HandleVibeCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleVibeUpdate(w http.ResponseWriter, r *http.Request) {
-	id, err := parseID(r)
-	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+	id, ok := requireID(w, r)
+	if !ok {
 		return
 	}
 	name := strings.TrimSpace(r.FormValue("name"))
@@ -94,9 +97,8 @@ func (h *Handler) HandleVibeBatchUpdate(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *Handler) HandleVibeDelete(w http.ResponseWriter, r *http.Request) {
-	id, err := parseID(r)
-	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+	id, ok := requireID(w, r)
+	if !ok {
 		return
 	}
 	if err := h.Store.DeleteVibe(id); err != nil {
@@ -107,9 +109,8 @@ func (h *Handler) HandleVibeDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleGameEdit(w http.ResponseWriter, r *http.Request) {
-	id, err := parseID(r)
-	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+	id, ok := requireID(w, r)
+	if !ok {
 		return
 	}
 	game, err := h.Store.GetGame(id)
@@ -117,8 +118,14 @@ func (h *Handler) HandleGameEdit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "game not found", http.StatusNotFound)
 		return
 	}
-	vibes, _ := h.Store.AllVibes()
-	gameVibeList, _ := h.Store.VibesForGame(id)
+	vibes, err := h.Store.AllVibes()
+	if err != nil {
+		slog.Error("AllVibes", "error", err)
+	}
+	gameVibeList, err := h.Store.VibesForGame(id)
+	if err != nil {
+		slog.Error("VibesForGame", "gameID", id, "error", err)
+	}
 	gvMap := make(map[int64]bool)
 	for _, v := range gameVibeList {
 		gvMap[v.ID] = true
@@ -130,9 +137,8 @@ func (h *Handler) HandleGameEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleGameVibesSave(w http.ResponseWriter, r *http.Request) {
-	id, err := parseID(r)
-	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+	id, ok := requireID(w, r)
+	if !ok {
 		return
 	}
 	if err := r.ParseForm(); err != nil {
@@ -154,6 +160,9 @@ func (h *Handler) HandleGameVibesSave(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) renderVibesWithError(w http.ResponseWriter, errMsg string) {
-	vibes, _ := h.Store.AllVibes()
+	vibes, err := h.Store.AllVibes()
+	if err != nil {
+		slog.Error("AllVibes", "error", err)
+	}
 	h.Renderer.Page(w, "vibes", "Manage Vibes", viewmodel.VibesPageData{Vibes: vibes, Error: errMsg})
 }

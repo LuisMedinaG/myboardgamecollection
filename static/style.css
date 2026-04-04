@@ -119,6 +119,17 @@ body {
   margin: 1rem 0;
 }
 
+.filter-search {
+  flex: 2;
+  min-width: 180px;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
 .filter-select {
   flex: 1;
   min-width: 120px;

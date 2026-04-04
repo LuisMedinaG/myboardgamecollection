@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	"embed"
+	"errors"
 	"io/fs"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"myboardgamecollection/internal/bgg"
@@ -22,6 +26,9 @@ var staticFiles embed.FS
 var templateFS embed.FS
 
 func main() {
+	// Use JSON structured logging; easy to query on Fly.io / any log aggregator.
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
 	port := "8080"
 	if p := os.Getenv("PORT"); p != "" {
 		port = p
@@ -35,36 +42,42 @@ func main() {
 	adminUsername := os.Getenv("ADMIN_USERNAME")
 	adminPassword := os.Getenv("ADMIN_PASSWORD")
 	if (adminUsername == "") != (adminPassword == "") {
-		log.Fatal("ADMIN_USERNAME and ADMIN_PASSWORD must either both be set or both be empty")
+		slog.Error("ADMIN_USERNAME and ADMIN_PASSWORD must either both be set or both be empty")
+		os.Exit(1)
 	}
 
 	// Initialize store (database).
 	s, err := store.New(dbPath)
 	if err != nil {
-		log.Fatalf("database: %v", err)
+		slog.Error("database init failed", "error", err)
+		os.Exit(1)
 	}
 	defer s.Close()
 
 	if err := s.SeedIfEmpty(); err != nil {
-		log.Printf("warning: seed failed: %v", err)
+		slog.Warn("seed failed", "error", err)
+	}
+	if err := s.PopulateTaxonomy(); err != nil {
+		slog.Warn("taxonomy migration failed", "error", err)
 	}
 
 	// Initialize BGG client (optional): token takes priority, then cookie.
 	var bc *bgg.Client
 	if token := os.Getenv("BGG_TOKEN"); token != "" {
 		bc = bgg.New(token)
-		log.Println("BGG auth: using token")
+		slog.Info("BGG auth: using token")
 	} else if cookie := os.Getenv("BGG_COOKIE"); cookie != "" {
 		bc = bgg.NewWithCookies(cookie)
-		log.Println("BGG auth: using cookie")
+		slog.Info("BGG auth: using cookie")
 	}
 
 	// Initialize renderer and handler.
 	ren := render.New(templateFS)
 	h := &handler.Handler{Store: s, Renderer: ren, BGG: bc}
 
-	// Ensure uploads directory.
+	// Ensure data directories.
 	_ = os.MkdirAll("data/uploads", 0o755)
+	_ = os.MkdirAll("data/images", 0o755)
 
 	mux := http.NewServeMux()
 	adminGET := func(hf http.HandlerFunc) http.Handler {
@@ -110,7 +123,7 @@ func main() {
 	mux.Handle("GET /import", adminGET(h.HandleImport))
 	mux.Handle("POST /import", adminPOST(h.HandleImportSync))
 
-	log.Printf("Listening on http://localhost:%s", port)
+	mux.HandleFunc("GET /images/{bgg_id}", h.HandleImage)
 
 	server := &http.Server{
 		Addr:              ":" + port,
@@ -122,5 +135,25 @@ func main() {
 		MaxHeaderBytes:    1 << 20,
 	}
 
-	log.Fatal(server.ListenAndServe())
+	// Run the server in a goroutine so we can wait for a shutdown signal.
+	slog.Info("listening", "addr", "http://localhost:"+port)
+	go func() {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("server error", "error", err)
+			os.Exit(1)
+		}
+	}()
+
+	// Block until SIGINT or SIGTERM is received.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	<-ctx.Done()
+
+	slog.Info("shutting down")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		slog.Error("graceful shutdown failed", "error", err)
+	}
+	slog.Info("stopped")
 }
