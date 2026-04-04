@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -32,7 +33,9 @@ func (h *Handler) HandleImportSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = h.Store.SetConfig("bgg_username", username)
+	if err := h.Store.SetConfig("bgg_username", username); err != nil {
+		slog.Error("SetConfig bgg_username", "error", err)
+	}
 
 	count, err := h.BGG.ImportCollection(r.Context(), h.Store, username)
 	if err != nil {

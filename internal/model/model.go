@@ -49,6 +49,17 @@ func (g Game) BGGURL() string {
 	return fmt.Sprintf("https://boardgamegeek.com/boardgame/%d", g.BGGID)
 }
 
+// ThumbnailURL returns the URL to use for the game thumbnail in templates.
+// When a BGGID is available it routes through the local image proxy/cache so
+// external URLs are never sent directly to browsers (avoids CSP issues and
+// provides resilience against upstream URL changes).
+func (g Game) ThumbnailURL() string {
+	if g.BGGID > 0 {
+		return fmt.Sprintf("/images/%d", g.BGGID)
+	}
+	return g.Thumbnail
+}
+
 // Tagline returns the first sentence of the description as a one-liner.
 func (g Game) Tagline() string {
 	d := strings.TrimSpace(g.Description)

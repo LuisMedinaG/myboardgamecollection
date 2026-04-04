@@ -1,6 +1,7 @@
 package render
 
 import (
+	"bytes"
 	"embed"
 	"fmt"
 	"html/template"
@@ -66,19 +67,31 @@ func New(templateFS embed.FS) *Renderer {
 }
 
 // Page renders a full page (with layout) to the writer.
+// It buffers the output so a template error never produces a partial response.
 func (r *Renderer) Page(w io.Writer, name, title string, data any) error {
 	t, ok := r.tmpl[name]
 	if !ok {
 		return fmt.Errorf("template %q not found", name)
 	}
-	return t.ExecuteTemplate(w, "layout.html", viewmodel.PageData{Title: title, Data: data})
+	var buf bytes.Buffer
+	if err := t.ExecuteTemplate(&buf, "layout.html", viewmodel.PageData{Title: title, Data: data}); err != nil {
+		return err
+	}
+	_, err := buf.WriteTo(w)
+	return err
 }
 
 // Partial renders a template partial (no layout) to the writer.
+// It buffers the output so a template error never produces a partial response.
 func (r *Renderer) Partial(w io.Writer, name string, data any) error {
 	t, ok := r.tmpl[name]
 	if !ok {
 		return fmt.Errorf("template %q not found", name)
 	}
-	return t.ExecuteTemplate(w, name, data)
+	var buf bytes.Buffer
+	if err := t.ExecuteTemplate(&buf, name, data); err != nil {
+		return err
+	}
+	_, err := buf.WriteTo(w)
+	return err
 }

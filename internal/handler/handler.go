@@ -20,6 +20,18 @@ func parseID(r *http.Request) (int64, error) {
 	return strconv.ParseInt(r.PathValue("id"), 10, 64)
 }
 
+// requireID parses the {id} path value and writes a 400 if it is not a valid
+// integer. Returns (id, true) on success; (0, false) when an error response
+// has already been written and the caller must return immediately.
+func requireID(w http.ResponseWriter, r *http.Request) (int64, bool) {
+	id, err := parseID(r)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return 0, false
+	}
+	return id, true
+}
+
 func isHTMX(r *http.Request) bool {
 	return r.Header.Get("HX-Request") == "true"
 }

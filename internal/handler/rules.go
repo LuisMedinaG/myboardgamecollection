@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,9 +18,8 @@ import (
 const maxPlayerAidUploadBytes = 10 << 20
 
 func (h *Handler) HandleRules(w http.ResponseWriter, r *http.Request) {
-	id, err := parseID(r)
-	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+	id, ok := requireID(w, r)
+	if !ok {
 		return
 	}
 	game, err := h.Store.GetGame(id)
@@ -27,7 +27,10 @@ func (h *Handler) HandleRules(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "game not found", http.StatusNotFound)
 		return
 	}
-	aids, _ := h.Store.GetPlayerAids(id)
+	aids, err := h.Store.GetPlayerAids(id)
+	if err != nil {
+		slog.Error("GetPlayerAids", "gameID", id, "error", err)
+	}
 
 	data := viewmodel.RulesPageData{
 		Game:       game,
@@ -40,9 +43,8 @@ func (h *Handler) HandleRules(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleRulesURLUpdate(w http.ResponseWriter, r *http.Request) {
-	id, err := parseID(r)
-	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+	id, ok := requireID(w, r)
+	if !ok {
 		return
 	}
 	rulesURL := strings.TrimSpace(r.FormValue("rules_url"))
@@ -56,8 +58,15 @@ func (h *Handler) HandleRulesURLUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if isHTMX(r) {
-		game, _ := h.Store.GetGame(id)
-		aids, _ := h.Store.GetPlayerAids(id)
+		game, err := h.Store.GetGame(id)
+		if err != nil {
+			http.Error(w, "game not found", http.StatusNotFound)
+			return
+		}
+		aids, err := h.Store.GetPlayerAids(id)
+		if err != nil {
+			slog.Error("GetPlayerAids", "gameID", id, "error", err)
+		}
 		data := viewmodel.RulesPageData{
 			Game:       game,
 			PlayerAids: aids,
@@ -72,9 +81,8 @@ func (h *Handler) HandleRulesURLUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandlePlayerAidUpload(w http.ResponseWriter, r *http.Request) {
-	id, err := parseID(r)
-	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+	id, ok := requireID(w, r)
+	if !ok {
 		return
 	}
 
@@ -143,7 +151,10 @@ func (h *Handler) HandlePlayerAidUpload(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if isHTMX(r) {
-		aids, _ := h.Store.GetPlayerAids(id)
+		aids, err := h.Store.GetPlayerAids(id)
+		if err != nil {
+			slog.Error("GetPlayerAids", "gameID", id, "error", err)
+		}
 		if err := h.Renderer.Partial(w, "player_aids_list", viewmodel.PlayerAidsListData{GameID: id, Aids: aids}); err != nil {
 			http.Error(w, "failed to render partial", http.StatusInternalServerError)
 		}
@@ -173,7 +184,10 @@ func (h *Handler) HandlePlayerAidDelete(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if isHTMX(r) {
-		aids, _ := h.Store.GetPlayerAids(aid.GameID)
+		aids, err := h.Store.GetPlayerAids(aid.GameID)
+		if err != nil {
+			slog.Error("GetPlayerAids", "gameID", aid.GameID, "error", err)
+		}
 		if err := h.Renderer.Partial(w, "player_aids_list", viewmodel.PlayerAidsListData{GameID: aid.GameID, Aids: aids}); err != nil {
 			http.Error(w, "failed to render partial", http.StatusInternalServerError)
 		}
