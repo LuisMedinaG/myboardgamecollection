@@ -893,6 +893,8 @@ body {
   font-size: 0.8rem;
   font-weight: 600;
   text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: background 0.15s;
 }
 
@@ -929,9 +931,16 @@ body {
 
 .pill-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.4rem;
   margin-top: 0.25rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.25rem;
+}
+
+.pill-row::-webkit-scrollbar {
+  display: none;
 }
 
 .filter-chip-type {
