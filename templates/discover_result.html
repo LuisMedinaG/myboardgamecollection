@@ -16,10 +16,22 @@
 
     {{/* Active filter chips */}}
     <div class="active-filters">
+        {{ if .Type }}
+        <span class="filter-chip filter-chip-type">
+            {{ .Type }}
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Mechanic }}&mechanic={{ .Mechanic }}{{ end }}{{ if .Players }}&players={{ .Players }}{{ end }}{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="chip-remove">&times;</a>
+        </span>
+        {{ end }}
         {{ if .Category }}
-        <span class="filter-chip">
+        <span class="filter-chip filter-chip-category">
             {{ .Category }}
-            <a href="/discover?vibe={{ .VibeID }}{{ if .Players }}&players={{ .Players }}{{ end }}{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="chip-remove">&times;</a>
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Type }}&type={{ .Type }}{{ end }}{{ if .Mechanic }}&mechanic={{ .Mechanic }}{{ end }}{{ if .Players }}&players={{ .Players }}{{ end }}{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="chip-remove">&times;</a>
+        </span>
+        {{ end }}
+        {{ if .Mechanic }}
+        <span class="filter-chip filter-chip-mechanic">
+            {{ .Mechanic }}
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Type }}&type={{ .Type }}{{ end }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Players }}&players={{ .Players }}{{ end }}{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="chip-remove">&times;</a>
         </span>
         {{ end }}
         {{ if .Players }}
@@ -29,7 +41,7 @@
             {{ if eq .Players "3" }}Up to 3{{ end }}
             {{ if eq .Players "4" }}Up to 4{{ end }}
             {{ if eq .Players "5plus" }}5+{{ end }}
-            <a href="/discover?vibe={{ .VibeID }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="chip-remove">&times;</a>
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Type }}&type={{ .Type }}{{ end }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Mechanic }}&mechanic={{ .Mechanic }}{{ end }}{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="chip-remove">&times;</a>
         </span>
         {{ end }}
         {{ if .Playtime }}
@@ -37,17 +49,44 @@
             {{ if eq .Playtime "short" }}&lt; 30 min{{ end }}
             {{ if eq .Playtime "medium" }}30–60 min{{ end }}
             {{ if eq .Playtime "long" }}&gt; 60 min{{ end }}
-            <a href="/discover?vibe={{ .VibeID }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Players }}&players={{ .Players }}{{ end }}" class="chip-remove">&times;</a>
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Type }}&type={{ .Type }}{{ end }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Mechanic }}&mechanic={{ .Mechanic }}{{ end }}{{ if .Players }}&players={{ .Players }}{{ end }}" class="chip-remove">&times;</a>
         </span>
         {{ end }}
     </div>
 
+    {{/* Type pills */}}
+    {{ if and (gt (len .Types) 1) (eq .Type "") }}
+    <div class="filter-pills">
+        <span class="filter-row-label">Type:</span>
+        <div class="pill-row">
+            {{ range .Types }}
+            <a href="/discover?vibe={{ $.VibeID }}&type={{ . }}{{ if $.Category }}&category={{ $.Category }}{{ end }}{{ if $.Mechanic }}&mechanic={{ $.Mechanic }}{{ end }}{{ if $.Players }}&players={{ $.Players }}{{ end }}{{ if $.Playtime }}&playtime={{ $.Playtime }}{{ end }}" class="pill-btn pill-type">{{ . }}</a>
+            {{ end }}
+        </div>
+    </div>
+    {{ end }}
+
     {{/* Category pills */}}
     {{ if and (gt (len .Categories) 1) (eq .Category "") }}
-    <div class="category-pills">
-        {{ range .Categories }}
-        <a href="/discover?vibe={{ $.VibeID }}&category={{ . }}{{ if $.Players }}&players={{ $.Players }}{{ end }}{{ if $.Playtime }}&playtime={{ $.Playtime }}{{ end }}" class="pill-btn">{{ . }}</a>
-        {{ end }}
+    <div class="filter-pills">
+        <span class="filter-row-label">Category:</span>
+        <div class="pill-row">
+            {{ range .Categories }}
+            <a href="/discover?vibe={{ $.VibeID }}{{ if $.Type }}&type={{ $.Type }}{{ end }}&category={{ . }}{{ if $.Mechanic }}&mechanic={{ $.Mechanic }}{{ end }}{{ if $.Players }}&players={{ $.Players }}{{ end }}{{ if $.Playtime }}&playtime={{ $.Playtime }}{{ end }}" class="pill-btn pill-category">{{ . }}</a>
+            {{ end }}
+        </div>
+    </div>
+    {{ end }}
+
+    {{/* Mechanic pills */}}
+    {{ if and (gt (len .Mechanics) 1) (eq .Mechanic "") }}
+    <div class="filter-pills">
+        <span class="filter-row-label">Mechanic:</span>
+        <div class="pill-row">
+            {{ range .Mechanics }}
+            <a href="/discover?vibe={{ $.VibeID }}{{ if $.Type }}&type={{ $.Type }}{{ end }}{{ if $.Category }}&category={{ $.Category }}{{ end }}&mechanic={{ . }}{{ if $.Players }}&players={{ $.Players }}{{ end }}{{ if $.Playtime }}&playtime={{ $.Playtime }}{{ end }}" class="pill-btn pill-mechanic">{{ . }}</a>
+            {{ end }}
+        </div>
     </div>
     {{ end }}
 
@@ -56,10 +95,10 @@
     <div class="filter-row">
         <span class="filter-row-label">Players:</span>
         <div class="filter-btn-group">
-            <a href="/discover?vibe={{ .VibeID }}{{ if .Category }}&category={{ .Category }}{{ end }}&players=1{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="filter-btn">Solo</a>
-            <a href="/discover?vibe={{ .VibeID }}{{ if .Category }}&category={{ .Category }}{{ end }}&players=3{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="filter-btn">Up to 3</a>
-            <a href="/discover?vibe={{ .VibeID }}{{ if .Category }}&category={{ .Category }}{{ end }}&players=4{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="filter-btn">Up to 4</a>
-            <a href="/discover?vibe={{ .VibeID }}{{ if .Category }}&category={{ .Category }}{{ end }}&players=5plus{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="filter-btn">5+</a>
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Type }}&type={{ .Type }}{{ end }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Mechanic }}&mechanic={{ .Mechanic }}{{ end }}&players=1{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="filter-btn">Solo</a>
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Type }}&type={{ .Type }}{{ end }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Mechanic }}&mechanic={{ .Mechanic }}{{ end }}&players=3{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="filter-btn">Up to 3</a>
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Type }}&type={{ .Type }}{{ end }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Mechanic }}&mechanic={{ .Mechanic }}{{ end }}&players=4{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="filter-btn">Up to 4</a>
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Type }}&type={{ .Type }}{{ end }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Mechanic }}&mechanic={{ .Mechanic }}{{ end }}&players=5plus{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="filter-btn">5+</a>
         </div>
     </div>
     {{ end }}
@@ -69,9 +108,9 @@
     <div class="filter-row">
         <span class="filter-row-label">Duration:</span>
         <div class="filter-btn-group">
-            <a href="/discover?vibe={{ .VibeID }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Players }}&players={{ .Players }}{{ end }}&playtime=short" class="filter-btn">&lt; 30 min</a>
-            <a href="/discover?vibe={{ .VibeID }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Players }}&players={{ .Players }}{{ end }}&playtime=medium" class="filter-btn">30–60 min</a>
-            <a href="/discover?vibe={{ .VibeID }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Players }}&players={{ .Players }}{{ end }}&playtime=long" class="filter-btn">&gt; 60 min</a>
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Type }}&type={{ .Type }}{{ end }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Mechanic }}&mechanic={{ .Mechanic }}{{ end }}{{ if .Players }}&players={{ .Players }}{{ end }}&playtime=short" class="filter-btn">&lt; 30 min</a>
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Type }}&type={{ .Type }}{{ end }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Mechanic }}&mechanic={{ .Mechanic }}{{ end }}{{ if .Players }}&players={{ .Players }}{{ end }}&playtime=medium" class="filter-btn">30–60 min</a>
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Type }}&type={{ .Type }}{{ end }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Mechanic }}&mechanic={{ .Mechanic }}{{ end }}{{ if .Players }}&players={{ .Players }}{{ end }}&playtime=long" class="filter-btn">&gt; 60 min</a>
         </div>
     </div>
     {{ end }}
@@ -85,7 +124,7 @@
     {{ else }}
         <div class="game-list">
             {{ range .Games }}
-            <a href="/games/{{ .ID }}" class="game-list-item game-list-item-discover">
+            <a href="/games/{{ .ID }}" class="game-list-item">
                 {{ if .Thumbnail }}
                 <img src="{{ .Thumbnail }}" class="game-cover" alt="{{ .Name }}">
                 {{ else }}
@@ -93,22 +132,6 @@
                 {{ end }}
                 <div class="game-list-info">
                     <div class="game-list-name">{{ .Name }}</div>
-                    <div class="game-list-meta">{{ .PlayersStr }} players · {{ .PlaytimeStr }}</div>
-                    {{ if .Types }}
-                    <div class="game-list-tags">
-                        {{ range split .Types ", " }}<span class="tag-sm tag-type">{{ . }}</span>{{ end }}
-                    </div>
-                    {{ end }}
-                    {{ if .Categories }}
-                    <div class="game-list-tags">
-                        {{ range split .Categories ", " }}<span class="tag-sm tag-category">{{ . }}</span>{{ end }}
-                    </div>
-                    {{ end }}
-                    {{ if .Mechanics }}
-                    <div class="game-list-tags">
-                        {{ range split .Mechanics ", " }}<span class="tag-sm tag-mechanic">{{ . }}</span>{{ end }}
-                    </div>
-                    {{ end }}
                 </div>
                 <span class="chevron">&#8250;</span>
             </a>

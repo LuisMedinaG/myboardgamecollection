@@ -428,16 +428,24 @@ func setGameVibes(gameID int64, vibeIDs []int64) error {
 	return tx.Commit()
 }
 
-func filterGamesByVibe(vibeID int64, category, players, playtime string) ([]Game, error) {
+func filterGamesByVibe(vibeID int64, typ, category, mechanic, players, playtime string) ([]Game, error) {
 	var conditions []string
 	var args []any
 
 	conditions = append(conditions, "g.id IN (SELECT game_id FROM game_vibes WHERE vibe_id = ?)")
 	args = append(args, vibeID)
 
+	if typ != "" {
+		conditions = append(conditions, "g.types LIKE ?")
+		args = append(args, "%"+typ+"%")
+	}
 	if category != "" {
 		conditions = append(conditions, "g.categories LIKE ?")
 		args = append(args, "%"+category+"%")
+	}
+	if mechanic != "" {
+		conditions = append(conditions, "g.mechanics LIKE ?")
+		args = append(args, "%"+mechanic+"%")
 	}
 	if players != "" {
 		switch players {
@@ -480,19 +488,19 @@ func filterGamesByVibe(vibeID int64, category, players, playtime string) ([]Game
 	return scanGames(rows)
 }
 
-func categoriesForGames(games []Game) []string {
+func extractField(games []Game, field func(Game) string) []string {
 	seen := make(map[string]bool)
 	for _, g := range games {
-		for _, c := range strings.Split(g.Categories, ", ") {
-			c = strings.TrimSpace(c)
-			if c != "" {
-				seen[c] = true
+		for _, v := range strings.Split(field(g), ", ") {
+			v = strings.TrimSpace(v)
+			if v != "" {
+				seen[v] = true
 			}
 		}
 	}
 	var result []string
-	for c := range seen {
-		result = append(result, c)
+	for v := range seen {
+		result = append(result, v)
 	}
 	for i := 0; i < len(result); i++ {
 		for j := i + 1; j < len(result); j++ {
@@ -502,6 +510,18 @@ func categoriesForGames(games []Game) []string {
 		}
 	}
 	return result
+}
+
+func typesForGames(games []Game) []string {
+	return extractField(games, func(g Game) string { return g.Types })
+}
+
+func categoriesForGames(games []Game) []string {
+	return extractField(games, func(g Game) string { return g.Categories })
+}
+
+func mechanicsForGames(games []Game) []string {
+	return extractField(games, func(g Game) string { return g.Mechanics })
 }
 
 func distinctCategories() ([]string, error) {

@@ -87,8 +87,12 @@ type DiscoverPageData struct {
 	VibeID     int64
 	VibeName   string
 	Games      []Game
+	Types      []string
 	Categories []string
+	Mechanics  []string
+	Type       string
 	Category   string
+	Mechanic   string
 	Players    string
 	Playtime   string
 }

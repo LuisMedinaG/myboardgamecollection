@@ -900,6 +900,52 @@ body {
   background: #d4c8e4;
 }
 
+.pill-type {
+  background: #dceefb;
+  color: #1a5f8a;
+}
+
+.pill-type:hover {
+  background: #c5e0f5;
+}
+
+.pill-category {
+  background: #e8e0f0;
+  color: #5b3d8f;
+}
+
+.pill-mechanic {
+  background: #e0f0e3;
+  color: #2d6a32;
+}
+
+.pill-mechanic:hover {
+  background: #cfe6d3;
+}
+
+.filter-pills {
+  margin-bottom: 0.75rem;
+}
+
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.filter-chip-type {
+  background: #1a5f8a;
+}
+
+.filter-chip-category {
+  background: #5b3d8f;
+}
+
+.filter-chip-mechanic {
+  background: #2d6a32;
+}
+
 /* Filter row (discover page) */
 .filter-row {
   margin-bottom: 0.75rem;

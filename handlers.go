@@ -329,24 +329,28 @@ func handleDiscover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	typ := r.URL.Query().Get("type")
 	category := r.URL.Query().Get("category")
+	mechanic := r.URL.Query().Get("mechanic")
 	players := r.URL.Query().Get("players")
 	playtime := r.URL.Query().Get("playtime")
 
-	games, err := filterGamesByVibe(vibeID, category, players, playtime)
+	games, err := filterGamesByVibe(vibeID, typ, category, mechanic, players, playtime)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	categories := categoriesForGames(games)
-
 	data := DiscoverPageData{
 		VibeID:     vibeID,
 		VibeName:   vibe.Name,
 		Games:      games,
-		Categories: categories,
+		Types:      typesForGames(games),
+		Categories: categoriesForGames(games),
+		Mechanics:  mechanicsForGames(games),
+		Type:       typ,
 		Category:   category,
+		Mechanic:   mechanic,
 		Players:    players,
 		Playtime:   playtime,
 	}
