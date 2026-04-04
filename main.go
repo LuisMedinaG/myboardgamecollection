@@ -49,10 +49,14 @@ func main() {
 		log.Printf("warning: seed failed: %v", err)
 	}
 
-	// Initialize BGG client (optional).
+	// Initialize BGG client (optional): token takes priority, then cookie.
 	var bc *bgg.Client
 	if token := os.Getenv("BGG_TOKEN"); token != "" {
 		bc = bgg.New(token)
+		log.Println("BGG auth: using token")
+	} else if cookie := os.Getenv("BGG_COOKIE"); cookie != "" {
+		bc = bgg.NewWithCookies(cookie)
+		log.Println("BGG auth: using cookie")
 	}
 
 	// Initialize renderer and handler.

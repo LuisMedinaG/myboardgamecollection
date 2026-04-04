@@ -3,6 +3,7 @@ package bgg
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -20,6 +21,20 @@ type Client struct {
 // New creates a new BGG client with the given auth token.
 func New(token string) *Client {
 	return &Client{bgg: gobgg.NewBGGClient(gobgg.SetAuthToken(token))}
+}
+
+// NewWithCookies creates a new BGG client using a raw cookie string
+// (e.g. "bggusername=foo; bggpassword=bar; SessionID=xyz").
+func NewWithCookies(raw string) *Client {
+	cookies := parseCookieString(raw)
+	return &Client{bgg: gobgg.NewBGGClient(gobgg.SetCookies("", cookies))}
+}
+
+// parseCookieString parses a raw Cookie header value into []*http.Cookie.
+func parseCookieString(raw string) []*http.Cookie {
+	header := http.Header{"Cookie": {raw}}
+	req := http.Request{Header: header}
+	return req.Cookies()
 }
 
 // ImportCollection imports all games from a user's BGG collection.
