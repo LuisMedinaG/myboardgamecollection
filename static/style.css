@@ -532,6 +532,15 @@ body {
   background: #fdecea;
 }
 
+.btn-icon-muted {
+  color: #888;
+}
+
+.btn-icon-muted:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
 /* ==============================
    Import page (gameshelf style)
    ============================== */
@@ -656,10 +665,22 @@ body {
   margin-bottom: 1rem;
 }
 
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
 .section-title {
   font-size: 1rem;
   font-weight: 700;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0;
+}
+
+.section-header + .pdf-viewer,
+.section-header + .rules-url-form {
+  margin-top: 0;
 }
 
 .pdf-viewer {
@@ -682,8 +703,13 @@ body {
   margin-top: 0.75rem;
 }
 
-.rules-url-form .btn-sm {
-  align-self: flex-start;
+.rules-url-form.hidden {
+  display: none;
+}
+
+.rules-url-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 /* Player aids */
@@ -740,6 +766,52 @@ body {
 .file-input {
   padding: 0.5rem;
   font-size: 0.9rem;
+}
+
+/* Lightbox */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.lightbox-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.lightbox-img {
+  max-width: 92vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 2rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.lightbox-close:hover {
+  opacity: 1;
 }
 
 /* Form */

@@ -5,7 +5,7 @@
     <div class="player-aids-grid">
         {{ range .Aids }}
         <div class="player-aid-card">
-            <img src="/uploads/{{ .Filename }}" alt="{{ .Label }}" class="player-aid-img">
+            <img src="/uploads/{{ .Filename }}" alt="{{ .Label }}" class="player-aid-img" onclick="openLightbox(this.src, this.alt)">
             <div class="player-aid-info">
                 <span class="player-aid-label">{{ .Label }}</span>
                 <button
@@ -22,4 +22,27 @@
         {{ end }}
     </div>
 {{ end }}
+<!-- Lightbox -->
+<div class="lightbox-overlay" id="lightbox" onclick="closeLightbox(event)">
+    <button class="lightbox-close" onclick="closeLightbox(event)">&times;</button>
+    <img class="lightbox-img" id="lightbox-img" src="" alt="">
+</div>
+<script>
+function openLightbox(src, alt) {
+    var lb = document.getElementById('lightbox');
+    var img = document.getElementById('lightbox-img');
+    img.src = src;
+    img.alt = alt || '';
+    lb.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+function closeLightbox(e) {
+    if (e.target.classList.contains('lightbox-img')) return;
+    document.getElementById('lightbox').classList.remove('active');
+    document.body.style.overflow = '';
+}
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeLightbox(e);
+});
+</script>
 {{ end }}

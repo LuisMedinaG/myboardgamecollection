@@ -1,7 +1,12 @@
 {{ define "rules_content" }}
 <!-- Rulebook PDF Section -->
 <div class="rules-section">
-    <h3 class="section-title">Rulebook</h3>
+    <div class="section-header">
+        <h3 class="section-title">Rulebook</h3>
+        {{ if .EmbedURL }}
+        <button class="btn-icon btn-icon-muted" onclick="this.closest('.rules-section').querySelector('.rules-url-form').classList.toggle('hidden')" title="Edit link">&#9998;</button>
+        {{ end }}
+    </div>
     {{ if .EmbedURL }}
     <div class="pdf-viewer">
         <iframe
@@ -18,7 +23,7 @@
         hx-post="/games/{{ .Game.ID }}/rules/url"
         hx-target="#rules-content"
         hx-swap="innerHTML"
-        class="rules-url-form"
+        class="rules-url-form{{ if .EmbedURL }} hidden{{ end }}"
     >
         <label class="form-label">
             {{ if .Game.RulesURL }}
@@ -34,9 +39,14 @@
                 class="form-input"
             >
         </label>
-        <button type="submit" class="btn btn-primary btn-sm">
-            {{ if .Game.RulesURL }}Update{{ else }}Save{{ end }}
-        </button>
+        <div class="rules-url-actions">
+            <button type="submit" class="btn btn-primary btn-sm">
+                {{ if .Game.RulesURL }}Update{{ else }}Save{{ end }}
+            </button>
+            {{ if .EmbedURL }}
+            <button type="button" class="btn btn-secondary btn-sm" onclick="this.closest('.rules-url-form').classList.add('hidden')">Cancel</button>
+            {{ end }}
+        </div>
     </form>
 </div>
 <!-- Player Aids Section -->
