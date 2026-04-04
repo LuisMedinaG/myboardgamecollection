@@ -8,7 +8,7 @@
     <div class="game-list">
         {{ range . }}
         <div class="game-list-item-wrap">
-            <label class="game-select-check" style="display:none;">
+            <label class="game-select-check">
                 <input type="checkbox" name="game_ids" value="{{ .ID }}" form="bulk-vibe-form">
             </label>
             <a href="/games/{{ .ID }}" class="game-list-item game-list-link">

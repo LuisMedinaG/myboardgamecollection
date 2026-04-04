@@ -120,18 +120,22 @@
     }
 
     function applySelectMode() {
-        var checks = document.querySelectorAll('.game-select-check');
+        var gameList = document.querySelector('.game-list');
+        if (gameList) {
+            if (selectMode) {
+                gameList.classList.add('select-mode');
+            } else {
+                gameList.classList.remove('select-mode');
+            }
+        }
         var links = document.querySelectorAll('.game-list-link');
-        checks.forEach(function(el) { el.style.display = selectMode ? '' : 'none'; });
         links.forEach(function(el) {
             if (selectMode) {
                 el.setAttribute('data-href', el.getAttribute('href'));
                 el.removeAttribute('href');
-                el.style.cursor = 'pointer';
             } else {
                 var href = el.getAttribute('data-href');
                 if (href) el.setAttribute('href', href);
-                el.style.cursor = '';
             }
         });
         if (!selectMode) {

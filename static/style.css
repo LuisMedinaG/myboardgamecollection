@@ -1143,7 +1143,7 @@ body {
 }
 
 .game-select-check {
-  display: flex;
+  display: none;
   align-items: center;
   padding: 0 0.5rem 0 0.75rem;
   background: var(--surface);
@@ -1153,7 +1153,11 @@ body {
   cursor: pointer;
 }
 
-.game-select-check + .game-list-item {
+.select-mode .game-select-check {
+  display: flex;
+}
+
+.select-mode .game-select-check + .game-list-item {
   border-radius: 0 var(--radius) var(--radius) 0;
 }
 
