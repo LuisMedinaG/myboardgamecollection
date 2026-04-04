@@ -1,4 +1,4 @@
-package main
+package render
 
 import (
 	"embed"
@@ -6,33 +6,31 @@ import (
 	"html/template"
 	"io"
 	"strings"
+
+	"myboardgamecollection/internal/model"
+	"myboardgamecollection/internal/viewmodel"
 )
 
-//go:embed templates
-var templateFS embed.FS
-
-var tmpl map[string]*template.Template
-
-var funcMap = template.FuncMap{
-	"split": strings.Split,
-	"add":   func(a, b int) int { return a + b },
-	"playerAidsData": func(gameID int64, aids []PlayerAid) PlayerAidsListData {
-		return PlayerAidsListData{GameID: gameID, Aids: aids}
-	},
+// Renderer manages parsed templates and provides page/partial rendering.
+type Renderer struct {
+	tmpl map[string]*template.Template
 }
 
-// PageData wraps a title and arbitrary data for full-page renders.
-type PageData struct {
-	Title string
-	Data  any
-}
+// New parses all templates from the embedded filesystem and returns a Renderer.
+func New(templateFS embed.FS) *Renderer {
+	funcMap := template.FuncMap{
+		"split": strings.Split,
+		"add":   func(a, b int) int { return a + b },
+		"playerAidsData": func(gameID int64, aids []model.PlayerAid) viewmodel.PlayerAidsListData {
+			return viewmodel.PlayerAidsListData{GameID: gameID, Aids: aids}
+		},
+	}
 
-func initTemplates() {
 	layout := template.Must(
 		template.New("layout.html").Funcs(funcMap).ParseFS(templateFS, "templates/layout.html"),
 	)
 
-	tmpl = map[string]*template.Template{
+	tmpl := map[string]*template.Template{
 		// Full pages (with layout)
 		"home": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
 			"templates/home.html")),
@@ -63,18 +61,22 @@ func initTemplates() {
 		"import_result": template.Must(
 			template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/import_result.html")),
 	}
+
+	return &Renderer{tmpl: tmpl}
 }
 
-func renderPage(w io.Writer, name string, title string, data any) error {
-	t, ok := tmpl[name]
+// Page renders a full page (with layout) to the writer.
+func (r *Renderer) Page(w io.Writer, name, title string, data any) error {
+	t, ok := r.tmpl[name]
 	if !ok {
 		return fmt.Errorf("template %q not found", name)
 	}
-	return t.ExecuteTemplate(w, "layout.html", PageData{Title: title, Data: data})
+	return t.ExecuteTemplate(w, "layout.html", viewmodel.PageData{Title: title, Data: data})
 }
 
-func renderPartial(w io.Writer, name string, data any) error {
-	t, ok := tmpl[name]
+// Partial renders a template partial (no layout) to the writer.
+func (r *Renderer) Partial(w io.Writer, name string, data any) error {
+	t, ok := r.tmpl[name]
 	if !ok {
 		return fmt.Errorf("template %q not found", name)
 	}

@@ -6,10 +6,18 @@ import (
 	"log"
 	"net/http"
 	"os"
+
+	"myboardgamecollection/internal/bgg"
+	"myboardgamecollection/internal/handler"
+	"myboardgamecollection/internal/render"
+	"myboardgamecollection/internal/store"
 )
 
 //go:embed static
 var staticFiles embed.FS
+
+//go:embed templates
+var templateFS embed.FS
 
 func main() {
 	port := "8080"
@@ -22,66 +30,66 @@ func main() {
 		dbPath = p
 	}
 
-	// BGG token is optional — app works without it (seed data + manual use)
-	if token := os.Getenv("BGG_TOKEN"); token != "" {
-		initBGG(token)
-	}
-
-	initTemplates()
-
-	if err := initDB(dbPath); err != nil {
+	// Initialize store (database).
+	s, err := store.New(dbPath)
+	if err != nil {
 		log.Fatalf("database: %v", err)
 	}
-	defer db.Close()
+	defer s.Close()
 
-	if err := seedIfEmpty(); err != nil {
+	if err := s.SeedIfEmpty(); err != nil {
 		log.Printf("warning: seed failed: %v", err)
 	}
 
-	// Ensure uploads directory
+	// Initialize BGG client (optional).
+	var bc *bgg.Client
+	if token := os.Getenv("BGG_TOKEN"); token != "" {
+		bc = bgg.New(token)
+	}
+
+	// Initialize renderer and handler.
+	ren := render.New(templateFS)
+	h := &handler.Handler{Store: s, Renderer: ren, BGG: bc}
+
+	// Ensure uploads directory.
 	_ = os.MkdirAll("data/uploads", 0o755)
 
 	mux := http.NewServeMux()
 
-	// Static files (embedded)
+	// Static files (embedded).
 	staticFS, _ := fs.Sub(staticFiles, "static")
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 
-	// Uploaded files (on disk)
+	// Uploaded files (on disk).
 	uploads := http.StripPrefix("/uploads/", http.FileServer(http.Dir("data/uploads")))
 	mux.Handle("GET /uploads/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		uploads.ServeHTTP(w, r)
 	}))
 
-	// Routes
-	mux.HandleFunc("GET /{$}", handleHome)
-	mux.HandleFunc("GET /games", handleGames)
-	mux.HandleFunc("GET /games/{id}", handleGameDetail)
-	mux.HandleFunc("POST /games/{id}/delete", handleGameDelete)
+	// Routes.
+	mux.HandleFunc("GET /{$}", h.HandleHome)
+	mux.HandleFunc("GET /games", h.HandleGames)
+	mux.HandleFunc("GET /games/{id}", h.HandleGameDetail)
+	mux.HandleFunc("POST /games/{id}/delete", h.HandleGameDelete)
 
-	// Game edit (vibes)
-	mux.HandleFunc("GET /games/{id}/edit", handleGameEdit)
-	mux.HandleFunc("POST /games/{id}/vibes", handleGameVibesSave)
+	mux.HandleFunc("GET /games/{id}/edit", h.HandleGameEdit)
+	mux.HandleFunc("POST /games/{id}/vibes", h.HandleGameVibesSave)
 
-	// Discover
-	mux.HandleFunc("GET /discover", handleDiscover)
+	mux.HandleFunc("GET /discover", h.HandleDiscover)
 
-	// Vibe management
-	mux.HandleFunc("GET /vibes", handleVibes)
-	mux.HandleFunc("POST /vibes", handleVibeCreate)
-	mux.HandleFunc("POST /vibes/{id}", handleVibeUpdate)
-	mux.HandleFunc("POST /vibes/{id}/delete", handleVibeDelete)
+	mux.HandleFunc("GET /vibes", h.HandleVibes)
+	mux.HandleFunc("POST /vibes", h.HandleVibeCreate)
+	mux.HandleFunc("POST /vibes/{id}", h.HandleVibeUpdate)
+	mux.HandleFunc("POST /vibes/{id}/delete", h.HandleVibeDelete)
 
-	// Rules
-	mux.HandleFunc("GET /games/{id}/rules", handleRules)
-	mux.HandleFunc("POST /games/{id}/rules/url", handleRulesURLUpdate)
-	mux.HandleFunc("POST /games/{id}/rules/upload", handlePlayerAidUpload)
-	mux.HandleFunc("POST /games/{id}/rules/aids/{aid_id}/delete", handlePlayerAidDelete)
+	mux.HandleFunc("GET /games/{id}/rules", h.HandleRules)
+	mux.HandleFunc("POST /games/{id}/rules/url", h.HandleRulesURLUpdate)
+	mux.HandleFunc("POST /games/{id}/rules/upload", h.HandlePlayerAidUpload)
+	mux.HandleFunc("POST /games/{id}/rules/aids/{aid_id}/delete", h.HandlePlayerAidDelete)
 
-	// BGG Import
-	mux.HandleFunc("GET /import", handleImport)
-	mux.HandleFunc("POST /import", handleImportSync)
+	mux.HandleFunc("GET /import", h.HandleImport)
+	mux.HandleFunc("POST /import", h.HandleImportSync)
 
 	log.Printf("Listening on http://localhost:%s", port)
 	log.Fatal(http.ListenAndServe(":"+port, mux))

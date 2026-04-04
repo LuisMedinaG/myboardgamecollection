@@ -1,4 +1,4 @@
-package main
+package model
 
 import (
 	"fmt"
@@ -81,58 +81,6 @@ type Vibe struct {
 	Name string
 }
 
-// DiscoverPageData holds data for the discover page.
-type DiscoverPageData struct {
-	Vibes      []Vibe
-	VibeID     int64
-	VibeName   string
-	Games      []Game
-	Types      []string
-	Categories []string
-	Mechanics  []string
-	Type           string
-	Category       string
-	Mechanic       string
-	Players        string
-	Playtime       string
-	ValidPlayers   []PlayerOption
-	ValidPlaytimes []PlaytimeOption
-}
-
-// PlayerOption represents a player count filter that has matching games.
-type PlayerOption struct {
-	Value string
-	Label string
-}
-
-// PlaytimeOption represents a playtime filter that has matching games.
-type PlaytimeOption struct {
-	Value string
-	Label string
-}
-
-// GameEditData holds data for the game edit (vibe tagging) page.
-type GameEditData struct {
-	Game      Game
-	AllVibes  []Vibe
-	GameVibes map[int64]bool
-}
-
-// VibesPageData holds data for the vibe management page.
-type VibesPageData struct {
-	Vibes []Vibe
-	Error string
-}
-
-// GamesPageData holds data for the games list page.
-type GamesPageData struct {
-	Games      []Game
-	Categories []string
-	Category   string
-	Players    string
-	Playtime   string
-}
-
 // CollectionEntry holds a game from a user's BGG collection.
 type CollectionEntry struct {
 	BGGID         int64
@@ -140,35 +88,4 @@ type CollectionEntry struct {
 	YearPublished int
 	Thumbnail     string
 	AlreadyOwned  bool
-}
-
-// RulesPageData holds data for the rules page of a game.
-type RulesPageData struct {
-	Game       Game
-	PlayerAids []PlayerAid
-	EmbedURL   string // Google Drive embed URL for PDF viewer
-}
-
-// GameDetailData holds data for the game detail page.
-type GameDetailData struct {
-	Game Game
-	Aids []PlayerAid
-}
-
-// PlayerAidsListData holds data for the player aids list partial.
-type PlayerAidsListData struct {
-	GameID int64
-	Aids   []PlayerAid
-}
-
-// ImportResultData holds data for the import result partial.
-type ImportResultData struct {
-	Count  int
-	ErrMsg string
-}
-
-// ImportPageData holds data for the BGG import page.
-type ImportPageData struct {
-	Username string
-	Enabled  bool
 }
