@@ -40,14 +40,22 @@ func initTemplates() {
 			"templates/games.html", "templates/games_result.html")),
 		"game_detail": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
 			"templates/game_detail.html")),
+		"game_edit": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
+			"templates/game_edit.html")),
 		"rules": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
 			"templates/rules.html", "templates/rules_content.html", "templates/player_aids_list.html")),
 		"import": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
 			"templates/import.html")),
+		"discover": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
+			"templates/discover.html", "templates/discover_result.html")),
+		"vibes": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
+			"templates/vibes.html")),
 
 		// Partials (no layout, for HTMX responses)
 		"games_result": template.Must(
 			template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/games_result.html")),
+		"discover_result": template.Must(
+			template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/discover_result.html")),
 		"rules_content": template.Must(
 			template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/rules_content.html", "templates/player_aids_list.html")),
 		"player_aids_list": template.Must(

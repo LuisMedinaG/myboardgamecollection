@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Game represents a board game in the collection, imported from BGG.
 type Game struct {
@@ -16,6 +19,7 @@ type Game struct {
 	PlayTime      int
 	Categories    string
 	Mechanics     string
+	Types         string // BGG subdomain (e.g. "Family Games, Strategy Games")
 	RulesURL      string // Google Drive link to rulebook PDF
 }
 
@@ -45,12 +49,61 @@ func (g Game) BGGURL() string {
 	return fmt.Sprintf("https://boardgamegeek.com/boardgame/%d", g.BGGID)
 }
 
+// Tagline returns the first sentence of the description as a one-liner.
+func (g Game) Tagline() string {
+	d := strings.TrimSpace(g.Description)
+	if d == "" {
+		return ""
+	}
+	if idx := strings.Index(d, ". "); idx != -1 && idx < 200 {
+		return d[:idx+1]
+	}
+	if idx := strings.Index(d, "."); idx != -1 && idx < 200 {
+		return d[:idx+1]
+	}
+	if len(d) > 150 {
+		return d[:150] + "..."
+	}
+	return d
+}
+
 // PlayerAid represents an uploaded player aid image for a game.
 type PlayerAid struct {
 	ID       int64
 	GameID   int64
 	Filename string
 	Label    string
+}
+
+// Vibe represents a mood/occasion tag for games.
+type Vibe struct {
+	ID   int64
+	Name string
+}
+
+// DiscoverPageData holds data for the discover page.
+type DiscoverPageData struct {
+	Vibes      []Vibe
+	VibeID     int64
+	VibeName   string
+	Games      []Game
+	Categories []string
+	Category   string
+	Players    string
+	Playtime   string
+}
+
+// GameEditData holds data for the game edit (vibe tagging) page.
+type GameEditData struct {
+	Game      Game
+	AllVibes  []Vibe
+	GameVibes map[int64]bool
+}
+
+// VibesPageData holds data for the vibe management page.
+type VibesPageData struct {
+	Vibes []Vibe
+	Error string
 }
 
 // GamesPageData holds data for the games list page.

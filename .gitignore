@@ -7,13 +7,16 @@ myboardgamecollection
 *.db-wal
 *.db-shm
 
-# Generated templ files
-*_templ.go
+# Runtime uploads
+data/uploads/
 
 # Go test / coverage
 *.test
 *.out
 coverage.html
+
+# Go workspace / tooling
+bin/
 
 # IDE
 .idea/

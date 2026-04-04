@@ -1,0 +1,33 @@
+{{ define "content" }}
+<a href="/" class="back-btn">&#8592; Home</a>
+<header class="header">
+    <h1>Manage Vibes</h1>
+    <p class="subtitle">Add, edit, or remove mood tags</p>
+</header>
+
+{{ if .Error }}
+<div class="import-error">{{ .Error }}</div>
+{{ end }}
+
+<form method="POST" action="/vibes" class="vibe-add-form">
+    <input type="text" name="name" placeholder="New vibe name..." class="form-input" required>
+    <button type="submit" class="btn btn-primary btn-sm">Add</button>
+</form>
+
+<div class="vibe-manage-list">
+    {{ range .Vibes }}
+    <div class="vibe-manage-item">
+        <form method="POST" action="/vibes/{{ .ID }}" class="vibe-edit-inline">
+            <input type="text" name="name" value="{{ .Name }}" data-original="{{ .Name }}" class="form-input vibe-edit-input" oninput="this.nextElementSibling.disabled = (this.value === this.dataset.original)" required>
+            <button type="submit" class="btn btn-sm btn-secondary" disabled>Save</button>
+        </form>
+        <form method="POST" action="/vibes/{{ .ID }}/delete" class="vibe-delete-inline" onsubmit="return confirm('Delete this vibe? Games tagged with it will be untagged.')">
+            <button type="submit" class="btn-icon btn-icon-danger" title="Delete">&times;</button>
+        </form>
+    </div>
+    {{ end }}
+    {{ if eq (len .Vibes) 0 }}
+    <p class="empty-state">No vibes yet. Add one above.</p>
+    {{ end }}
+</div>
+{{ end }}

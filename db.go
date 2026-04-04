@@ -62,7 +62,31 @@ func createTables() error {
 			value TEXT NOT NULL DEFAULT ''
 		)
 	`)
-	return err
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS vibes (
+			id   INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL UNIQUE
+		)
+	`)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS game_vibes (
+			game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+			vibe_id INTEGER NOT NULL REFERENCES vibes(id) ON DELETE CASCADE,
+			PRIMARY KEY (game_id, vibe_id)
+		)
+	`)
+	if err != nil {
+		return err
+	}
+	// Add types column if missing (migration for existing DBs)
+	_, _ = db.Exec("ALTER TABLE games ADD COLUMN types TEXT NOT NULL DEFAULT ''")
+	return seedDefaultVibes()
 }
 
 func setConfig(key, value string) error {
@@ -76,11 +100,11 @@ func getConfig(key string) string {
 	return v
 }
 
-const gameColumns = "id, bgg_id, name, description, year_published, image, thumbnail, min_players, max_players, play_time, categories, mechanics, rules_url"
+const gameColumns = "id, bgg_id, name, description, year_published, image, thumbnail, min_players, max_players, play_time, categories, mechanics, types, rules_url"
 
 func scanGame(row interface{ Scan(...any) error }) (Game, error) {
 	var g Game
-	err := row.Scan(&g.ID, &g.BGGID, &g.Name, &g.Description, &g.YearPublished, &g.Image, &g.Thumbnail, &g.MinPlayers, &g.MaxPlayers, &g.PlayTime, &g.Categories, &g.Mechanics, &g.RulesURL)
+	err := row.Scan(&g.ID, &g.BGGID, &g.Name, &g.Description, &g.YearPublished, &g.Image, &g.Thumbnail, &g.MinPlayers, &g.MaxPlayers, &g.PlayTime, &g.Categories, &g.Mechanics, &g.Types, &g.RulesURL)
 	return g, err
 }
 
@@ -117,8 +141,8 @@ func getGameByBGGID(bggID int64) (Game, error) {
 
 func createGame(g Game) (int64, error) {
 	res, err := db.Exec(
-		"INSERT INTO games (bgg_id, name, description, year_published, image, thumbnail, min_players, max_players, play_time, categories, mechanics, rules_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		g.BGGID, g.Name, g.Description, g.YearPublished, g.Image, g.Thumbnail, g.MinPlayers, g.MaxPlayers, g.PlayTime, g.Categories, g.Mechanics, g.RulesURL,
+		"INSERT INTO games (bgg_id, name, description, year_published, image, thumbnail, min_players, max_players, play_time, categories, mechanics, types, rules_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		g.BGGID, g.Name, g.Description, g.YearPublished, g.Image, g.Thumbnail, g.MinPlayers, g.MaxPlayers, g.PlayTime, g.Categories, g.Mechanics, g.Types, g.RulesURL,
 	)
 	if err != nil {
 		return 0, err
@@ -207,49 +231,54 @@ func seedIfEmpty() error {
 	seeds := []Game{
 		{
 			BGGID: 13, Name: "Catan", YearPublished: 1995,
-			Description: "In Catan, players try to be the dominant force on the island of Catan by building settlements, cities, and roads. On each turn dice are rolled to determine what resources the island produces. Players build by spending resources and collect points.",
+			Description: "Collect and trade resources to build up the island of Catan in this modern classic. Players try to be the dominant force on the island by building settlements, cities, and roads. On each turn dice are rolled to determine what resources the island produces.",
 			Image:     "https://picsum.photos/seed/bgg13/400/400",
 			Thumbnail: "https://picsum.photos/seed/bgg13/200/200",
 			MinPlayers: 3, MaxPlayers: 4, PlayTime: 90,
 			Categories: "Economic, Negotiation",
 			Mechanics:  "Dice Rolling, Hand Management, Network and Route Building, Resource Management, Trading",
+			Types:      "Family Games, Strategy Games",
 		},
 		{
 			BGGID: 178900, Name: "Codenames", YearPublished: 2015,
-			Description: "Two rival spymasters know the secret identities of 25 agents. Their teammates know the agents only by their codenames. Spymasters give one-word clues that can point to multiple words on the board.",
+			Description: "Give one-word clues to help your team identify secret agents. Two rival spymasters know the secret identities of 25 agents. Their teammates know the agents only by their codenames.",
 			Image:     "https://picsum.photos/seed/bgg178900/400/400",
 			Thumbnail: "https://picsum.photos/seed/bgg178900/200/200",
 			MinPlayers: 2, MaxPlayers: 8, PlayTime: 15,
 			Categories: "Card Game, Deduction, Party Game, Word Game",
 			Mechanics:  "Communication Limits, Push Your Luck, Team-Based Game",
+			Types:      "Family Games, Party Games",
 		},
 		{
 			BGGID: 70323, Name: "King of Tokyo", YearPublished: 2011,
-			Description: "In King of Tokyo, you play mutant monsters, gigantic robots, and strange aliens, all of whom are destroying Tokyo and whacking each other in order to become the one and only King of Tokyo.",
+			Description: "Mutant monsters, gigantic robots, and strange aliens battle to become the King of Tokyo. Roll dice, smash your opponents, and claim the city!",
 			Image:     "https://picsum.photos/seed/bgg70323/400/400",
 			Thumbnail: "https://picsum.photos/seed/bgg70323/200/200",
 			MinPlayers: 2, MaxPlayers: 6, PlayTime: 30,
 			Categories: "Dice, Fighting, Science Fiction",
 			Mechanics:  "Dice Rolling, King of the Hill, Player Elimination, Press Your Luck",
+			Types:      "Family Games",
 		},
 		{
 			BGGID: 174430, Name: "Gloomhaven", YearPublished: 2017,
-			Description: "Gloomhaven is a game of Euro-inspired tactical combat in a persistent world of shifting motives. Players will take on the role of a wandering adventurer with their own special set of skills and their own reasons for traveling to this dark corner of the world.",
+			Description: "Vanquish monsters with strategic cardplay in a persistent legacy campaign. Players take on the role of wandering adventurers with their own special set of skills in this tactical combat game.",
 			Image:     "https://picsum.photos/seed/bgg174430/400/400",
 			Thumbnail: "https://picsum.photos/seed/bgg174430/200/200",
 			MinPlayers: 1, MaxPlayers: 4, PlayTime: 120,
 			Categories: "Adventure, Exploration, Fantasy, Fighting, Miniatures",
 			Mechanics:  "Action Queue, Campaign, Cooperative Game, Grid Movement, Hand Management, Modular Board",
+			Types:      "Strategy Games, Thematic Games",
 			RulesURL:  "https://drive.google.com/file/d/1pPpSCCFWOaNUPe2GqXkzsLjjOF6KC2Bi/view",
 		},
 		{
 			BGGID: 167791, Name: "Terraforming Mars", YearPublished: 2016,
-			Description: "In the 2400s, mankind begins to terraform the planet Mars. Giant corporations, sponsored by the World Government on Earth, initiate huge projects to raise the temperature, the oxygen level, and the ocean coverage until the environment is habitable.",
+			Description: "Compete with rival CEOs to make Mars habitable and build your corporate empire. Initiate huge projects to raise the temperature, oxygen level, and ocean coverage until the environment is livable.",
 			Image:     "https://picsum.photos/seed/bgg167791/400/400",
 			Thumbnail: "https://picsum.photos/seed/bgg167791/200/200",
 			MinPlayers: 1, MaxPlayers: 5, PlayTime: 120,
 			Categories: "Economic, Industry, Science Fiction, Territory Building",
 			Mechanics:  "Card Drafting, End Game Bonuses, Hand Management, Hexagonal Grid, Tile Placement, Variable Player Powers",
+			Types:      "Strategy Games",
 		},
 	}
 
@@ -308,6 +337,171 @@ func filterGames(category, players, playtime string) ([]Game, error) {
 	}
 	defer rows.Close()
 	return scanGames(rows)
+}
+
+// Vibes
+
+func seedDefaultVibes() error {
+	defaults := []string{"Party", "Family Dinner", "Light Friend Night", "Heavy Euro", "Strangers Meeting"}
+	for _, name := range defaults {
+		_, _ = db.Exec("INSERT OR IGNORE INTO vibes (name) VALUES (?)", name)
+	}
+	return nil
+}
+
+func allVibes() ([]Vibe, error) {
+	rows, err := db.Query("SELECT id, name FROM vibes ORDER BY name")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var vibes []Vibe
+	for rows.Next() {
+		var v Vibe
+		if err := rows.Scan(&v.ID, &v.Name); err != nil {
+			return nil, err
+		}
+		vibes = append(vibes, v)
+	}
+	return vibes, rows.Err()
+}
+
+func getVibe(id int64) (Vibe, error) {
+	var v Vibe
+	err := db.QueryRow("SELECT id, name FROM vibes WHERE id = ?", id).Scan(&v.ID, &v.Name)
+	return v, err
+}
+
+func createVibe(name string) (int64, error) {
+	res, err := db.Exec("INSERT INTO vibes (name) VALUES (?)", name)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+func updateVibe(id int64, name string) error {
+	_, err := db.Exec("UPDATE vibes SET name = ? WHERE id = ?", name, id)
+	return err
+}
+
+func deleteVibe(id int64) error {
+	_, err := db.Exec("DELETE FROM vibes WHERE id = ?", id)
+	return err
+}
+
+func vibesForGame(gameID int64) ([]Vibe, error) {
+	rows, err := db.Query(`
+		SELECT v.id, v.name FROM vibes v
+		JOIN game_vibes gv ON gv.vibe_id = v.id
+		WHERE gv.game_id = ?
+		ORDER BY v.name`, gameID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var vibes []Vibe
+	for rows.Next() {
+		var v Vibe
+		if err := rows.Scan(&v.ID, &v.Name); err != nil {
+			return nil, err
+		}
+		vibes = append(vibes, v)
+	}
+	return vibes, rows.Err()
+}
+
+func setGameVibes(gameID int64, vibeIDs []int64) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec("DELETE FROM game_vibes WHERE game_id = ?", gameID); err != nil {
+		return err
+	}
+	for _, vid := range vibeIDs {
+		if _, err := tx.Exec("INSERT INTO game_vibes (game_id, vibe_id) VALUES (?, ?)", gameID, vid); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func filterGamesByVibe(vibeID int64, category, players, playtime string) ([]Game, error) {
+	var conditions []string
+	var args []any
+
+	conditions = append(conditions, "g.id IN (SELECT game_id FROM game_vibes WHERE vibe_id = ?)")
+	args = append(args, vibeID)
+
+	if category != "" {
+		conditions = append(conditions, "g.categories LIKE ?")
+		args = append(args, "%"+category+"%")
+	}
+	if players != "" {
+		switch players {
+		case "1":
+			conditions = append(conditions, "g.min_players <= 1")
+		case "2only":
+			conditions = append(conditions, "g.min_players = 2 AND g.max_players = 2")
+		case "3":
+			conditions = append(conditions, "g.min_players <= 3")
+		case "4":
+			conditions = append(conditions, "g.min_players <= 4")
+		case "5plus":
+			conditions = append(conditions, "g.max_players >= 5")
+		}
+	}
+	if playtime != "" {
+		switch playtime {
+		case "short":
+			conditions = append(conditions, "g.play_time < 30")
+		case "medium":
+			conditions = append(conditions, "g.play_time >= 30 AND g.play_time <= 60")
+		case "long":
+			conditions = append(conditions, "g.play_time > 60")
+		}
+	}
+
+	query := "SELECT g." + strings.Replace(gameColumns, ", ", ", g.", -1) + " FROM games g"
+	// Fix: gameColumns starts with "id" so we need the prefix on first col too
+	query = "SELECT g.id, g.bgg_id, g.name, g.description, g.year_published, g.image, g.thumbnail, g.min_players, g.max_players, g.play_time, g.categories, g.mechanics, g.types, g.rules_url FROM games g"
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+	query += " ORDER BY g.name"
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanGames(rows)
+}
+
+func categoriesForGames(games []Game) []string {
+	seen := make(map[string]bool)
+	for _, g := range games {
+		for _, c := range strings.Split(g.Categories, ", ") {
+			c = strings.TrimSpace(c)
+			if c != "" {
+				seen[c] = true
+			}
+		}
+	}
+	var result []string
+	for c := range seen {
+		result = append(result, c)
+	}
+	for i := 0; i < len(result); i++ {
+		for j := i + 1; j < len(result); j++ {
+			if result[i] > result[j] {
+				result[i], result[j] = result[j], result[i]
+			}
+		}
+	}
+	return result
 }
 
 func distinctCategories() ([]string, error) {

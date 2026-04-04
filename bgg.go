@@ -78,6 +78,11 @@ func importBGGGame(ctx context.Context, bggID int64) (int64, error) {
 		mechs = append(mechs, l.Name)
 	}
 
+	var types []string
+	for _, l := range t.GetLinkByName("boardgamesubdomain") {
+		types = append(types, l.Name)
+	}
+
 	game := Game{
 		BGGID:         t.ID,
 		Name:          t.Name,
@@ -90,6 +95,7 @@ func importBGGGame(ctx context.Context, bggID int64) (int64, error) {
 		PlayTime:      playTime,
 		Categories:    strings.Join(cats, ", "),
 		Mechanics:     strings.Join(mechs, ", "),
+		Types:         strings.Join(types, ", "),
 	}
 
 	return createGame(game)
@@ -130,6 +136,10 @@ func importBGGCollection(ctx context.Context, username string) (int, error) {
 		for _, l := range t.Mechanics() {
 			mechs = append(mechs, l.Name)
 		}
+		var types []string
+		for _, l := range t.GetLinkByName("boardgamesubdomain") {
+			types = append(types, l.Name)
+		}
 
 		game := Game{
 			BGGID:         t.ID,
@@ -143,6 +153,7 @@ func importBGGCollection(ctx context.Context, username string) (int, error) {
 			PlayTime:      playTime,
 			Categories:    strings.Join(cats, ", "),
 			Mechanics:     strings.Join(mechs, ", "),
+			Types:         strings.Join(types, ", "),
 		}
 
 		if _, err := createGame(game); err == nil {

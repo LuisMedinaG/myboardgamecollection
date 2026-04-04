@@ -296,6 +296,187 @@ func handlePlayerAidDelete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/games/%d/rules", aid.GameID), http.StatusSeeOther)
 }
 
+// Discover
+
+func handleDiscover(w http.ResponseWriter, r *http.Request) {
+	vibeIDStr := r.URL.Query().Get("vibe")
+
+	// Step 1: no vibe selected — show vibe grid
+	if vibeIDStr == "" {
+		vibes, _ := allVibes()
+		data := DiscoverPageData{Vibes: vibes}
+		if isHTMX(r) {
+			if err := renderPartial(w, "discover_result", data); err != nil {
+				http.Error(w, "render error", http.StatusInternalServerError)
+			}
+			return
+		}
+		if err := renderPage(w, "discover", "Discover", data); err != nil {
+			http.Error(w, "render error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	vibeID, err := strconv.ParseInt(vibeIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid vibe", http.StatusBadRequest)
+		return
+	}
+
+	vibe, err := getVibe(vibeID)
+	if err != nil {
+		http.Error(w, "vibe not found", http.StatusNotFound)
+		return
+	}
+
+	category := r.URL.Query().Get("category")
+	players := r.URL.Query().Get("players")
+	playtime := r.URL.Query().Get("playtime")
+
+	games, err := filterGamesByVibe(vibeID, category, players, playtime)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	categories := categoriesForGames(games)
+
+	data := DiscoverPageData{
+		VibeID:     vibeID,
+		VibeName:   vibe.Name,
+		Games:      games,
+		Categories: categories,
+		Category:   category,
+		Players:    players,
+		Playtime:   playtime,
+	}
+
+	if isHTMX(r) {
+		if err := renderPartial(w, "discover_result", data); err != nil {
+			http.Error(w, "render error", http.StatusInternalServerError)
+		}
+		return
+	}
+	if err := renderPage(w, "discover", "Discover — "+vibe.Name, data); err != nil {
+		http.Error(w, "render error", http.StatusInternalServerError)
+	}
+}
+
+// Game edit (vibe tagging)
+
+func handleGameEdit(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	game, err := getGame(id)
+	if err != nil {
+		http.Error(w, "game not found", http.StatusNotFound)
+		return
+	}
+	vibes, _ := allVibes()
+	gameVibeList, _ := vibesForGame(id)
+	gvMap := make(map[int64]bool)
+	for _, v := range gameVibeList {
+		gvMap[v.ID] = true
+	}
+	data := GameEditData{Game: game, AllVibes: vibes, GameVibes: gvMap}
+	if err := renderPage(w, "game_edit", "Edit — "+game.Name, data); err != nil {
+		http.Error(w, "render error", http.StatusInternalServerError)
+	}
+}
+
+func handleGameVibesSave(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	var vibeIDs []int64
+	for _, v := range r.Form["vibes"] {
+		vid, err := strconv.ParseInt(v, 10, 64)
+		if err == nil {
+			vibeIDs = append(vibeIDs, vid)
+		}
+	}
+	if err := setGameVibes(id, vibeIDs); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/games/%d", id), http.StatusSeeOther)
+}
+
+// Vibe management
+
+func handleVibes(w http.ResponseWriter, r *http.Request) {
+	vibes, _ := allVibes()
+	if err := renderPage(w, "vibes", "Manage Vibes", VibesPageData{Vibes: vibes}); err != nil {
+		http.Error(w, "render error", http.StatusInternalServerError)
+	}
+}
+
+func handleVibeCreate(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+	if _, err := createVibe(name); err != nil {
+		if strings.Contains(err.Error(), "UNIQUE") {
+			renderVibesWithError(w, fmt.Sprintf("A vibe named %q already exists.", name))
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/vibes", http.StatusSeeOther)
+}
+
+func handleVibeUpdate(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+	if err := updateVibe(id, name); err != nil {
+		if strings.Contains(err.Error(), "UNIQUE") {
+			renderVibesWithError(w, fmt.Sprintf("A vibe named %q already exists.", name))
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/vibes", http.StatusSeeOther)
+}
+
+func renderVibesWithError(w http.ResponseWriter, errMsg string) {
+	vibes, _ := allVibes()
+	renderPage(w, "vibes", "Manage Vibes", VibesPageData{Vibes: vibes, Error: errMsg})
+}
+
+func handleVibeDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	if err := deleteVibe(id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/vibes", http.StatusSeeOther)
+}
+
 func allowedImageExtension(contentType string) (string, bool) {
 	switch contentType {
 	case "image/png":

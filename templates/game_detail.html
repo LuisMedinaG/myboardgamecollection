@@ -10,32 +10,33 @@
     {{ if gt .Game.YearPublished 0 }}
     <span class="game-year">({{ .Game.YearPublished }})</span>
     {{ end }}
+    {{ if .Game.Tagline }}
+    <p class="game-tagline">{{ .Game.Tagline }}</p>
+    {{ end }}
     <div class="game-meta">
         <span class="tag">{{ .Game.PlayersStr }} players</span>
         <span class="tag">{{ .Game.PlaytimeStr }}</span>
     </div>
 </div>
+{{ if .Game.Types }}
+<div class="game-tags-section">
+    {{ range split .Game.Types ", " }}
+    <span class="tag tag-type">{{ . }}</span>
+    {{ end }}
+</div>
+{{ end }}
 {{ if .Game.Categories }}
-<div class="game-categories">
+<div class="game-tags-section">
     {{ range split .Game.Categories ", " }}
     <span class="tag tag-category">{{ . }}</span>
     {{ end }}
 </div>
 {{ end }}
-{{ if .Game.Description }}
-<div class="quickref">
-    <h3 class="quickref-title">Description</h3>
-    <div class="quickref-text">{{ .Game.Description }}</div>
-</div>
-{{ end }}
 {{ if .Game.Mechanics }}
-<div class="mechanics-section">
-    <h3 class="quickref-title">Mechanics</h3>
-    <div class="mechanics-list">
-        {{ range split .Game.Mechanics ", " }}
-        <span class="tag">{{ . }}</span>
-        {{ end }}
-    </div>
+<div class="game-tags-section">
+    {{ range split .Game.Mechanics ", " }}
+    <span class="tag tag-mechanic">{{ . }}</span>
+    {{ end }}
 </div>
 {{ end }}
 <div class="detail-actions">
@@ -52,6 +53,9 @@
             {{ end }}
         </span>
         {{ end }}
+    </a>
+    <a href="/games/{{ .Game.ID }}/edit" class="btn btn-bgg">
+        Edit Vibes
     </a>
     <a href="{{ .Game.BGGURL }}" target="_blank" rel="noopener" class="btn btn-bgg">
         View on BGG

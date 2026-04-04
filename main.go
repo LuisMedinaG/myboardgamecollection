@@ -60,6 +60,19 @@ func main() {
 	mux.HandleFunc("GET /games/{id}", handleGameDetail)
 	mux.HandleFunc("POST /games/{id}/delete", handleGameDelete)
 
+	// Game edit (vibes)
+	mux.HandleFunc("GET /games/{id}/edit", handleGameEdit)
+	mux.HandleFunc("POST /games/{id}/vibes", handleGameVibesSave)
+
+	// Discover
+	mux.HandleFunc("GET /discover", handleDiscover)
+
+	// Vibe management
+	mux.HandleFunc("GET /vibes", handleVibes)
+	mux.HandleFunc("POST /vibes", handleVibeCreate)
+	mux.HandleFunc("POST /vibes/{id}", handleVibeUpdate)
+	mux.HandleFunc("POST /vibes/{id}/delete", handleVibeDelete)
+
 	// Rules
 	mux.HandleFunc("GET /games/{id}/rules", handleRules)
 	mux.HandleFunc("POST /games/{id}/rules/url", handleRulesURLUpdate)

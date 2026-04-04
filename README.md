@@ -1,13 +1,21 @@
 # My Board Game Collection
 
-A small web app to organize your board games, rulebook links, and player-aid images.
+A small Go web app for browsing your board games, opening rulebook links, and storing player-aid images.
 
-**Stack:** Go · `html/template` · SQLite · HTMX
+**Stack:** Go, `html/template`, SQLite, HTMX
+
+## What It Does
+
+- Shows your collection in a fast server-rendered UI
+- Filters games by category, player count, and play time
+- Stores a Google Drive rulebook link per game
+- Uploads player-aid images to local disk
+- Optionally syncs owned games from BoardGameGeek
 
 ## Prerequisites
 
-- Go 1.23+
-- No C compiler needed
+- Go 1.23 or newer
+- No C compiler required
 
 ## Quick Start
 
@@ -15,9 +23,9 @@ A small web app to organize your board games, rulebook links, and player-aid ima
 make run
 ```
 
-Open `http://localhost:8080`.
+Then open `http://localhost:8080`.
 
-On first run, the app creates `games.db` automatically and seeds a few sample games.
+On first run the app creates `games.db`, creates `data/uploads/`, and seeds a few sample games if the database is empty.
 
 ## Commands
 
@@ -42,6 +50,8 @@ Example:
 PORT=3000 DB_PATH=./data/collection.db make run
 ```
 
+If `BGG_TOKEN` is not set, the import page stays visible but the sync form is disabled.
+
 ## Project Structure
 
 ```text
@@ -65,6 +75,8 @@ PORT=3000 DB_PATH=./data/collection.db make run
 │   └── import_result.html
 ├── static/
 │   └── style.css
+├── data/
+│   └── uploads/
 └── Makefile
 ```
 
@@ -73,35 +85,35 @@ PORT=3000 DB_PATH=./data/collection.db make run
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/` | Home page |
-| GET | `/games` | Game list with filters |
-| GET | `/games/{id}` | Game detail |
-| POST | `/games/{id}/delete` | Remove a game |
-| GET | `/games/{id}/rules` | Rulebook and player aids |
-| POST | `/games/{id}/rules/url` | Save or update Google Drive rulebook link |
+| GET | `/games` | Collection list with filters |
+| GET | `/games/{id}` | Game detail page |
+| POST | `/games/{id}/delete` | Remove a game from the collection |
+| GET | `/games/{id}/rules` | Rules and player-aids page |
+| POST | `/games/{id}/rules/url` | Save or update the Google Drive rulebook link |
 | POST | `/games/{id}/rules/upload` | Upload a player-aid image |
 | POST | `/games/{id}/rules/aids/{aid_id}/delete` | Delete a player-aid image |
 | GET | `/import` | BGG import page |
 | POST | `/import` | Sync owned games from BGG |
 
-## Notes
+## Storage
 
-- Templates are embedded into the Go binary with `go:embed`.
-- Static assets are embedded too; uploaded player-aid images are stored on disk in `data/uploads`.
-- BGG import is optional. If `BGG_TOKEN` is not set, the import UI stays visible but disabled with an explanatory message.
-- HTMX is used only for partial updates on filters, import results, and rules/player-aid sections.
+- Templates and static assets are embedded in the Go binary with `go:embed`.
+- SQLite data lives in `games.db` by default.
+- Uploaded player-aid files are stored in `data/uploads/`.
+- Uploaded files are validated as images before being saved.
 
 ## Maintenance
 
-Reset the database:
+Reset the local database:
 
 ```sh
-rm -f games.db
+rm -f games.db games.db-shm games.db-wal
 ```
 
-Back up the database:
+Remove uploaded files:
 
 ```sh
-cp games.db games-backup-$(date +%Y%m%d).db
+rm -rf data/uploads
 ```
 
 Update dependencies:

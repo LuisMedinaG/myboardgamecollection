@@ -3,7 +3,12 @@
     <h1>My Board Game Collection</h1>
     <p class="subtitle">{{ . }} games in your collection</p>
 </header>
-<nav class="action-grid">
+<a href="/discover" class="action-card action-card-hero">
+    <span class="action-icon">&#127919;</span>
+    <span class="action-label">Discover</span>
+    <span class="action-desc">Find the perfect game for the moment</span>
+</a>
+<nav class="action-grid" style="margin-top: 1rem;">
     <a href="/games" class="action-card">
         <span class="action-icon">&#127922;</span>
         <span class="action-label">My Games</span>
@@ -13,4 +18,5 @@
         <span class="action-label">Sync from BGG</span>
     </a>
 </nav>
+<a href="/vibes" class="settings-link">Manage Vibes</a>
 {{ end }}

@@ -1,0 +1,119 @@
+{{ define "discover_result" }}
+{{ if eq .VibeID 0 }}
+    {{/* Step 1: Show vibe grid */}}
+    <div class="vibe-grid">
+        {{ range .Vibes }}
+        <a href="/discover?vibe={{ .ID }}" class="vibe-btn">{{ .Name }}</a>
+        {{ end }}
+    </div>
+    {{ if eq (len .Vibes) 0 }}
+    <p class="empty-state">No vibes yet. <a href="/vibes">Add some vibes</a> to get started.</p>
+    {{ end }}
+{{ else }}
+    {{/* Step 2+: Show filtered results */}}
+    <a href="/discover" class="back-btn">&#8592; All Vibes</a>
+    <h2 class="step-title">{{ .VibeName }}</h2>
+
+    {{/* Active filter chips */}}
+    <div class="active-filters">
+        {{ if .Category }}
+        <span class="filter-chip">
+            {{ .Category }}
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Players }}&players={{ .Players }}{{ end }}{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="chip-remove">&times;</a>
+        </span>
+        {{ end }}
+        {{ if .Players }}
+        <span class="filter-chip">
+            {{ if eq .Players "1" }}Solo{{ end }}
+            {{ if eq .Players "2only" }}2 only{{ end }}
+            {{ if eq .Players "3" }}Up to 3{{ end }}
+            {{ if eq .Players "4" }}Up to 4{{ end }}
+            {{ if eq .Players "5plus" }}5+{{ end }}
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="chip-remove">&times;</a>
+        </span>
+        {{ end }}
+        {{ if .Playtime }}
+        <span class="filter-chip">
+            {{ if eq .Playtime "short" }}&lt; 30 min{{ end }}
+            {{ if eq .Playtime "medium" }}30–60 min{{ end }}
+            {{ if eq .Playtime "long" }}&gt; 60 min{{ end }}
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Players }}&players={{ .Players }}{{ end }}" class="chip-remove">&times;</a>
+        </span>
+        {{ end }}
+    </div>
+
+    {{/* Category pills */}}
+    {{ if and (gt (len .Categories) 1) (eq .Category "") }}
+    <div class="category-pills">
+        {{ range .Categories }}
+        <a href="/discover?vibe={{ $.VibeID }}&category={{ . }}{{ if $.Players }}&players={{ $.Players }}{{ end }}{{ if $.Playtime }}&playtime={{ $.Playtime }}{{ end }}" class="pill-btn">{{ . }}</a>
+        {{ end }}
+    </div>
+    {{ end }}
+
+    {{/* Player count filter */}}
+    {{ if eq .Players "" }}
+    <div class="filter-row">
+        <span class="filter-row-label">Players:</span>
+        <div class="filter-btn-group">
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Category }}&category={{ .Category }}{{ end }}&players=1{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="filter-btn">Solo</a>
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Category }}&category={{ .Category }}{{ end }}&players=3{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="filter-btn">Up to 3</a>
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Category }}&category={{ .Category }}{{ end }}&players=4{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="filter-btn">Up to 4</a>
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Category }}&category={{ .Category }}{{ end }}&players=5plus{{ if .Playtime }}&playtime={{ .Playtime }}{{ end }}" class="filter-btn">5+</a>
+        </div>
+    </div>
+    {{ end }}
+
+    {{/* Play time filter */}}
+    {{ if eq .Playtime "" }}
+    <div class="filter-row">
+        <span class="filter-row-label">Duration:</span>
+        <div class="filter-btn-group">
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Players }}&players={{ .Players }}{{ end }}&playtime=short" class="filter-btn">&lt; 30 min</a>
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Players }}&players={{ .Players }}{{ end }}&playtime=medium" class="filter-btn">30–60 min</a>
+            <a href="/discover?vibe={{ .VibeID }}{{ if .Category }}&category={{ .Category }}{{ end }}{{ if .Players }}&players={{ .Players }}{{ end }}&playtime=long" class="filter-btn">&gt; 60 min</a>
+        </div>
+    </div>
+    {{ end }}
+
+    {{/* Game results */}}
+    <h3 class="step-title" style="margin-top: 1rem;">
+        {{ if eq (len .Games) 1 }}1 game{{ else }}{{ len .Games }} games{{ end }}
+    </h3>
+    {{ if eq (len .Games) 0 }}
+        <p class="empty-state">No games match these filters.</p>
+    {{ else }}
+        <div class="game-list">
+            {{ range .Games }}
+            <a href="/games/{{ .ID }}" class="game-list-item game-list-item-discover">
+                {{ if .Thumbnail }}
+                <img src="{{ .Thumbnail }}" class="game-cover" alt="{{ .Name }}">
+                {{ else }}
+                <div class="game-cover game-cover-placeholder"></div>
+                {{ end }}
+                <div class="game-list-info">
+                    <div class="game-list-name">{{ .Name }}</div>
+                    <div class="game-list-meta">{{ .PlayersStr }} players · {{ .PlaytimeStr }}</div>
+                    {{ if .Types }}
+                    <div class="game-list-tags">
+                        {{ range split .Types ", " }}<span class="tag-sm tag-type">{{ . }}</span>{{ end }}
+                    </div>
+                    {{ end }}
+                    {{ if .Categories }}
+                    <div class="game-list-tags">
+                        {{ range split .Categories ", " }}<span class="tag-sm tag-category">{{ . }}</span>{{ end }}
+                    </div>
+                    {{ end }}
+                    {{ if .Mechanics }}
+                    <div class="game-list-tags">
+                        {{ range split .Mechanics ", " }}<span class="tag-sm tag-mechanic">{{ . }}</span>{{ end }}
+                    </div>
+                    {{ end }}
+                </div>
+                <span class="chevron">&#8250;</span>
+            </a>
+            {{ end }}
+        </div>
+    {{ end }}
+{{ end }}
+{{ end }}
