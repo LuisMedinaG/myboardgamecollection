@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -52,6 +53,43 @@ func (h *Handler) HandleVibeUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	http.Redirect(w, r, "/vibes", http.StatusSeeOther)
+}
+
+func (h *Handler) HandleVibeBatchUpdate(w http.ResponseWriter, r *http.Request) {
+	raw := r.FormValue("updates")
+	if raw == "" {
+		http.Error(w, "no updates provided", http.StatusBadRequest)
+		return
+	}
+
+	var updates map[string]string
+	if err := json.Unmarshal([]byte(raw), &updates); err != nil {
+		http.Error(w, "invalid updates", http.StatusBadRequest)
+		return
+	}
+
+	for idStr, name := range updates {
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			http.Error(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+		name = strings.TrimSpace(name)
+		if name == "" {
+			http.Error(w, "name is required", http.StatusBadRequest)
+			return
+		}
+		if err := h.Store.UpdateVibe(id, name); err != nil {
+			if strings.Contains(err.Error(), "UNIQUE") {
+				h.renderVibesWithError(w, fmt.Sprintf("A vibe named %q already exists.", name))
+				return
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
 	http.Redirect(w, r, "/vibes", http.StatusSeeOther)
 }
 

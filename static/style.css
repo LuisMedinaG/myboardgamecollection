@@ -1059,6 +1059,9 @@ body {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .vibe-add-form .form-input {
@@ -1069,6 +1072,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .vibe-manage-item {
@@ -1081,21 +1087,37 @@ body {
   padding: 0.5rem 0.75rem;
 }
 
-.vibe-edit-inline {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  flex: 1;
-}
-
 .vibe-edit-input {
   flex: 1;
   padding: 0.4rem 0.6rem;
   font-size: 0.9rem;
+  min-width: 0;
 }
 
 .vibe-delete-inline {
   flex-shrink: 0;
+}
+
+.vibe-delete-btn {
+  font-size: 1.4rem;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vibe-save-bar {
+  max-width: 400px;
+  margin-top: 1rem;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+
+.vibe-save-bar .btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* Responsive */

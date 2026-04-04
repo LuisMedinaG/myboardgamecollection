@@ -94,6 +94,7 @@ func main() {
 
 	mux.Handle("GET /vibes", adminGET(h.HandleVibes))
 	mux.Handle("POST /vibes", adminPOST(h.HandleVibeCreate))
+	mux.Handle("POST /vibes/batch-update", adminPOST(h.HandleVibeBatchUpdate))
 	mux.Handle("POST /vibes/{id}", adminPOST(h.HandleVibeUpdate))
 	mux.Handle("POST /vibes/{id}/delete", adminPOST(h.HandleVibeDelete))
 

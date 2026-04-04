@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "boardgames",
-      "runtimeExecutable": "./boardgames",
-      "runtimeArgs": [],
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["ADMIN_USERNAME=admin", "ADMIN_PASSWORD=secret", "./boardgames"],
       "port": 8080,
       "autoPort": true
     }
