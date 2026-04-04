@@ -3,13 +3,13 @@ package main
 import "fmt"
 
 templ gamesPage(data GamesPageData) {
-	@layout("Search Games") {
+	@layout("My Games") {
 		<a href="/" class="back-btn">&#8592; Home</a>
 		<div class="filters" id="game-filters" hx-get="/games" hx-target="#games-result" hx-trigger="change" hx-push-url="true" hx-swap="innerHTML" hx-include="this">
-			<select name="genre" class="filter-select">
-				<option value="">All Genres</option>
-				for _, g := range data.Genres {
-					<option value={ g } selected?={ g == data.Genre }>{ capitalize(g) }</option>
+			<select name="category" class="filter-select">
+				<option value="">All Categories</option>
+				for _, c := range data.Categories {
+					<option value={ c } selected?={ c == data.Category }>{ c }</option>
 				}
 			</select>
 			<select name="players" class="filter-select">
@@ -33,7 +33,7 @@ templ gamesPage(data GamesPageData) {
 		</div>
 		<script>
 			(function() {
-				var labels = {genre: 'Genre', players: 'Players', playtime: 'Duration'};
+				var labels = {category: 'Category', players: 'Players', playtime: 'Duration'};
 				function updateChips() {
 					var container = document.getElementById('active-filters');
 					var selects = document.querySelectorAll('#game-filters select');
@@ -79,7 +79,11 @@ templ gamesResult(games []Game) {
 		<div class="game-list">
 			for _, g := range games {
 				<a href={ templ.SafeURL(fmt.Sprintf("/games/%d", g.ID)) } class="game-list-item">
-					<img src={ fmt.Sprintf("https://picsum.photos/seed/%d/200", g.ID) } class="game-cover" alt={ g.Name }/>
+					if g.Thumbnail != "" {
+						<img src={ g.Thumbnail } class="game-cover" alt={ g.Name }/>
+					} else {
+						<div class="game-cover game-cover-placeholder"></div>
+					}
 					<div class="game-list-info">
 						<div class="game-list-name">{ g.Name }</div>
 						<div class="game-list-meta">{ g.PlayersStr() } players · { g.PlaytimeStr() }</div>

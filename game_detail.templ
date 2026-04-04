@@ -1,40 +1,77 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
-templ gameDetail(game Game) {
+templ gameDetail(game Game, aids []PlayerAid) {
 	@layout(game.Name) {
 		<a href="/games" class="back-btn">&#8592; All Games</a>
+		if game.Image != "" {
+			<div class="game-image-wrap">
+				<img src={ game.Image } class="game-image" alt={ game.Name }/>
+			</div>
+		}
 		<div class="game-header">
 			<h1 class="game-title">{ game.Name }</h1>
+			if game.YearPublished > 0 {
+				<span class="game-year">({ fmt.Sprintf("%d", game.YearPublished) })</span>
+			}
 			<div class="game-meta">
-				<span class="tag">{ capitalize(game.Genre) }</span>
-				if game.Subgenre != "" {
-					<span class="tag">{ formatSubgenre(game.Subgenre) }</span>
-				}
 				<span class="tag">{ game.PlayersStr() } players</span>
 				<span class="tag">{ game.PlaytimeStr() }</span>
 			</div>
 		</div>
-		if game.QuickRef != "" {
-			<div class="quickref">
-				<h3 class="quickref-title">Quick Reference</h3>
-				<div class="quickref-text">{ game.QuickRef }</div>
+		if game.Categories != "" {
+			<div class="game-categories">
+				for _, cat := range strings.Split(game.Categories, ", ") {
+					<span class="tag tag-category">{ cat }</span>
+				}
 			</div>
 		}
-		if game.RulesURL != "" {
-			<a href={ templ.SafeURL(game.RulesURL) } target="_blank" rel="noopener" class="rules-link">
-				View Full Rules
-			</a>
+		if game.Description != "" {
+			<div class="quickref">
+				<h3 class="quickref-title">Description</h3>
+				<div class="quickref-text">{ game.Description }</div>
+			</div>
 		}
+		if game.Mechanics != "" {
+			<div class="mechanics-section">
+				<h3 class="quickref-title">Mechanics</h3>
+				<div class="mechanics-list">
+					for _, m := range strings.Split(game.Mechanics, ", ") {
+						<span class="tag">{ m }</span>
+					}
+				</div>
+			</div>
+		}
+		<div class="detail-actions">
+			<a href={ templ.SafeURL(fmt.Sprintf("/games/%d/rules", game.ID)) } class="btn btn-rules">
+				<span>&#128214;</span> Rules &amp; Player Aids
+				if game.RulesURL != "" || len(aids) > 0 {
+					<span class="badge">
+						if game.RulesURL != "" && len(aids) > 0 {
+							{ fmt.Sprintf("%d", len(aids) + 1) }
+						} else if game.RulesURL != "" {
+							1
+						} else {
+							{ fmt.Sprintf("%d", len(aids)) }
+						}
+					</span>
+				}
+			</a>
+			<a href={ templ.SafeURL(game.BGGURL()) } target="_blank" rel="noopener" class="btn btn-bgg">
+				View on BGG
+			</a>
+		</div>
 		<div class="game-actions">
-			<a href={ templ.SafeURL(fmt.Sprintf("/games/%d/edit", game.ID)) } class="btn btn-secondary">Edit</a>
 			<button
 				class="btn btn-danger"
 				hx-post={ fmt.Sprintf("/games/%d/delete", game.ID) }
-				hx-confirm="Delete this game? This cannot be undone."
+				hx-confirm="Remove this game from your collection?"
 			>
-				Delete
+				Remove from Collection
 			</button>
 		</div>
 	}

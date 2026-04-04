@@ -22,6 +22,11 @@ func main() {
 		dbPath = p
 	}
 
+	// BGG token is optional — app works without it (seed data + manual use)
+	if token := os.Getenv("BGG_TOKEN"); token != "" {
+		initBGG(token)
+	}
+
 	if err := initDB(dbPath); err != nil {
 		log.Fatalf("database: %v", err)
 	}
@@ -31,21 +36,33 @@ func main() {
 		log.Printf("warning: seed failed: %v", err)
 	}
 
+	// Ensure uploads directory
+	_ = os.MkdirAll("data/uploads", 0o755)
+
 	mux := http.NewServeMux()
 
-	// Static files
+	// Static files (embedded)
 	staticFS, _ := fs.Sub(staticFiles, "static")
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
+
+	// Uploaded files (on disk)
+	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("data/uploads"))))
 
 	// Routes
 	mux.HandleFunc("GET /{$}", handleHome)
 	mux.HandleFunc("GET /games", handleGames)
-	mux.HandleFunc("GET /games/new", handleGameNew)
-	mux.HandleFunc("POST /games", handleGameCreate)
 	mux.HandleFunc("GET /games/{id}", handleGameDetail)
-	mux.HandleFunc("GET /games/{id}/edit", handleGameEdit)
-	mux.HandleFunc("POST /games/{id}", handleGameUpdate)
 	mux.HandleFunc("POST /games/{id}/delete", handleGameDelete)
+
+	// Rules
+	mux.HandleFunc("GET /games/{id}/rules", handleRules)
+	mux.HandleFunc("POST /games/{id}/rules/url", handleRulesURLUpdate)
+	mux.HandleFunc("POST /games/{id}/rules/upload", handlePlayerAidUpload)
+	mux.HandleFunc("POST /games/{id}/rules/aids/{aid_id}/delete", handlePlayerAidDelete)
+
+	// BGG Import
+	mux.HandleFunc("GET /import", handleImport)
+	mux.HandleFunc("POST /import", handleImportSync)
 
 	log.Printf("Listening on http://localhost:%s", port)
 	log.Fatal(http.ListenAndServe(":"+port, mux))

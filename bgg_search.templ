@@ -1,0 +1,62 @@
+package main
+
+import "fmt"
+
+templ importPage() {
+	@layout("Import Collection") {
+		<div class="import-hero">
+			<div class="import-card">
+				<p class="import-desc">
+					Import your board game collection from
+					<a href="https://boardgamegeek.com" target="_blank" rel="noopener">BoardGameGeek.com</a>.
+					To get started, enter your BoardGameGeek username.
+				</p>
+				<hr class="import-divider"/>
+				<form
+					hx-post="/import"
+					hx-target="#import-result"
+					hx-indicator="#import-spinner"
+					class="import-form"
+				>
+					<div class="import-input-row">
+						<input
+							type="text"
+							name="username"
+							value={ getConfig("bgg_username") }
+							placeholder="BoardGameGeek Username"
+							required
+							class="form-input import-input"
+						/>
+						<button type="submit" class="btn btn-primary import-btn">
+							&#128269;
+						</button>
+					</div>
+				</form>
+				<div id="import-spinner" class="htmx-indicator">
+					<div class="import-loading">
+						<div class="spinner-inline"></div>
+						<span>Importing your collection... This may take a minute.</span>
+					</div>
+				</div>
+				<div id="import-result"></div>
+			</div>
+		</div>
+	}
+}
+
+templ importResult(count int, errMsg string) {
+	if errMsg != "" {
+		<div class="import-error">{ errMsg }</div>
+	} else if count == 0 {
+		<div class="import-info">Your collection is already up to date!</div>
+	} else {
+		<div class="import-success">
+			{ fmt.Sprintf("Imported %d new game", count) }
+			if count != 1 {
+				s
+			}
+			!
+			<a href="/games">View your collection &#8594;</a>
+		</div>
+	}
+}

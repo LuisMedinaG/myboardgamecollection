@@ -1,0 +1,110 @@
+package main
+
+import "fmt"
+
+templ rulesPage(data RulesPageData) {
+	@layout(data.Game.Name + " — Rules") {
+		<a href={ templ.SafeURL(fmt.Sprintf("/games/%d", data.Game.ID)) } class="back-btn">&#8592; { data.Game.Name }</a>
+		<h2 class="step-title">Rules &amp; Player Aids</h2>
+		<div id="rules-content">
+			@rulesContent(data)
+		</div>
+	}
+}
+
+templ rulesContent(data RulesPageData) {
+	<!-- Rulebook PDF Section -->
+	<div class="rules-section">
+		<h3 class="section-title">Rulebook</h3>
+		if data.EmbedURL != "" {
+			<div class="pdf-viewer">
+				<iframe
+					src={ data.EmbedURL }
+					class="pdf-iframe"
+					allow="autoplay"
+				></iframe>
+			</div>
+			<a href={ templ.SafeURL(data.Game.RulesURL) } target="_blank" rel="noopener" class="btn btn-secondary btn-block">
+				Open in Google Drive
+			</a>
+		}
+		<form
+			hx-post={ fmt.Sprintf("/games/%d/rules/url", data.Game.ID) }
+			hx-target="#rules-content"
+			hx-swap="innerHTML"
+			class="rules-url-form"
+		>
+			<label class="form-label">
+				if data.Game.RulesURL != "" {
+					Update Google Drive Link
+				} else {
+					Add Google Drive Link to Rulebook PDF
+				}
+				<input
+					type="url"
+					name="rules_url"
+					value={ data.Game.RulesURL }
+					placeholder="https://drive.google.com/file/d/.../view"
+					class="form-input"
+				/>
+			</label>
+			<button type="submit" class="btn btn-primary btn-sm">
+				if data.Game.RulesURL != "" {
+					Update
+				} else {
+					Save
+				}
+			</button>
+		</form>
+	</div>
+	<!-- Player Aids Section -->
+	<div class="rules-section">
+		<h3 class="section-title">Player Aids</h3>
+		<div id="player-aids-list">
+			@playerAidsList(data.Game.ID, data.PlayerAids)
+		</div>
+		<form
+			hx-post={ fmt.Sprintf("/games/%d/rules/upload", data.Game.ID) }
+			hx-target="#player-aids-list"
+			hx-swap="innerHTML"
+			hx-encoding="multipart/form-data"
+			class="upload-form"
+		>
+			<label class="form-label">
+				Upload Player Aid Image
+				<input type="file" name="player_aid" accept="image/*" required class="form-input file-input"/>
+			</label>
+			<label class="form-label">
+				Label (optional)
+				<input type="text" name="label" placeholder="e.g. Turn Order Reference" class="form-input"/>
+			</label>
+			<button type="submit" class="btn btn-primary btn-sm">Upload</button>
+		</form>
+	</div>
+}
+
+templ playerAidsList(gameID int64, aids []PlayerAid) {
+	if len(aids) == 0 {
+		<p class="empty-state-sm">No player aids uploaded yet.</p>
+	} else {
+		<div class="player-aids-grid">
+			for _, aid := range aids {
+				<div class="player-aid-card">
+					<img src={ "/uploads/" + aid.Filename } alt={ aid.Label } class="player-aid-img"/>
+					<div class="player-aid-info">
+						<span class="player-aid-label">{ aid.Label }</span>
+						<button
+							class="btn-icon btn-icon-danger"
+							hx-post={ fmt.Sprintf("/games/%d/rules/aids/%d/delete", gameID, aid.ID) }
+							hx-target="#player-aids-list"
+							hx-swap="innerHTML"
+							hx-confirm="Delete this player aid?"
+						>
+							&#10005;
+						</button>
+					</div>
+				</div>
+			}
+		</div>
+	}
+}
