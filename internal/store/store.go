@@ -99,7 +99,7 @@ func (s *Store) createTables() error {
 	}
 	// Migration: add types column if missing (for existing DBs).
 	_, _ = s.db.Exec("ALTER TABLE games ADD COLUMN types TEXT NOT NULL DEFAULT ''")
-	return s.seedDefaultVibes()
+	return nil
 }
 
 const gameColumns = "id, bgg_id, name, description, year_published, image, thumbnail, min_players, max_players, play_time, categories, mechanics, types, rules_url"
