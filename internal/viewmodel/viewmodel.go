@@ -88,6 +88,7 @@ type ImportPageData struct {
 
 // ImportResultData holds data for the import result partial.
 type ImportResultData struct {
-	Count  int
-	ErrMsg string
+	Count   int
+	Updated int
+	ErrMsg  string
 }

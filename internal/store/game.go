@@ -66,6 +66,16 @@ func (s *Store) CreateGame(g model.Game) (int64, error) {
 	return id, nil
 }
 
+// UpdateGame refreshes a game's BGG data by its BGG ID.
+func (s *Store) UpdateGame(g model.Game) error {
+	_, err := s.db.Exec(
+		"UPDATE games SET name=?, description=?, year_published=?, image=?, thumbnail=?, min_players=?, max_players=?, play_time=?, categories=?, mechanics=?, types=? WHERE bgg_id=?",
+		g.Name, g.Description, g.YearPublished, g.Image, g.Thumbnail,
+		g.MinPlayers, g.MaxPlayers, g.PlayTime, g.Categories, g.Mechanics, g.Types, g.BGGID,
+	)
+	return err
+}
+
 // UpdateGameRulesURL sets the rules URL for a game.
 func (s *Store) UpdateGameRulesURL(id int64, rulesURL string) error {
 	_, err := s.db.Exec("UPDATE games SET rules_url = ? WHERE id = ?", rulesURL, id)

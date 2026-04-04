@@ -1,11 +1,11 @@
 {{ define "import_result" }}
 {{ if .ErrMsg }}
     <div class="import-error">{{ .ErrMsg }}</div>
-{{ else if eq .Count 0 }}
+{{ else if and (eq .Count 0) (eq .Updated 0) }}
     <div class="import-info">Your collection is already up to date!</div>
 {{ else }}
     <div class="import-success">
-        Imported {{ .Count }} new game{{ if ne .Count 1 }}s{{ end }}!
+        {{ if gt .Count 0 }}Added {{ .Count }} new game{{ if ne .Count 1 }}s{{ end }}{{ end }}{{ if and (gt .Count 0) (gt .Updated 0) }}, {{ end }}{{ if gt .Updated 0 }}updated {{ .Updated }} game{{ if ne .Updated 1 }}s{{ end }}{{ end }}!
         <a href="/games">View your collection &#8594;</a>
     </div>
 {{ end }}
