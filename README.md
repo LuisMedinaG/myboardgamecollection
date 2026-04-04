@@ -43,6 +43,8 @@ On first run the app creates `games.db`, creates `data/uploads/`, and seeds a fe
 | `PORT` | `8080` | HTTP server port |
 | `DB_PATH` | `games.db` | SQLite database path |
 | `BGG_TOKEN` | unset | Enables BoardGameGeek import |
+| `ADMIN_USERNAME` | unset | Required to access admin pages and all write actions |
+| `ADMIN_PASSWORD` | unset | Required to access admin pages and all write actions |
 
 Example:
 
@@ -50,7 +52,30 @@ Example:
 PORT=3000 DB_PATH=./data/collection.db make run
 ```
 
-If `BGG_TOKEN` is not set, the import page stays visible but the sync form is disabled.
+If `BGG_TOKEN` is not set, import remains unavailable.
+
+If `ADMIN_USERNAME` and `ADMIN_PASSWORD` are not set, the app fails closed for admin routes: public read-only pages still work, but import/edit/upload/delete routes are unavailable.
+
+For local development, keep secrets in environment variables or a local `.env` file that is not committed.
+
+## Fly.io Deployment
+
+Use Fly secrets for sensitive values instead of storing them in the repo or in SQLite:
+
+```sh
+fly secrets set \
+  BGG_TOKEN=your_bgg_token \
+  ADMIN_USERNAME=admin \
+  ADMIN_PASSWORD='choose-a-long-random-password'
+```
+
+Recommended:
+
+- Keep `BGG_TOKEN` server-side only. Never expose it in HTML, JavaScript, or browser storage.
+- Use a long random `ADMIN_PASSWORD`.
+- Mount a persistent Fly volume for the SQLite database and uploads directory.
+- Set `DB_PATH` to your mounted volume, for example `/data/games.db`.
+- Run the app behind Fly's HTTPS endpoint; this app sends HSTS when served over HTTPS.
 
 ## Project Structure
 

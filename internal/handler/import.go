@@ -19,6 +19,13 @@ func (h *Handler) HandleImport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleImportSync(w http.ResponseWriter, r *http.Request) {
+	if h.BGG == nil {
+		if err := h.Renderer.Partial(w, "import_result", viewmodel.ImportResultData{ErrMsg: "BGG import is not configured on this server."}); err != nil {
+			http.Error(w, "failed to render partial", http.StatusInternalServerError)
+		}
+		return
+	}
+
 	username := strings.TrimSpace(r.FormValue("username"))
 	if username == "" {
 		http.Error(w, "username is required", http.StatusBadRequest)

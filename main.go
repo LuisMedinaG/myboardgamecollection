@@ -6,9 +6,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"myboardgamecollection/internal/bgg"
 	"myboardgamecollection/internal/handler"
+	"myboardgamecollection/internal/httpx"
 	"myboardgamecollection/internal/render"
 	"myboardgamecollection/internal/store"
 )
@@ -28,6 +30,12 @@ func main() {
 	dbPath := "games.db"
 	if p := os.Getenv("DB_PATH"); p != "" {
 		dbPath = p
+	}
+
+	adminUsername := os.Getenv("ADMIN_USERNAME")
+	adminPassword := os.Getenv("ADMIN_PASSWORD")
+	if (adminUsername == "") != (adminPassword == "") {
+		log.Fatal("ADMIN_USERNAME and ADMIN_PASSWORD must either both be set or both be empty")
 	}
 
 	// Initialize store (database).
@@ -55,6 +63,12 @@ func main() {
 	_ = os.MkdirAll("data/uploads", 0o755)
 
 	mux := http.NewServeMux()
+	adminGET := func(hf http.HandlerFunc) http.Handler {
+		return httpx.Chain(http.HandlerFunc(hf), httpx.MethodGuard(http.MethodGet), httpx.AdminAuth(adminUsername, adminPassword))
+	}
+	adminPOST := func(hf http.HandlerFunc) http.Handler {
+		return httpx.Chain(http.HandlerFunc(hf), httpx.MethodGuard(http.MethodPost), httpx.AdminAuth(adminUsername, adminPassword), httpx.SameOrigin())
+	}
 
 	// Static files (embedded).
 	staticFS, _ := fs.Sub(staticFiles, "static")
@@ -71,26 +85,37 @@ func main() {
 	mux.HandleFunc("GET /{$}", h.HandleHome)
 	mux.HandleFunc("GET /games", h.HandleGames)
 	mux.HandleFunc("GET /games/{id}", h.HandleGameDetail)
-	mux.HandleFunc("POST /games/{id}/delete", h.HandleGameDelete)
+	mux.Handle("POST /games/{id}/delete", adminPOST(h.HandleGameDelete))
 
-	mux.HandleFunc("GET /games/{id}/edit", h.HandleGameEdit)
-	mux.HandleFunc("POST /games/{id}/vibes", h.HandleGameVibesSave)
+	mux.Handle("GET /games/{id}/edit", adminGET(h.HandleGameEdit))
+	mux.Handle("POST /games/{id}/vibes", adminPOST(h.HandleGameVibesSave))
 
 	mux.HandleFunc("GET /discover", h.HandleDiscover)
 
-	mux.HandleFunc("GET /vibes", h.HandleVibes)
-	mux.HandleFunc("POST /vibes", h.HandleVibeCreate)
-	mux.HandleFunc("POST /vibes/{id}", h.HandleVibeUpdate)
-	mux.HandleFunc("POST /vibes/{id}/delete", h.HandleVibeDelete)
+	mux.Handle("GET /vibes", adminGET(h.HandleVibes))
+	mux.Handle("POST /vibes", adminPOST(h.HandleVibeCreate))
+	mux.Handle("POST /vibes/{id}", adminPOST(h.HandleVibeUpdate))
+	mux.Handle("POST /vibes/{id}/delete", adminPOST(h.HandleVibeDelete))
 
 	mux.HandleFunc("GET /games/{id}/rules", h.HandleRules)
-	mux.HandleFunc("POST /games/{id}/rules/url", h.HandleRulesURLUpdate)
-	mux.HandleFunc("POST /games/{id}/rules/upload", h.HandlePlayerAidUpload)
-	mux.HandleFunc("POST /games/{id}/rules/aids/{aid_id}/delete", h.HandlePlayerAidDelete)
+	mux.Handle("POST /games/{id}/rules/url", adminPOST(h.HandleRulesURLUpdate))
+	mux.Handle("POST /games/{id}/rules/upload", adminPOST(h.HandlePlayerAidUpload))
+	mux.Handle("POST /games/{id}/rules/aids/{aid_id}/delete", adminPOST(h.HandlePlayerAidDelete))
 
-	mux.HandleFunc("GET /import", h.HandleImport)
-	mux.HandleFunc("POST /import", h.HandleImportSync)
+	mux.Handle("GET /import", adminGET(h.HandleImport))
+	mux.Handle("POST /import", adminPOST(h.HandleImportSync))
 
 	log.Printf("Listening on http://localhost:%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, mux))
+
+	server := &http.Server{
+		Addr:              ":" + port,
+		Handler:           httpx.Chain(mux, httpx.SecurityHeaders()),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
+
+	log.Fatal(server.ListenAndServe())
 }

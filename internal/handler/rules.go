@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 
 	"myboardgamecollection/internal/viewmodel"
 )
+
+const maxPlayerAidUploadBytes = 10 << 20
 
 func (h *Handler) HandleRules(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r)
@@ -43,6 +46,10 @@ func (h *Handler) HandleRulesURLUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rulesURL := strings.TrimSpace(r.FormValue("rules_url"))
+	if err := validateRulesURL(rulesURL); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	if err := h.Store.UpdateGameRulesURL(id, rulesURL); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -71,8 +78,14 @@ func (h *Handler) HandlePlayerAidUpload(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := r.ParseMultipartForm(10 << 20); err != nil {
-		http.Error(w, "file too large", http.StatusBadRequest)
+	r.Body = http.MaxBytesReader(w, r.Body, maxPlayerAidUploadBytes)
+	if err := r.ParseMultipartForm(maxPlayerAidUploadBytes); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			http.Error(w, "file too large", http.StatusRequestEntityTooLarge)
+			return
+		}
+		http.Error(w, "invalid multipart upload", http.StatusBadRequest)
 		return
 	}
 

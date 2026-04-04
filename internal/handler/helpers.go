@@ -1,10 +1,13 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 func parseAidID(r *http.Request) (int64, error) {
@@ -37,4 +40,26 @@ func driveEmbedURL(url string) string {
 		return ""
 	}
 	return fmt.Sprintf("https://drive.google.com/file/d/%s/preview", matches[1])
+}
+
+func validateRulesURL(raw string) error {
+	if raw == "" {
+		return nil
+	}
+
+	u, err := url.Parse(raw)
+	if err != nil {
+		return errors.New("invalid rules URL")
+	}
+
+	if !strings.EqualFold(u.Scheme, "https") {
+		return errors.New("rules URL must use https")
+	}
+
+	host := strings.ToLower(u.Host)
+	if host != "drive.google.com" && host != "docs.google.com" {
+		return errors.New("rules URL must point to Google Drive")
+	}
+
+	return nil
 }
