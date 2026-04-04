@@ -1,0 +1,60 @@
+{{ define "content" }}
+<a href="/" class="back-btn">&#8592; Home</a>
+<div class="filters" id="game-filters" hx-get="/games" hx-target="#games-result" hx-trigger="change" hx-push-url="true" hx-swap="innerHTML" hx-include="this">
+    <select name="category" class="filter-select">
+        <option value="">All Categories</option>
+        {{ range .Categories }}
+        <option value="{{ . }}" {{ if eq . $.Category }}selected{{ end }}>{{ . }}</option>
+        {{ end }}
+    </select>
+    <select name="players" class="filter-select">
+        <option value="">Any Players</option>
+        <option value="1" {{ if eq .Players "1" }}selected{{ end }}>1 player</option>
+        <option value="2only" {{ if eq .Players "2only" }}selected{{ end }}>Only 2</option>
+        <option value="3" {{ if eq .Players "3" }}selected{{ end }}>Up to 3</option>
+        <option value="4" {{ if eq .Players "4" }}selected{{ end }}>Up to 4</option>
+        <option value="5plus" {{ if eq .Players "5plus" }}selected{{ end }}>5+</option>
+    </select>
+    <select name="playtime" class="filter-select">
+        <option value="">Any Duration</option>
+        <option value="short" {{ if eq .Playtime "short" }}selected{{ end }}>&lt; 30 min</option>
+        <option value="medium" {{ if eq .Playtime "medium" }}selected{{ end }}>30–60 min</option>
+        <option value="long" {{ if eq .Playtime "long" }}selected{{ end }}>&gt; 60 min</option>
+    </select>
+</div>
+<div class="active-filters" id="active-filters"></div>
+<div id="games-result">
+    {{ template "games_result" .Games }}
+</div>
+<script>
+    (function() {
+        var labels = {category: 'Category', players: 'Players', playtime: 'Duration'};
+        function updateChips() {
+            var container = document.getElementById('active-filters');
+            var selects = document.querySelectorAll('#game-filters select');
+            container.innerHTML = '';
+            selects.forEach(function(sel) {
+                if (sel.value) {
+                    var chip = document.createElement('span');
+                    chip.className = 'filter-chip';
+                    var text = sel.options[sel.selectedIndex].text;
+                    chip.innerHTML = labels[sel.name] + ': <strong>' + text + '</strong> <button class="chip-remove" data-name="' + sel.name + '">&times;</button>';
+                    container.appendChild(chip);
+                }
+            });
+        }
+        document.getElementById('active-filters').addEventListener('click', function(e) {
+            var btn = e.target.closest('.chip-remove');
+            if (!btn) return;
+            var name = btn.getAttribute('data-name');
+            var sel = document.querySelector('#game-filters select[name="' + name + '"]');
+            sel.value = '';
+            sel.dispatchEvent(new Event('change', {bubbles: true}));
+        });
+        document.getElementById('game-filters').addEventListener('change', function() {
+            setTimeout(updateChips, 0);
+        });
+        updateChips();
+    })();
+</script>
+{{ end }}

@@ -1,0 +1,25 @@
+{{ define "player_aids_list" }}
+{{ if eq (len .Aids) 0 }}
+    <p class="empty-state-sm">No player aids uploaded yet.</p>
+{{ else }}
+    <div class="player-aids-grid">
+        {{ range .Aids }}
+        <div class="player-aid-card">
+            <img src="/uploads/{{ .Filename }}" alt="{{ .Label }}" class="player-aid-img">
+            <div class="player-aid-info">
+                <span class="player-aid-label">{{ .Label }}</span>
+                <button
+                    class="btn-icon btn-icon-danger"
+                    hx-post="/games/{{ $.GameID }}/rules/aids/{{ .ID }}/delete"
+                    hx-target="#player-aids-list"
+                    hx-swap="innerHTML"
+                    hx-confirm="Delete this player aid?"
+                >
+                    &#10005;
+                </button>
+            </div>
+        </div>
+        {{ end }}
+    </div>
+{{ end }}
+{{ end }}

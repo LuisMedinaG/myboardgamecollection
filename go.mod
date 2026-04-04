@@ -3,13 +3,12 @@ module myboardgamecollection
 go 1.25.0
 
 require (
-	github.com/a-h/templ v0.3.1001
+	github.com/fzerorubigd/gobgg v0.12.1
 	modernc.org/sqlite v1.48.1
 )
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/fzerorubigd/gobgg v0.12.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect

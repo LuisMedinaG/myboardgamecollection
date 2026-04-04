@@ -1,0 +1,25 @@
+{{ define "games_result" }}
+<h2 class="step-title">
+    {{ if eq (len .) 1 }}1 game{{ else }}{{ len . }} games{{ end }}
+</h2>
+{{ if eq (len .) 0 }}
+    <p class="empty-state">No games match these filters.</p>
+{{ else }}
+    <div class="game-list">
+        {{ range . }}
+        <a href="/games/{{ .ID }}" class="game-list-item">
+            {{ if .Thumbnail }}
+            <img src="{{ .Thumbnail }}" class="game-cover" alt="{{ .Name }}">
+            {{ else }}
+            <div class="game-cover game-cover-placeholder"></div>
+            {{ end }}
+            <div class="game-list-info">
+                <div class="game-list-name">{{ .Name }}</div>
+                <div class="game-list-meta">{{ .PlayersStr }} players · {{ .PlaytimeStr }}</div>
+            </div>
+            <span class="chevron">&#8250;</span>
+        </a>
+        {{ end }}
+    </div>
+{{ end }}
+{{ end }}

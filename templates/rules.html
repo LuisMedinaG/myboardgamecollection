@@ -1,0 +1,7 @@
+{{ define "content" }}
+<a href="/games/{{ .Game.ID }}" class="back-btn">&#8592; {{ .Game.Name }}</a>
+<h2 class="step-title">Rules &amp; Player Aids</h2>
+<div id="rules-content">
+    {{ template "rules_content" . }}
+</div>
+{{ end }}

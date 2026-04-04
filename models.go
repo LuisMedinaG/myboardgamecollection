@@ -77,3 +77,21 @@ type RulesPageData struct {
 	PlayerAids []PlayerAid
 	EmbedURL   string // Google Drive embed URL for PDF viewer
 }
+
+// GameDetailData holds data for the game detail page.
+type GameDetailData struct {
+	Game Game
+	Aids []PlayerAid
+}
+
+// PlayerAidsListData holds data for the player aids list partial.
+type PlayerAidsListData struct {
+	GameID int64
+	Aids   []PlayerAid
+}
+
+// ImportResultData holds data for the import result partial.
+type ImportResultData struct {
+	Count  int
+	ErrMsg string
+}

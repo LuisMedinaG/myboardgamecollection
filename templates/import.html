@@ -1,0 +1,40 @@
+{{ define "content" }}
+<a href="/" class="back-btn">&#8592; Home</a>
+<div class="import-hero">
+    <div class="import-card">
+        <p class="import-desc">
+            Import your board game collection from
+            <a href="https://boardgamegeek.com" target="_blank" rel="noopener">BoardGameGeek.com</a>.
+            To get started, enter your BoardGameGeek username.
+        </p>
+        <hr class="import-divider">
+        <form
+            hx-post="/import"
+            hx-target="#import-result"
+            hx-indicator="#import-spinner"
+            class="import-form"
+        >
+            <div class="import-input-row">
+                <input
+                    type="text"
+                    name="username"
+                    value="{{ . }}"
+                    placeholder="BoardGameGeek Username"
+                    required
+                    class="form-input import-input"
+                >
+                <button type="submit" class="btn btn-primary import-btn">
+                    &#128269;
+                </button>
+            </div>
+        </form>
+        <div id="import-spinner" class="htmx-indicator">
+            <div class="import-loading">
+                <div class="spinner-inline"></div>
+                <span>Importing your collection... This may take a minute.</span>
+            </div>
+        </div>
+        <div id="import-result"></div>
+    </div>
+</div>
+{{ end }}

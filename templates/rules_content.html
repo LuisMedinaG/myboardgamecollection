@@ -1,0 +1,66 @@
+{{ define "rules_content" }}
+<!-- Rulebook PDF Section -->
+<div class="rules-section">
+    <h3 class="section-title">Rulebook</h3>
+    {{ if .EmbedURL }}
+    <div class="pdf-viewer">
+        <iframe
+            src="{{ .EmbedURL }}"
+            class="pdf-iframe"
+            allow="autoplay"
+        ></iframe>
+    </div>
+    <a href="{{ .Game.RulesURL }}" target="_blank" rel="noopener" class="btn btn-secondary btn-block">
+        Open in Google Drive
+    </a>
+    {{ end }}
+    <form
+        hx-post="/games/{{ .Game.ID }}/rules/url"
+        hx-target="#rules-content"
+        hx-swap="innerHTML"
+        class="rules-url-form"
+    >
+        <label class="form-label">
+            {{ if .Game.RulesURL }}
+            Update Google Drive Link
+            {{ else }}
+            Add Google Drive Link to Rulebook PDF
+            {{ end }}
+            <input
+                type="url"
+                name="rules_url"
+                value="{{ .Game.RulesURL }}"
+                placeholder="https://drive.google.com/file/d/.../view"
+                class="form-input"
+            >
+        </label>
+        <button type="submit" class="btn btn-primary btn-sm">
+            {{ if .Game.RulesURL }}Update{{ else }}Save{{ end }}
+        </button>
+    </form>
+</div>
+<!-- Player Aids Section -->
+<div class="rules-section">
+    <h3 class="section-title">Player Aids</h3>
+    <div id="player-aids-list">
+        {{ template "player_aids_list" (playerAidsData .Game.ID .PlayerAids) }}
+    </div>
+    <form
+        hx-post="/games/{{ .Game.ID }}/rules/upload"
+        hx-target="#player-aids-list"
+        hx-swap="innerHTML"
+        hx-encoding="multipart/form-data"
+        class="upload-form"
+    >
+        <label class="form-label">
+            Upload Player Aid Image
+            <input type="file" name="player_aid" accept="image/*" required class="form-input file-input">
+        </label>
+        <label class="form-label">
+            Label (optional)
+            <input type="text" name="label" placeholder="e.g. Turn Order Reference" class="form-input">
+        </label>
+        <button type="submit" class="btn btn-primary btn-sm">Upload</button>
+    </form>
+</div>
+{{ end }}

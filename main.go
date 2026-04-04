@@ -27,6 +27,8 @@ func main() {
 		initBGG(token)
 	}
 
+	initTemplates()
+
 	if err := initDB(dbPath); err != nil {
 		log.Fatalf("database: %v", err)
 	}

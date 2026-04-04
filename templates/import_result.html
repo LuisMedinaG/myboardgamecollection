@@ -1,0 +1,12 @@
+{{ define "import_result" }}
+{{ if .ErrMsg }}
+    <div class="import-error">{{ .ErrMsg }}</div>
+{{ else if eq .Count 0 }}
+    <div class="import-info">Your collection is already up to date!</div>
+{{ else }}
+    <div class="import-success">
+        Imported {{ .Count }} new game{{ if ne .Count 1 }}s{{ end }}!
+        <a href="/games">View your collection &#8594;</a>
+    </div>
+{{ end }}
+{{ end }}

@@ -25,7 +25,7 @@ func isHTMX(r *http.Request) bool {
 func handleHome(w http.ResponseWriter, r *http.Request) {
 	var count int
 	_ = db.QueryRow("SELECT COUNT(*) FROM games").Scan(&count)
-	home(count).Render(r.Context(), w)
+	renderPage(w, "home", "Home", count)
 }
 
 func handleGames(w http.ResponseWriter, r *http.Request) {
@@ -50,10 +50,10 @@ func handleGames(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if isHTMX(r) {
-		gamesResult(data.Games).Render(r.Context(), w)
+		renderPartial(w, "games_result", data.Games)
 		return
 	}
-	gamesPage(data).Render(r.Context(), w)
+	renderPage(w, "games", "My Games", data)
 }
 
 func handleGameDetail(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +68,7 @@ func handleGameDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	aids, _ := getPlayerAids(id)
-	gameDetail(game, aids).Render(r.Context(), w)
+	renderPage(w, "game_detail", game.Name, GameDetailData{Game: game, Aids: aids})
 }
 
 func handleGameDelete(w http.ResponseWriter, r *http.Request) {
@@ -93,7 +93,8 @@ func handleGameDelete(w http.ResponseWriter, r *http.Request) {
 // BGG import
 
 func handleImport(w http.ResponseWriter, r *http.Request) {
-	importPage().Render(r.Context(), w)
+	username := getConfig("bgg_username")
+	renderPage(w, "import", "Import Collection", username)
 }
 
 func handleImportSync(w http.ResponseWriter, r *http.Request) {
@@ -107,11 +108,11 @@ func handleImportSync(w http.ResponseWriter, r *http.Request) {
 
 	count, err := importBGGCollection(r.Context(), username)
 	if err != nil {
-		importResult(0, fmt.Sprintf("Import failed: %v", err)).Render(r.Context(), w)
+		renderPartial(w, "import_result", ImportResultData{Count: 0, ErrMsg: fmt.Sprintf("Import failed: %v", err)})
 		return
 	}
 
-	importResult(count, "").Render(r.Context(), w)
+	renderPartial(w, "import_result", ImportResultData{Count: count})
 }
 
 // Rules
@@ -134,7 +135,7 @@ func handleRules(w http.ResponseWriter, r *http.Request) {
 		PlayerAids: aids,
 		EmbedURL:   driveEmbedURL(game.RulesURL),
 	}
-	rulesPage(data).Render(r.Context(), w)
+	renderPage(w, "rules", data.Game.Name+" — Rules", data)
 }
 
 func handleRulesURLUpdate(w http.ResponseWriter, r *http.Request) {
@@ -157,7 +158,7 @@ func handleRulesURLUpdate(w http.ResponseWriter, r *http.Request) {
 			PlayerAids: aids,
 			EmbedURL:   driveEmbedURL(game.RulesURL),
 		}
-		rulesContent(data).Render(r.Context(), w)
+		renderPartial(w, "rules_content", data)
 		return
 	}
 	http.Redirect(w, r, fmt.Sprintf("/games/%d/rules", id), http.StatusSeeOther)
@@ -219,7 +220,7 @@ func handlePlayerAidUpload(w http.ResponseWriter, r *http.Request) {
 
 	if isHTMX(r) {
 		aids, _ := getPlayerAids(id)
-		playerAidsList(id, aids).Render(r.Context(), w)
+		renderPartial(w, "player_aids_list", PlayerAidsListData{GameID: id, Aids: aids})
 		return
 	}
 	http.Redirect(w, r, fmt.Sprintf("/games/%d/rules", id), http.StatusSeeOther)
@@ -248,7 +249,7 @@ func handlePlayerAidDelete(w http.ResponseWriter, r *http.Request) {
 
 	if isHTMX(r) {
 		aids, _ := getPlayerAids(aid.GameID)
-		playerAidsList(aid.GameID, aids).Render(r.Context(), w)
+		renderPartial(w, "player_aids_list", PlayerAidsListData{GameID: aid.GameID, Aids: aids})
 		return
 	}
 	http.Redirect(w, r, fmt.Sprintf("/games/%d/rules", aid.GameID), http.StatusSeeOther)
