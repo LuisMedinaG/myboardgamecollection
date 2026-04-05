@@ -16,6 +16,6 @@ dev:
 clean:
 	rm -f boardgames games.db
 
-# Print BGG Cookie header (uses ADMIN_USERNAME and ADMIN_PASSWORD). Example: make bgg-login
+# Print BGG Cookie header (reads ADMIN_* from .env if present, else environment). Run from repo root.
 bgg-login:
 	go run ./cmd/bgg-login

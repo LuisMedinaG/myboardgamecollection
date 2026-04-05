@@ -5,6 +5,8 @@
 //
 //	ADMIN_USERNAME=you ADMIN_PASSWORD=secret go run ./cmd/bgg-login
 //
+// If a .env file exists in the working directory, it is loaded first (same keys as the main app).
+//
 // Optional: -env prints a line in the form BGG_COOKIE=... for pasting into .env
 package main
 
@@ -19,6 +21,8 @@ import (
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/joho/godotenv"
 )
 
 const (
@@ -31,10 +35,17 @@ func main() {
 	printEnv := flag.Bool("env", false, `print one line BGG_COOKIE="..." for .env files`)
 	flag.Parse()
 
+	if _, err := os.Stat(".env"); err == nil {
+		if err := godotenv.Load(); err != nil {
+			fmt.Fprintf(os.Stderr, "bgg-login: load .env: %v\n", err)
+			os.Exit(2)
+		}
+	}
+
 	user := strings.TrimSpace(os.Getenv("ADMIN_USERNAME"))
 	pass := os.Getenv("ADMIN_PASSWORD")
 	if user == "" || pass == "" {
-		fmt.Fprintln(os.Stderr, "bgg-login: set ADMIN_USERNAME and ADMIN_PASSWORD in the environment")
+		fmt.Fprintln(os.Stderr, "bgg-login: set ADMIN_USERNAME and ADMIN_PASSWORD in the environment or in .env")
 		os.Exit(2)
 	}
 
