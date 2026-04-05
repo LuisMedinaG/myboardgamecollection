@@ -3,7 +3,7 @@
 //
 // Usage:
 //
-//	BGG_USERNAME=you BGG_PASSWORD=secret go run ./cmd/bgg-login
+//	ADMIN_USERNAME=you ADMIN_PASSWORD=secret go run ./cmd/bgg-login
 //
 // Optional: -env prints a line in the form BGG_COOKIE=... for pasting into .env
 package main
@@ -31,10 +31,10 @@ func main() {
 	printEnv := flag.Bool("env", false, `print one line BGG_COOKIE="..." for .env files`)
 	flag.Parse()
 
-	user := strings.TrimSpace(os.Getenv("BGG_USERNAME"))
-	pass := os.Getenv("BGG_PASSWORD")
+	user := strings.TrimSpace(os.Getenv("ADMIN_USERNAME"))
+	pass := os.Getenv("ADMIN_PASSWORD")
 	if user == "" || pass == "" {
-		fmt.Fprintln(os.Stderr, "bgg-login: set BGG_USERNAME and BGG_PASSWORD in the environment")
+		fmt.Fprintln(os.Stderr, "bgg-login: set ADMIN_USERNAME and ADMIN_PASSWORD in the environment")
 		os.Exit(2)
 	}
 

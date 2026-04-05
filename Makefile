@@ -16,6 +16,6 @@ dev:
 clean:
 	rm -f boardgames games.db
 
-# Print BGG Cookie header (set BGG_USERNAME and BGG_PASSWORD). Example: make bgg-login
+# Print BGG Cookie header (uses ADMIN_USERNAME and ADMIN_PASSWORD). Example: make bgg-login
 bgg-login:
 	go run ./cmd/bgg-login
