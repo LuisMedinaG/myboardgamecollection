@@ -49,7 +49,7 @@ func (h *Handler) HandleImportSync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	username := httpx.UsernameFromContext(r.Context())
-	added, updated, err := h.BGG.ImportCollection(r.Context(), h.Store, username, userID)
+	added, updated, collCount, err := h.BGG.ImportCollection(r.Context(), h.Store, username, userID)
 	if err != nil {
 		renderImportError(w, r, h, fmt.Sprintf("Import failed: %v", err))
 		return
@@ -59,7 +59,9 @@ func (h *Handler) HandleImportSync(w http.ResponseWriter, r *http.Request) {
 		slog.Error("RecordSync", "userID", userID, "error", err)
 	}
 
-	if err := h.Renderer.Partial(w, "import_result", viewmodel.ImportResultData{Count: added, Updated: updated}); err != nil {
+	if err := h.Renderer.Partial(w, "import_result", viewmodel.ImportResultData{
+		Count: added, Updated: updated, CollectionItems: collCount, Username: username,
+	}); err != nil {
 		http.Error(w, "failed to render partial", http.StatusInternalServerError)
 	}
 }

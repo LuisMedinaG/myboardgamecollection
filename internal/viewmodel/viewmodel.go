@@ -130,7 +130,9 @@ type ImportPageData struct {
 
 // ImportResultData holds data for the import result partial.
 type ImportResultData struct {
-	Count   int
-	Updated int
-	ErrMsg  string
+	Count           int
+	Updated         int
+	CollectionItems int // rows returned by BGG collection API (owned filter)
+	Username        string
+	ErrMsg          string
 }
