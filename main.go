@@ -17,6 +17,8 @@ import (
 	"myboardgamecollection/internal/httpx"
 	"myboardgamecollection/internal/render"
 	"myboardgamecollection/internal/store"
+
+	"github.com/joho/godotenv"
 )
 
 //go:embed static
@@ -28,6 +30,13 @@ var templateFS embed.FS
 func main() {
 	// Use JSON structured logging; easy to query on Fly.io / any log aggregator.
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
+	if _, err := os.Stat(".env"); err == nil {
+		if err := godotenv.Load(); err != nil {
+			slog.Error("load .env failed", "error", err)
+			os.Exit(1)
+		}
+	}
 
 	port := "8080"
 	if p := os.Getenv("PORT"); p != "" {
