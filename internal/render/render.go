@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"net/http"
 	"strings"
 
-	"myboardgamecollection/internal/httpx"
 	"myboardgamecollection/internal/model"
 	"myboardgamecollection/internal/viewmodel"
 )
@@ -74,20 +72,17 @@ func New(templateFS embed.FS) *Renderer {
 
 // Page renders a full page (with layout) to the writer.
 // It buffers the output so a template error never produces a partial response.
-func (r *Renderer) Page(w io.Writer, req *http.Request, name, title string, data any) error {
+func (r *Renderer) Page(w io.Writer, name, title string, data any, username, csrfToken string) error {
 	t, ok := r.tmpl[name]
 	if !ok {
 		return fmt.Errorf("template %q not found", name)
 	}
 
-	username := httpx.UsernameFromContext(req.Context())
-	csrf := httpx.CSRFTokenFromContext(req.Context())
-
 	var buf bytes.Buffer
 	if err := t.ExecuteTemplate(&buf, "layout.html", viewmodel.PageData{
 		Title:     title,
 		User:      username,
-		CSRFToken: csrf,
+		CSRFToken: csrfToken,
 		Data:      data,
 	}); err != nil {
 		return err

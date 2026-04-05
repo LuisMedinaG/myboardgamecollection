@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/static/style.css">
     <meta name="csrf-token" content="{{ .CSRFToken }}">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    {{ if .CSRFToken }}<meta name="csrf-token" content="{{ .CSRFToken }}">{{ end }}
 </head>
 <body hx-headers='{"X-CSRF-Token": "{{ .CSRFToken }}"}'>
     {{ if .User }}
@@ -30,5 +31,32 @@
     <main class="main-content">
         {{ template "content" .Data }}
     </main>
+    {{ if .CSRFToken }}
+    <script>
+    (function(){
+        var token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        // Inject hidden _csrf field into every form on the page.
+        document.querySelectorAll('form').forEach(function(f){
+            if (f.querySelector('input[name="_csrf"]')) return;
+            var inp = document.createElement('input');
+            inp.type = 'hidden'; inp.name = '_csrf'; inp.value = token;
+            f.appendChild(inp);
+        });
+        // Also inject into forms added later by HTMX.
+        document.body.addEventListener('htmx:afterSwap', function(evt){
+            evt.detail.elt.querySelectorAll('form').forEach(function(f){
+                if (f.querySelector('input[name="_csrf"]')) return;
+                var inp = document.createElement('input');
+                inp.type = 'hidden'; inp.name = '_csrf'; inp.value = token;
+                f.appendChild(inp);
+            });
+        });
+        // Send CSRF token as header on every HTMX request.
+        document.body.addEventListener('htmx:configRequest', function(evt){
+            evt.detail.headers['X-CSRF-Token'] = token;
+        });
+    })();
+    </script>
+    {{ end }}
 </body>
 </html>

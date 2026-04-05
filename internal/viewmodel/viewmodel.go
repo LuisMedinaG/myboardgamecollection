@@ -12,7 +12,7 @@ import (
 type PageData struct {
 	Title     string
 	User      string // BGG username of the logged-in user; empty if not authenticated
-	CSRFToken string
+	CSRFToken string // CSRF token for form/HTMX protection
 	Data      any
 }
 

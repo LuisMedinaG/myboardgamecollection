@@ -35,7 +35,7 @@ func (h *Handler) HandleImport(w http.ResponseWriter, r *http.Request) {
 		IsAdmin:   isAdmin,
 		SyncLimit: limit,
 	}
-	if err := h.Renderer.Page(w, r, "import", "Sync Collection", data); err != nil {
+	if err := h.renderPage(w, r, "import", "Sync Collection", data); err != nil {
 		http.Error(w, "failed to render page", http.StatusInternalServerError)
 	}
 }

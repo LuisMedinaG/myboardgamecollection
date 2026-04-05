@@ -141,6 +141,12 @@ func (s *Store) ValidateSession(token string) (int64, string, bool, error) {
 	return userID, username, isAdminInt == 1, nil
 }
 
+// DeleteUserSessions removes all sessions for a user (session rotation on login).
+func (s *Store) DeleteUserSessions(userID int64) error {
+	_, err := s.db.Exec("DELETE FROM sessions WHERE user_id = ?", userID)
+	return err
+}
+
 // DeleteSession removes a session token (logout).
 func (s *Store) DeleteSession(token string) error {
 	_, err := s.db.Exec("DELETE FROM sessions WHERE token = ?", token)

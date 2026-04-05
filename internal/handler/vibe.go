@@ -20,7 +20,7 @@ func (h *Handler) HandleVibes(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("AllVibes", "error", err)
 	}
-	if err := h.Renderer.Page(w, r, "vibes", "Manage Vibes", viewmodel.VibesPageData{Vibes: vibes}); err != nil {
+	if err := h.renderPage(w, r, "vibes", "Manage Vibes", viewmodel.VibesPageData{Vibes: vibes}); err != nil {
 		http.Error(w, "render error", http.StatusInternalServerError)
 	}
 }
@@ -33,6 +33,10 @@ func (h *Handler) HandleVibeCreate(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
 		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+	if len(name) > 100 {
+		http.Error(w, "name too long (max 100 characters)", http.StatusBadRequest)
 		return
 	}
 	if _, err := h.Store.CreateVibe(name, userID); err != nil {
@@ -58,6 +62,10 @@ func (h *Handler) HandleVibeUpdate(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
 		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+	if len(name) > 100 {
+		http.Error(w, "name too long (max 100 characters)", http.StatusBadRequest)
 		return
 	}
 	if err := h.Store.UpdateVibe(id, name, userID); err != nil {
@@ -97,6 +105,10 @@ func (h *Handler) HandleVibeBatchUpdate(w http.ResponseWriter, r *http.Request) 
 		name = strings.TrimSpace(name)
 		if name == "" {
 			http.Error(w, "name is required", http.StatusBadRequest)
+			return
+		}
+		if len(name) > 100 {
+			http.Error(w, "name too long (max 100 characters)", http.StatusBadRequest)
 			return
 		}
 		if err := h.Store.UpdateVibe(id, name, userID); err != nil {
@@ -155,7 +167,7 @@ func (h *Handler) HandleGameEdit(w http.ResponseWriter, r *http.Request) {
 		gvMap[v.ID] = true
 	}
 	data := viewmodel.GameEditData{Game: game, AllVibes: vibes, GameVibes: gvMap}
-	if err := h.Renderer.Page(w, r, "game_edit", "Edit — "+game.Name, data); err != nil {
+	if err := h.renderPage(w, r, "game_edit", "Edit — "+game.Name, data); err != nil {
 		http.Error(w, "render error", http.StatusInternalServerError)
 	}
 }
@@ -197,5 +209,5 @@ func (h *Handler) renderVibesWithError(w http.ResponseWriter, r *http.Request, u
 	if err != nil {
 		slog.Error("AllVibes", "error", err)
 	}
-	h.Renderer.Page(w, r, "vibes", "Manage Vibes", viewmodel.VibesPageData{Vibes: vibes, Error: errMsg})
+	h.renderPage(w, r, "vibes", "Manage Vibes", viewmodel.VibesPageData{Vibes: vibes, Error: errMsg})
 }
