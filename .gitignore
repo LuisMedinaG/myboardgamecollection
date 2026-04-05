@@ -32,3 +32,6 @@ Thumbs.db
 # Local secrets
 .env
 .env.*
+
+.vscode/*
+!.vscode/launch.json
