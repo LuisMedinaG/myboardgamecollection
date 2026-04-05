@@ -2,25 +2,92 @@ package store
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"os"
+	"strings"
 	"time"
 )
 
-// FindOrCreateUser returns the ID for bggUsername, inserting a new row if the
-// username has not been seen before.
-func (s *Store) FindOrCreateUser(bggUsername string) (int64, error) {
-	res, err := s.db.Exec("INSERT OR IGNORE INTO users (bgg_username) VALUES (?)", bggUsername)
+// RegisterUser creates a new user with a hashed password.
+func (s *Store) RegisterUser(bggUsername, password string) (int64, error) {
+	hash, err := hashPassword(password)
 	if err != nil {
 		return 0, err
 	}
-	if n, _ := res.RowsAffected(); n > 0 {
-		return res.LastInsertId()
+
+	isAdmin := 0
+	if admin := strings.TrimSpace(os.Getenv("ADMIN_USERNAME")); admin != "" && strings.EqualFold(bggUsername, admin) {
+		isAdmin = 1
 	}
+
+	res, err := s.db.Exec(
+		"INSERT INTO users (bgg_username, password_hash, is_admin) VALUES (?, ?, ?)",
+		bggUsername, hash, isAdmin,
+	)
+	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return 0, errors.New("username already taken")
+		}
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+// AuthenticateUser verifies the username and password, returning the user's ID
+// on success.
+func (s *Store) AuthenticateUser(username, password string) (int64, error) {
 	var id int64
-	err = s.db.QueryRow("SELECT id FROM users WHERE bgg_username = ?", bggUsername).Scan(&id)
-	return id, err
+	var hash string
+	err := s.db.QueryRow(
+		"SELECT id, password_hash FROM users WHERE bgg_username = ?",
+		username,
+	).Scan(&id, &hash)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, errors.New("invalid username or password")
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	if !checkPasswordHash(password, hash) {
+		return 0, errors.New("invalid username or password")
+	}
+	return id, nil
+}
+
+// hashPassword returns a salt+hash string.
+// NOTE: For a real product, use golang.org/x/crypto/argon2.
+// This is a simplified SHA-256 implementation for demonstration.
+func hashPassword(password string) (string, error) {
+	salt := make([]byte, 16)
+	if _, err := rand.Read(salt); err != nil {
+		return "", err
+	}
+	h := sha256.New()
+	h.Write(salt)
+	h.Write([]byte(password))
+	hash := h.Sum(nil)
+	return hex.EncodeToString(salt) + ":" + hex.EncodeToString(hash), nil
+}
+
+func checkPasswordHash(password, hash string) bool {
+	parts := strings.Split(hash, ":")
+	if len(parts) != 2 {
+		return false
+	}
+	salt, _ := hex.DecodeString(parts[0])
+	originalHash, _ := hex.DecodeString(parts[1])
+
+	h := sha256.New()
+	h.Write(salt)
+	h.Write([]byte(password))
+	newHash := h.Sum(nil)
+
+	return subtle.ConstantTimeCompare(originalHash, newHash) == 1
 }
 
 // GetUsername returns the BGG username for a user ID.
@@ -47,30 +114,31 @@ func (s *Store) CreateSession(userID int64) (string, error) {
 }
 
 // ValidateSession checks that the token exists and has not expired.
-// On success it returns the user's ID and BGG username.
-func (s *Store) ValidateSession(token string) (int64, string, error) {
+// On success it returns the user's ID, BGG username, and admin flag.
+func (s *Store) ValidateSession(token string) (int64, string, bool, error) {
 	var userID int64
+	var isAdminInt int
 	var username, expiresAt string
 	err := s.db.QueryRow(`
-		SELECT s.user_id, u.bgg_username, s.expires_at
+		SELECT s.user_id, u.bgg_username, s.expires_at, u.is_admin
 		FROM sessions s
 		JOIN users u ON u.id = s.user_id
 		WHERE s.token = ?`, token,
-	).Scan(&userID, &username, &expiresAt)
+	).Scan(&userID, &username, &expiresAt, &isAdminInt)
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, "", errors.New("session not found")
+		return 0, "", false, errors.New("session not found")
 	}
 	if err != nil {
-		return 0, "", err
+		return 0, "", false, err
 	}
 	exp, err := time.Parse(time.RFC3339, expiresAt)
 	if err != nil {
-		return 0, "", err
+		return 0, "", false, err
 	}
 	if time.Now().After(exp) {
-		return 0, "", errors.New("session expired")
+		return 0, "", false, errors.New("session expired")
 	}
-	return userID, username, nil
+	return userID, username, isAdminInt == 1, nil
 }
 
 // DeleteUserSessions removes all sessions for a user (session rotation on login).
@@ -92,7 +160,8 @@ func (s *Store) DeleteExpiredSessions() error {
 }
 
 // CanSync returns true if the user has not yet consumed their daily sync quota.
-func (s *Store) CanSync(userID int64) (bool, error) {
+// limit is the maximum number of syncs allowed per day for this user.
+func (s *Store) CanSync(userID int64, limit int) (bool, error) {
 	today := time.Now().Format("2006-01-02")
 	var syncDate string
 	var count int
@@ -102,7 +171,7 @@ func (s *Store) CanSync(userID int64) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return syncDate != today || count < 1, nil
+	return syncDate != today || count < limit, nil
 }
 
 // RecordSync increments the user's daily sync counter.

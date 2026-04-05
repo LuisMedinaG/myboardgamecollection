@@ -9,19 +9,31 @@ import (
 	"myboardgamecollection/internal/viewmodel"
 )
 
+const (
+	syncLimitRegular = 1
+	syncLimitAdmin   = 10
+)
+
 func (h *Handler) HandleImport(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.requireUserID(w, r)
 	if !ok {
 		return
 	}
-	canSync, err := h.Store.CanSync(userID)
+	isAdmin := httpx.IsAdminFromContext(r.Context())
+	limit := syncLimitRegular
+	if isAdmin {
+		limit = syncLimitAdmin
+	}
+	canSync, err := h.Store.CanSync(userID, limit)
 	if err != nil {
 		slog.Error("CanSync", "userID", userID, "error", err)
 	}
 	data := viewmodel.ImportPageData{
-		Username: httpx.UsernameFromContext(r.Context()),
-		Enabled:  h.BGG != nil,
-		CanSync:  canSync,
+		Username:  httpx.UsernameFromContext(r.Context()),
+		Enabled:   h.BGG != nil,
+		CanSync:   canSync,
+		IsAdmin:   isAdmin,
+		SyncLimit: limit,
 	}
 	if err := h.renderPage(w, r, "import", "Sync Collection", data); err != nil {
 		http.Error(w, "failed to render page", http.StatusInternalServerError)
@@ -39,12 +51,18 @@ func (h *Handler) HandleImportSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	canSync, err := h.Store.CanSync(userID)
+	isAdmin := httpx.IsAdminFromContext(r.Context())
+	limit := syncLimitRegular
+	if isAdmin {
+		limit = syncLimitAdmin
+	}
+	canSync, err := h.Store.CanSync(userID, limit)
 	if err != nil {
 		slog.Error("CanSync", "userID", userID, "error", err)
 	}
 	if !canSync {
-		renderImportError(w, r, h, "You have already synced today. Please try again tomorrow.")
+		msg := fmt.Sprintf("Daily sync limit reached (%d). Come back tomorrow to sync again.", limit)
+		renderImportError(w, r, h, msg)
 		return
 	}
 

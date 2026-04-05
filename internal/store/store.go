@@ -2,6 +2,8 @@ package store
 
 import (
 	"database/sql"
+	"errors"
+	"os"
 	"strings"
 
 	"myboardgamecollection/internal/model"
@@ -31,6 +33,9 @@ func New(path string) (*Store, error) {
 		return nil, err
 	}
 	if err := s.migrateUserData(); err != nil {
+		return nil, err
+	}
+	if err := s.migrateAdminUser(); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -150,10 +155,12 @@ func (s *Store) createTables() error {
 		CREATE TABLE IF NOT EXISTS users (
 			id               INTEGER PRIMARY KEY AUTOINCREMENT,
 			bgg_username     TEXT    NOT NULL UNIQUE,
+			password_hash    TEXT    NOT NULL DEFAULT '',
 			created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			last_sync_at     DATETIME,
 			sync_count_today INTEGER NOT NULL DEFAULT 0,
-			sync_date        TEXT    NOT NULL DEFAULT ''
+			sync_date        TEXT    NOT NULL DEFAULT '',
+			is_admin         INTEGER NOT NULL DEFAULT 0
 		)
 	`)
 	if err != nil {
@@ -174,6 +181,9 @@ func (s *Store) createTables() error {
 	// Migration: add user_id columns to games and vibes (no-op if already present).
 	_, _ = s.db.Exec("ALTER TABLE games ADD COLUMN user_id INTEGER REFERENCES users(id)")
 	_, _ = s.db.Exec("ALTER TABLE vibes ADD COLUMN user_id INTEGER REFERENCES users(id)")
+	// Migration: add is_admin and password_hash column (no-op if already present).
+	_, _ = s.db.Exec("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
+	_, _ = s.db.Exec("ALTER TABLE users ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''")
 
 	// FTS5 virtual table for full-text search over game name + description.
 	// content=games makes the FTS index reference the games table rows.
@@ -212,6 +222,18 @@ func (s *Store) createTables() error {
 	return nil
 }
 
+// migrateAdminUser promotes the ADMIN_USERNAME user (if they already exist in
+// the DB) to is_admin=1. This is idempotent and handles the case where the admin
+// user registered before this column was added.
+func (s *Store) migrateAdminUser() error {
+	admin := strings.TrimSpace(os.Getenv("ADMIN_USERNAME"))
+	if admin == "" {
+		return nil
+	}
+	_, err := s.db.Exec("UPDATE users SET is_admin = 1 WHERE bgg_username = ?", admin)
+	return err
+}
+
 // migrateUserData assigns games and vibes that were created before multi-user
 // support (user_id IS NULL) to the user stored in config["bgg_username"]. This
 // is a one-time, idempotent migration for upgrading single-user installations.
@@ -224,10 +246,22 @@ func (s *Store) migrateUserData() error {
 	if username == "" {
 		return nil // no known owner; leave orphaned rows for now
 	}
-	userID, err := s.FindOrCreateUser(username)
-	if err != nil {
+
+	// For legacy migrations, we check if the user exists.
+	var userID int64
+	err := s.db.QueryRow("SELECT id FROM users WHERE bgg_username = ?", username).Scan(&userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		// If the user doesn't exist, we create them with a placeholder password.
+		// The user will need to use "forgot password" (if implemented) or
+		// an admin will need to reset it.
+		userID, err = s.RegisterUser(username, "MIGRATED_USER_CHANGE_ME")
+		if err != nil {
+			return err
+		}
+	} else if err != nil {
 		return err
 	}
+
 	if _, err := s.db.Exec("UPDATE games SET user_id = ? WHERE user_id IS NULL", userID); err != nil {
 		return err
 	}
