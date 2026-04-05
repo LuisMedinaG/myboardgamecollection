@@ -20,7 +20,7 @@ func (h *Handler) HandleVibes(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("AllVibes", "error", err)
 	}
-	if err := h.Renderer.Page(w, "vibes", "Manage Vibes", viewmodel.VibesPageData{Vibes: vibes}, h.currentUsername(r)); err != nil {
+	if err := h.Renderer.Page(w, r, "vibes", "Manage Vibes", viewmodel.VibesPageData{Vibes: vibes}); err != nil {
 		http.Error(w, "render error", http.StatusInternalServerError)
 	}
 }
@@ -155,7 +155,7 @@ func (h *Handler) HandleGameEdit(w http.ResponseWriter, r *http.Request) {
 		gvMap[v.ID] = true
 	}
 	data := viewmodel.GameEditData{Game: game, AllVibes: vibes, GameVibes: gvMap}
-	if err := h.Renderer.Page(w, "game_edit", "Edit — "+game.Name, data, h.currentUsername(r)); err != nil {
+	if err := h.Renderer.Page(w, r, "game_edit", "Edit — "+game.Name, data); err != nil {
 		http.Error(w, "render error", http.StatusInternalServerError)
 	}
 }
@@ -197,5 +197,5 @@ func (h *Handler) renderVibesWithError(w http.ResponseWriter, r *http.Request, u
 	if err != nil {
 		slog.Error("AllVibes", "error", err)
 	}
-	h.Renderer.Page(w, "vibes", "Manage Vibes", viewmodel.VibesPageData{Vibes: vibes, Error: errMsg}, h.currentUsername(r))
+	h.Renderer.Page(w, r, "vibes", "Manage Vibes", viewmodel.VibesPageData{Vibes: vibes, Error: errMsg})
 }

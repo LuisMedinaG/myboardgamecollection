@@ -58,7 +58,7 @@ func (h *Handler) HandleGames(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	if err := h.Renderer.Page(w, "games", "My Games", data, h.currentUsername(r)); err != nil {
+	if err := h.Renderer.Page(w, r, "games", "My Games", data); err != nil {
 		http.Error(w, "failed to render page", http.StatusInternalServerError)
 	}
 }
@@ -81,7 +81,7 @@ func (h *Handler) HandleGameDetail(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("GetPlayerAids", "gameID", id, "error", err)
 	}
-	if err := h.Renderer.Page(w, "game_detail", game.Name, viewmodel.GameDetailData{Game: game, Aids: aids}, h.currentUsername(r)); err != nil {
+	if err := h.Renderer.Page(w, r, "game_detail", game.Name, viewmodel.GameDetailData{Game: game, Aids: aids}); err != nil {
 		http.Error(w, "failed to render page", http.StatusInternalServerError)
 	}
 }

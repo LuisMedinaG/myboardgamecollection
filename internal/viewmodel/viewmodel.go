@@ -10,13 +10,14 @@ import (
 // PageData wraps a title, the current user's BGG username, and page-specific
 // data for full-page renders. User is empty on the login page.
 type PageData struct {
-	Title string
-	User  string // BGG username of the logged-in user; empty if not authenticated
-	Data  any
+	Title     string
+	User      string // BGG username of the logged-in user; empty if not authenticated
+	CSRFToken string
+	Data      any
 }
 
-// LoginPageData holds data for the login page.
-type LoginPageData struct {
+// AuthPageData holds data for the login and signup pages.
+type AuthPageData struct {
 	Error string
 }
 
@@ -123,9 +124,11 @@ type PlayerAidsListData struct {
 
 // ImportPageData holds data for the BGG import page.
 type ImportPageData struct {
-	Username string
-	Enabled  bool
-	CanSync  bool // false when the daily sync limit has been reached
+	Username  string
+	Enabled   bool
+	CanSync   bool // false when the daily sync limit has been reached
+	IsAdmin   bool
+	SyncLimit int // max syncs allowed per day for this user
 }
 
 // ImportResultData holds data for the import result partial.

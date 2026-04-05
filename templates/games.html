@@ -49,6 +49,7 @@
             <button type="button" class="chip-remove" id="modal-close">&times;</button>
         </div>
         <form id="bulk-vibe-form" method="POST" action="/games/bulk-vibes">
+            <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
             <div class="vibe-checklist">
                 {{ range .AllVibes }}
                 <label class="vibe-check-item">

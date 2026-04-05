@@ -56,7 +56,7 @@ func (h *Handler) HandleDiscover(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	if err := h.Renderer.Page(w, "discover", "Discover — "+vibe.Name, data, h.currentUsername(r)); err != nil {
+	if err := h.Renderer.Page(w, r, "discover", "Discover — "+vibe.Name, data); err != nil {
 		http.Error(w, "render error", http.StatusInternalServerError)
 	}
 }
@@ -73,7 +73,7 @@ func (h *Handler) renderDiscoverGrid(w http.ResponseWriter, r *http.Request, use
 		}
 		return
 	}
-	if err := h.Renderer.Page(w, "discover", "Discover", data, h.currentUsername(r)); err != nil {
+	if err := h.Renderer.Page(w, r, "discover", "Discover", data); err != nil {
 		http.Error(w, "render error", http.StatusInternalServerError)
 	}
 }

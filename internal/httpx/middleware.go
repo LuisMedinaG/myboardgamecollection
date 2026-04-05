@@ -2,6 +2,8 @@ package httpx
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -24,15 +26,23 @@ func Chain(h http.Handler, middlewares ...Middleware) http.Handler {
 type contextKey string
 
 const (
-	ctxUserID   contextKey = "userID"
-	ctxUsername contextKey = "username"
+	ctxUserID    contextKey = "userID"
+	ctxUsername  contextKey = "username"
+	ctxIsAdmin   contextKey = "isAdmin"
+	ctxCSRFToken contextKey = "csrfToken"
 )
 
-// SetUser stores userID and username in the context.
-func SetUser(ctx context.Context, id int64, username string) context.Context {
+// SetUser stores userID, username, and admin flag in the context.
+func SetUser(ctx context.Context, id int64, username string, isAdmin bool) context.Context {
 	ctx = context.WithValue(ctx, ctxUserID, id)
 	ctx = context.WithValue(ctx, ctxUsername, username)
+	ctx = context.WithValue(ctx, ctxIsAdmin, isAdmin)
 	return ctx
+}
+
+// SetCSRFToken stores the CSRF token in the context.
+func SetCSRFToken(ctx context.Context, token string) context.Context {
+	return context.WithValue(ctx, ctxCSRFToken, token)
 }
 
 // UserIDFromContext retrieves the authenticated user's ID from the context.
@@ -47,18 +57,31 @@ func UsernameFromContext(ctx context.Context) string {
 	return v
 }
 
+// IsAdminFromContext reports whether the authenticated user has admin privileges.
+func IsAdminFromContext(ctx context.Context) bool {
+	v, _ := ctx.Value(ctxIsAdmin).(bool)
+	return v
+}
+
+// CSRFTokenFromContext retrieves the CSRF token from the context.
+func CSRFTokenFromContext(ctx context.Context) string {
+	v, _ := ctx.Value(ctxCSRFToken).(string)
+	return v
+}
+
 // --- Session auth middleware ---
 
 // SessionValidator is satisfied by any store that can validate a session token.
 // Using an interface avoids an import cycle between httpx and store.
 type SessionValidator interface {
-	ValidateSession(token string) (int64, string, error)
+	ValidateSession(token string) (int64, string, bool, error)
 }
 
 // RequireAuth reads the session cookie and populates the request context with
-// the user's ID and username. Unauthenticated requests are redirected to /login.
-// HTMX requests receive an HX-Redirect header instead of a 302 so the client
-// can do a full-page navigation rather than swapping partial content.
+// the user's ID, username, and admin flag. Unauthenticated requests are
+// redirected to /login. HTMX requests receive an HX-Redirect header instead of
+// a 302 so the client can do a full-page navigation rather than swapping partial
+// content.
 func RequireAuth(sv SessionValidator) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -67,14 +90,14 @@ func RequireAuth(sv SessionValidator) Middleware {
 				redirectToLogin(w, r)
 				return
 			}
-			userID, username, err := sv.ValidateSession(cookie.Value)
+			userID, username, isAdmin, err := sv.ValidateSession(cookie.Value)
 			if err != nil {
 				// Clear the stale/invalid cookie.
 				http.SetCookie(w, &http.Cookie{Name: "sid", Path: "/", MaxAge: -1})
 				redirectToLogin(w, r)
 				return
 			}
-			ctx := SetUser(r.Context(), userID, username)
+			ctx := SetUser(r.Context(), userID, username, isAdmin)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -150,6 +173,57 @@ func sameOrigin(raw, host string) bool {
 		return false
 	}
 	return strings.EqualFold(u.Host, host)
+}
+
+// CSRF implements a double-submit cookie CSRF protection.
+// It generates a token, stores it in a cookie, and requires it in the
+// X-CSRF-Token header or "csrf_token" form field for unsafe methods.
+func CSRF(secure bool) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var token string
+			if cookie, err := r.Cookie("csrf_token"); err == nil {
+				token = cookie.Value
+			}
+
+			if token == "" {
+				b := make([]byte, 32)
+				_, _ = rand.Read(b)
+				token = hex.EncodeToString(b)
+				http.SetCookie(w, &http.Cookie{
+					Name:     "csrf_token",
+					Value:    token,
+					Path:     "/",
+					HttpOnly: false, // Must be readable by JS if using header-based approach
+					Secure:   secure,
+					SameSite: http.SameSiteLaxMode,
+				})
+			}
+
+			// Add token to context so templates can use it.
+			ctx := SetCSRFToken(r.Context(), token)
+			r = r.WithContext(ctx)
+
+			switch r.Method {
+			case http.MethodGet, http.MethodHead, http.MethodOptions, http.MethodTrace:
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Validate token.
+			sent := r.Header.Get("X-CSRF-Token")
+			if sent == "" {
+				sent = r.FormValue("csrf_token")
+			}
+
+			if sent == "" || sent != token {
+				http.Error(w, "invalid CSRF token", http.StatusForbidden)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // MethodGuard returns 405 when a route is reached with an unexpected method.

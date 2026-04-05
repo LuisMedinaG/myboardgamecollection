@@ -40,7 +40,7 @@ func (h *Handler) HandleRules(w http.ResponseWriter, r *http.Request) {
 		PlayerAids: aids,
 		EmbedURL:   driveEmbedURL(game.RulesURL),
 	}
-	if err := h.Renderer.Page(w, "rules", game.Name+" — Rules", data, h.currentUsername(r)); err != nil {
+	if err := h.Renderer.Page(w, r, "rules", game.Name+" — Rules", data); err != nil {
 		http.Error(w, "failed to render page", http.StatusInternalServerError)
 	}
 }
@@ -147,7 +147,7 @@ func (h *Handler) HandlePlayerAidUpload(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	uploadDir := filepath.Join("data", "uploads")
+	uploadDir := filepath.Join(h.DataDir, "uploads")
 	if err := os.MkdirAll(uploadDir, 0o755); err != nil {
 		http.Error(w, "failed to create upload directory", http.StatusInternalServerError)
 		return
@@ -205,7 +205,7 @@ func (h *Handler) HandlePlayerAidDelete(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	_ = os.Remove(filepath.Join("data", "uploads", aid.Filename))
+	_ = os.Remove(filepath.Join(h.DataDir, "uploads", aid.Filename))
 
 	if err := h.Store.DeletePlayerAid(aidID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

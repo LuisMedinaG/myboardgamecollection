@@ -15,6 +15,7 @@ type Handler struct {
 	Store    *store.Store
 	Renderer *render.Renderer
 	BGG      *bgg.Client // may be nil if BGG is not configured
+	DataDir  string      // base directory for user uploads and image cache
 }
 
 func parseID(r *http.Request) (int64, error) {

@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"net/http"
 	"strings"
 
+	"myboardgamecollection/internal/httpx"
 	"myboardgamecollection/internal/model"
 	"myboardgamecollection/internal/viewmodel"
 )
@@ -51,6 +53,8 @@ func New(templateFS embed.FS) *Renderer {
 			"templates/vibes.html")),
 		"login": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
 			"templates/login.html")),
+		"signup": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
+			"templates/signup.html")),
 
 		// Partials (no layout, for HTMX responses)
 		"games_result": template.Must(
@@ -69,15 +73,23 @@ func New(templateFS embed.FS) *Renderer {
 }
 
 // Page renders a full page (with layout) to the writer.
-// username is the BGG username of the logged-in user; pass "" for the login page.
 // It buffers the output so a template error never produces a partial response.
-func (r *Renderer) Page(w io.Writer, name, title string, data any, username string) error {
+func (r *Renderer) Page(w io.Writer, req *http.Request, name, title string, data any) error {
 	t, ok := r.tmpl[name]
 	if !ok {
 		return fmt.Errorf("template %q not found", name)
 	}
+
+	username := httpx.UsernameFromContext(req.Context())
+	csrf := httpx.CSRFTokenFromContext(req.Context())
+
 	var buf bytes.Buffer
-	if err := t.ExecuteTemplate(&buf, "layout.html", viewmodel.PageData{Title: title, User: username, Data: data}); err != nil {
+	if err := t.ExecuteTemplate(&buf, "layout.html", viewmodel.PageData{
+		Title:     title,
+		User:      username,
+		CSRFToken: csrf,
+		Data:      data,
+	}); err != nil {
 		return err
 	}
 	_, err := buf.WriteTo(w)
