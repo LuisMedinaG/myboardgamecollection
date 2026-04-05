@@ -1,6 +1,11 @@
 {{ define "import_result" }}
 {{ if .ErrMsg }}
     <div class="import-error">{{ .ErrMsg }}</div>
+{{ else if and (eq .CollectionItems 0) (eq .Count 0) (eq .Updated 0) }}
+    <div class="import-info">
+        BoardGameGeek returned no owned games for <strong>{{ .Username }}</strong>.
+        On BGG, mark games as owned in your collection, make the collection public if required, and ensure <code>BGG_COOKIE</code> (or token) matches this account.
+    </div>
 {{ else if and (eq .Count 0) (eq .Updated 0) }}
     <div class="import-info">Your collection is already up to date!</div>
 {{ else }}

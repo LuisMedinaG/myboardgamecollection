@@ -1,4 +1,4 @@
-.PHONY: build run dev clean
+.PHONY: build run dev clean bgg-login
 
 # Build the binary
 build:
@@ -15,3 +15,7 @@ dev:
 # Remove build artifacts and database
 clean:
 	rm -f boardgames games.db
+
+# Print BGG Cookie header (reads ADMIN_* from .env if present, else environment). Run from repo root.
+bgg-login:
+	go run ./cmd/bgg-login
