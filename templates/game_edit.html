@@ -5,7 +5,6 @@
     <p class="subtitle">{{ .Game.Name }}</p>
 </header>
 <form method="POST" action="/games/{{ .Game.ID }}/vibes" class="edit-vibes-form">
-    <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
     <div class="vibe-checklist">
         {{ range .AllVibes }}
         <label class="vibe-check-item">
