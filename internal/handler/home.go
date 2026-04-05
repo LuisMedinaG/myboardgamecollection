@@ -8,7 +8,7 @@ func (h *Handler) HandleHome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	count := h.Store.GameCount(userID)
-	if err := h.Renderer.Page(w, "home", "Home", count, h.currentUsername(r)); err != nil {
+	if err := h.renderPage(w, r, "home", "Home", count); err != nil {
 		http.Error(w, "failed to render page", http.StatusInternalServerError)
 	}
 }

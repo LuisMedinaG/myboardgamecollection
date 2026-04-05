@@ -40,7 +40,7 @@ func (h *Handler) HandleRules(w http.ResponseWriter, r *http.Request) {
 		PlayerAids: aids,
 		EmbedURL:   driveEmbedURL(game.RulesURL),
 	}
-	if err := h.Renderer.Page(w, "rules", game.Name+" — Rules", data, h.currentUsername(r)); err != nil {
+	if err := h.renderPage(w, r, "rules", game.Name+" — Rules", data); err != nil {
 		http.Error(w, "failed to render page", http.StatusInternalServerError)
 	}
 }
@@ -137,6 +137,9 @@ func (h *Handler) HandlePlayerAidUpload(w http.ResponseWriter, r *http.Request) 
 	label := strings.TrimSpace(r.FormValue("label"))
 	if label == "" {
 		label = strings.TrimSuffix(header.Filename, filepath.Ext(header.Filename))
+	}
+	if len(label) > 200 {
+		label = label[:200]
 	}
 
 	reader := io.MultiReader(bytes.NewReader(buffer[:n]), file)
