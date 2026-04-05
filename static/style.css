@@ -32,7 +32,7 @@ body {
   color: var(--text);
   line-height: 1.5;
   min-height: 100dvh;
-  padding: 1rem;
+  /* No padding here — the sticky nav needs full-width; page padding lives on .main-content */
   max-width: 600px;
   margin: 0 auto;
 }
@@ -1352,9 +1352,10 @@ body {
 .top-nav {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0 1.5rem;
-  height: 52px;
+  flex-wrap: wrap;          /* allow second row on narrow screens */
+  gap: 0.5rem;
+  padding: 0 1.25rem;
+  min-height: 52px;
   background: var(--accent);
   color: #fff;
   position: sticky;
@@ -1369,12 +1370,15 @@ body {
   color: #fff;
   text-decoration: none;
   white-space: nowrap;
+  flex-shrink: 0;
+  padding: 0.4rem 0;
 }
 
 .nav-links {
   display: flex;
   gap: 0.25rem;
   flex: 1;
+  min-width: 0;
 }
 
 .nav-link {
@@ -1384,6 +1388,7 @@ body {
   padding: 0.3rem 0.7rem;
   border-radius: var(--radius-sm);
   transition: background 0.15s;
+  white-space: nowrap;
 }
 .nav-link:hover {
   background: rgba(255,255,255,0.15);
@@ -1393,15 +1398,16 @@ body {
 .nav-right {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   margin-left: auto;
+  flex-shrink: 0;
 }
 
 .nav-user {
   font-size: 0.875rem;
   color: rgba(255,255,255,0.9);
   white-space: nowrap;
-  max-width: 160px;
+  max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -1412,35 +1418,77 @@ body {
 
 .nav-logout-btn {
   font-size: 0.8rem;
-  padding: 0.25rem 0.65rem;
+  padding: 0.3rem 0.65rem;
   background: rgba(255,255,255,0.15);
   color: #fff;
   border: 1px solid rgba(255,255,255,0.3);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 0.15s;
+  white-space: nowrap;
+  /* Prevent tiny tap targets on touch */
+  min-height: 32px;
 }
 .nav-logout-btn:hover {
   background: rgba(255,255,255,0.28);
 }
 
+/* Mobile: two-row nav — links drop to a second row below brand+user */
+@media (max-width: 600px) {
+  .top-nav {
+    padding: 0.5rem 0.75rem;
+    gap: 0.4rem;
+  }
+
+  .nav-brand {
+    font-size: 0.9rem;
+  }
+
+  /* Push nav-links to their own full-width row */
+  .nav-links {
+    order: 3;
+    width: 100%;
+    flex: none;
+    justify-content: space-around;
+    gap: 0;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    padding-top: 0.35rem;
+    padding-bottom: 0.2rem;
+  }
+
+  .nav-link {
+    font-size: 0.78rem;
+    padding: 0.3rem 0.4rem;
+    text-align: center;
+    flex: 1;
+  }
+
+  .nav-user {
+    max-width: 90px;
+    font-size: 0.78rem;
+  }
+}
+
 /* =========================================================
-   Main content wrapper (accounts for sticky nav)
+   Main content wrapper
+   — carries the horizontal page padding (body has none) so the sticky
+     nav can span full width without negative-margin hacks.
    ========================================================= */
 .main-content {
-  min-height: calc(100vh - 52px);
+  padding: 1rem 1rem 2rem;
 }
 
 /* =========================================================
    Login page
    ========================================================= */
 .login-hero {
-  min-height: 100vh;
+  /* fill the screen on the login page (no nav present) */
+  min-height: calc(100dvh - 2rem); /* subtract .main-content top+bottom padding */
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--bg);
-  padding: 2rem 1rem;
+  padding: 2rem 0;
 }
 
 .login-card {
