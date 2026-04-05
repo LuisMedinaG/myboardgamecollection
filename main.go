@@ -66,9 +66,12 @@ func main() {
 		slog.Info("BGG auth: using cookie")
 	}
 
+	// Login rate limiter: 10 attempts per 15 minutes per IP.
+	loginLimiter := httpx.NewLoginLimiter(10, 15*time.Minute)
+
 	// Initialize renderer and handler.
 	ren := render.New(templateFS)
-	h := &handler.Handler{Store: s, Renderer: ren, BGG: bc}
+	h := &handler.Handler{Store: s, Renderer: ren, BGG: bc, LoginLimiter: loginLimiter}
 
 	// Ensure data directories.
 	_ = os.MkdirAll("data/uploads", 0o755)
@@ -81,7 +84,7 @@ func main() {
 		return httpx.Chain(hf, httpx.MethodGuard(http.MethodGet), httpx.RequireAuth(s))
 	}
 	authPOST := func(hf http.HandlerFunc) http.Handler {
-		return httpx.Chain(hf, httpx.MethodGuard(http.MethodPost), httpx.RequireAuth(s), httpx.SameOrigin())
+		return httpx.Chain(hf, httpx.MethodGuard(http.MethodPost), httpx.RequireAuth(s), httpx.SameOrigin(), httpx.VerifyCSRF())
 	}
 
 	// Static files (embedded).
@@ -97,7 +100,7 @@ func main() {
 
 	// Public routes (no auth required).
 	mux.Handle("GET /login", httpx.Chain(http.HandlerFunc(h.HandleLoginPage), httpx.MethodGuard(http.MethodGet)))
-	mux.Handle("POST /login", httpx.Chain(http.HandlerFunc(h.HandleLogin), httpx.MethodGuard(http.MethodPost), httpx.SameOrigin()))
+	mux.Handle("POST /login", httpx.Chain(http.HandlerFunc(h.HandleLogin), httpx.MethodGuard(http.MethodPost), httpx.SameOrigin(), httpx.RateLimit(loginLimiter)))
 	mux.Handle("POST /logout", httpx.Chain(http.HandlerFunc(h.HandleLogout), httpx.MethodGuard(http.MethodPost), httpx.SameOrigin()))
 	mux.HandleFunc("GET /images/{bgg_id}", h.HandleImage)
 
@@ -146,9 +149,26 @@ func main() {
 		}
 	}()
 
-	// Block until SIGINT or SIGTERM is received.
+	// Periodic maintenance: purge expired sessions and stale rate-limit buckets.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := s.DeleteExpiredSessions(); err != nil {
+					slog.Warn("session cleanup failed", "error", err)
+				}
+				loginLimiter.Cleanup()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	// Block until SIGINT or SIGTERM is received.
 	<-ctx.Done()
 
 	slog.Info("shutting down")

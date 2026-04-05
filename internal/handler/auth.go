@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"myboardgamecollection/internal/httpx"
 	"myboardgamecollection/internal/viewmodel"
 )
 
@@ -15,7 +16,7 @@ import (
 var bggUsernameRE = regexp.MustCompile(`^[a-zA-Z0-9_.+\- ]{1,60}$`)
 
 func (h *Handler) HandleLoginPage(w http.ResponseWriter, r *http.Request) {
-	if err := h.Renderer.Page(w, "login", "Sign In", viewmodel.LoginPageData{}, ""); err != nil {
+	if err := h.Renderer.Page(w, "login", "Sign In", viewmodel.LoginPageData{}, "", ""); err != nil {
 		http.Error(w, "failed to render page", http.StatusInternalServerError)
 	}
 }
@@ -23,6 +24,7 @@ func (h *Handler) HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(r.FormValue("username"))
 	if !bggUsernameRE.MatchString(username) {
+		h.recordLoginFailure(r)
 		renderLoginError(w, r, h, "Please enter a valid BGG username (1–60 characters).")
 		return
 	}
@@ -30,8 +32,14 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	userID, err := h.Store.FindOrCreateUser(username)
 	if err != nil {
 		slog.Error("FindOrCreateUser", "username", username, "error", err)
+		h.recordLoginFailure(r)
 		renderLoginError(w, r, h, "Something went wrong. Please try again.")
 		return
+	}
+
+	// Session rotation: remove any existing sessions for this user.
+	if err := h.Store.DeleteUserSessions(userID); err != nil {
+		slog.Warn("DeleteUserSessions", "userID", userID, "error", err)
 	}
 
 	token, err := h.Store.CreateSession(userID)
@@ -65,9 +73,16 @@ func (h *Handler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
+// recordLoginFailure records a failed login attempt for rate limiting.
+func (h *Handler) recordLoginFailure(r *http.Request) {
+	if h.LoginLimiter != nil {
+		h.LoginLimiter.Record(httpx.ClientIP(r))
+	}
+}
+
 func renderLoginError(w http.ResponseWriter, r *http.Request, h *Handler, msg string) {
 	w.WriteHeader(http.StatusUnprocessableEntity)
-	if err := h.Renderer.Page(w, "login", "Sign In", viewmodel.LoginPageData{Error: msg}, ""); err != nil {
+	if err := h.Renderer.Page(w, "login", "Sign In", viewmodel.LoginPageData{Error: msg}, "", ""); err != nil {
 		http.Error(w, "failed to render page", http.StatusInternalServerError)
 	}
 }

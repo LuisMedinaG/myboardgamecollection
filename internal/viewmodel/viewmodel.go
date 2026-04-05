@@ -10,9 +10,10 @@ import (
 // PageData wraps a title, the current user's BGG username, and page-specific
 // data for full-page renders. User is empty on the login page.
 type PageData struct {
-	Title string
-	User  string // BGG username of the logged-in user; empty if not authenticated
-	Data  any
+	Title     string
+	User      string // BGG username of the logged-in user; empty if not authenticated
+	CSRFToken string // CSRF token for form/HTMX protection
+	Data      any
 }
 
 // LoginPageData holds data for the login page.

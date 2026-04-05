@@ -75,6 +75,7 @@ func RequireAuth(sv SessionValidator) Middleware {
 				return
 			}
 			ctx := SetUser(r.Context(), userID, username)
+			ctx = SetCSRFToken(ctx, computeCSRF(cookie.Value))
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

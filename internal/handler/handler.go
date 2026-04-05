@@ -12,9 +12,10 @@ import (
 
 // Handler holds dependencies for all HTTP handlers.
 type Handler struct {
-	Store    *store.Store
-	Renderer *render.Renderer
-	BGG      *bgg.Client // may be nil if BGG is not configured
+	Store        *store.Store
+	Renderer     *render.Renderer
+	BGG          *bgg.Client          // may be nil if BGG is not configured
+	LoginLimiter *httpx.LoginLimiter  // may be nil; records failed login attempts
 }
 
 func parseID(r *http.Request) (int64, error) {
@@ -49,6 +50,16 @@ func (h *Handler) requireUserID(w http.ResponseWriter, r *http.Request) (int64, 
 // context, or "" if the context has no user (e.g. login page).
 func (h *Handler) currentUsername(r *http.Request) string {
 	return httpx.UsernameFromContext(r.Context())
+}
+
+// csrfToken returns the CSRF token for the current request.
+func (h *Handler) csrfToken(r *http.Request) string {
+	return httpx.CSRFTokenFromContext(r.Context())
+}
+
+// renderPage renders a full page with username and CSRF token from context.
+func (h *Handler) renderPage(w http.ResponseWriter, r *http.Request, name, title string, data any) error {
+	return h.Renderer.Page(w, name, title, data, h.currentUsername(r), h.csrfToken(r))
 }
 
 func isHTMX(r *http.Request) bool {

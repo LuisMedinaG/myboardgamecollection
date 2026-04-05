@@ -23,7 +23,7 @@ func (h *Handler) HandleImport(w http.ResponseWriter, r *http.Request) {
 		Enabled:  h.BGG != nil,
 		CanSync:  canSync,
 	}
-	if err := h.Renderer.Page(w, "import", "Sync Collection", data, h.currentUsername(r)); err != nil {
+	if err := h.renderPage(w, r, "import", "Sync Collection", data); err != nil {
 		http.Error(w, "failed to render page", http.StatusInternalServerError)
 	}
 }
