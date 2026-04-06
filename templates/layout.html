@@ -11,20 +11,71 @@
 <body hx-headers='{"X-CSRF-Token": "{{ .CSRFToken }}"}'>
     {{ if .User }}
     <nav class="top-nav">
+        <button class="burger-btn" id="burger-btn" aria-label="Toggle menu" aria-expanded="false">
+            <span class="burger-icon"></span>
+        </button>
         <a href="/" class="nav-brand">&#127922; My Collection</a>
-        <div class="nav-links">
+        <div class="nav-right">
+            <button class="profile-btn" id="profile-btn" aria-label="User menu" aria-expanded="false">
+                <span class="profile-avatar">{{ slice .User 0 1 }}</span>
+            </button>
+            <div class="profile-dropdown" id="profile-dropdown">
+                <span class="profile-dropdown-user">{{ .User }}</span>
+                <form method="post" action="/logout" class="nav-logout-form">
+                    <button type="submit" class="btn btn-sm nav-logout-btn">Sign out</button>
+                </form>
+            </div>
+        </div>
+        <div class="nav-overlay" id="nav-overlay"></div>
+        <div class="nav-menu" id="nav-menu">
             <a href="/games" class="nav-link">Games</a>
             <a href="/discover" class="nav-link">Discover</a>
             <a href="/vibes" class="nav-link">Vibes</a>
             <a href="/import" class="nav-link">Sync</a>
         </div>
-        <div class="nav-right">
-            <span class="nav-user">{{ .User }}</span>
-            <form method="post" action="/logout" class="nav-logout-form">
-                <button type="submit" class="btn btn-sm nav-logout-btn">Sign out</button>
-            </form>
-        </div>
     </nav>
+    <script>
+    (function(){
+        var burger = document.getElementById('burger-btn');
+        var menu = document.getElementById('nav-menu');
+        var overlay = document.getElementById('nav-overlay');
+        var profileBtn = document.getElementById('profile-btn');
+        var profileDrop = document.getElementById('profile-dropdown');
+
+        function closeMenu(){
+            burger.setAttribute('aria-expanded','false');
+            menu.classList.remove('nav-menu--open');
+            overlay.classList.remove('nav-overlay--open');
+        }
+        function closeProfile(){
+            profileBtn.setAttribute('aria-expanded','false');
+            profileDrop.classList.remove('profile-dropdown--open');
+        }
+        function closeAll(){ closeMenu(); closeProfile(); }
+
+        burger.addEventListener('click', function(){
+            closeProfile();
+            var open = burger.getAttribute('aria-expanded') === 'true';
+            if (open) { closeMenu(); } else {
+                burger.setAttribute('aria-expanded','true');
+                menu.classList.add('nav-menu--open');
+                overlay.classList.add('nav-overlay--open');
+            }
+        });
+        profileBtn.addEventListener('click', function(){
+            closeMenu();
+            var open = profileBtn.getAttribute('aria-expanded') === 'true';
+            if (open) { closeProfile(); } else {
+                profileBtn.setAttribute('aria-expanded','true');
+                profileDrop.classList.add('profile-dropdown--open');
+            }
+        });
+        overlay.addEventListener('click', closeAll);
+        menu.querySelectorAll('.nav-link').forEach(function(link){
+            link.addEventListener('click', closeAll);
+        });
+    })();
+    </script>
     {{ end }}
     <main class="main-content">
         {{ template "content" .Data }}
