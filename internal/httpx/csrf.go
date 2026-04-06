@@ -12,8 +12,9 @@ const ctxCSRFToken contextKey = "csrfToken"
 
 // computeCSRF derives a CSRF token from the session token using HMAC-SHA256.
 // The token is deterministic for a given session, so it doesn't need storage.
-func computeCSRF(sessionToken string) string {
-	mac := hmac.New(sha256.New, []byte("csrf"))
+// secret must be a cryptographically random key (e.g. from SESSION_SECRET env var).
+func computeCSRF(sessionToken string, secret []byte) string {
+	mac := hmac.New(sha256.New, secret)
 	mac.Write([]byte(sessionToken))
 	return hex.EncodeToString(mac.Sum(nil))
 }

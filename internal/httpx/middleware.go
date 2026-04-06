@@ -68,7 +68,8 @@ type SessionValidator interface {
 // redirected to /login. HTMX requests receive an HX-Redirect header instead of
 // a 302 so the client can do a full-page navigation rather than swapping partial
 // content.
-func RequireAuth(sv SessionValidator) Middleware {
+// secret is used to sign CSRF tokens and must match the application's SESSION_SECRET.
+func RequireAuth(sv SessionValidator, secret []byte) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			cookie, err := r.Cookie("sid")
@@ -84,7 +85,7 @@ func RequireAuth(sv SessionValidator) Middleware {
 				return
 			}
 			ctx := SetUser(r.Context(), userID, username, isAdmin)
-			ctx = SetCSRFToken(ctx, computeCSRF(cookie.Value))
+			ctx = SetCSRFToken(ctx, computeCSRF(cookie.Value, secret))
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

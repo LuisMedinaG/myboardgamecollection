@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{{ .Title }} — Board Game Collection</title>
     <link rel="stylesheet" href="/static/style.css">
-    <meta name="csrf-token" content="{{ .CSRFToken }}">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     {{ if .CSRFToken }}<meta name="csrf-token" content="{{ .CSRFToken }}">{{ end }}
 </head>
@@ -22,7 +21,6 @@
         <div class="nav-right">
             <span class="nav-user">{{ .User }}</span>
             <form method="post" action="/logout" class="nav-logout-form">
-                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
                 <button type="submit" class="btn btn-sm nav-logout-btn">Sign out</button>
             </form>
         </div>
