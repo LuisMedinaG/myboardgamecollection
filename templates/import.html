@@ -13,7 +13,7 @@
         {{ end }}
         {{ if and .Enabled (not .CanSync) }}
         <div class="import-error">
-            You have already synced today. Come back tomorrow to sync again.
+            Daily sync limit reached ({{ .SyncLimit }}). Come back tomorrow to sync again.
         </div>
         {{ end }}
         <hr class="import-divider">

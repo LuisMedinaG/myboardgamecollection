@@ -16,24 +16,51 @@ import (
 var bggUsernameRE = regexp.MustCompile(`^[a-zA-Z0-9_.+\- ]{1,60}$`)
 
 func (h *Handler) HandleLoginPage(w http.ResponseWriter, r *http.Request) {
-	if err := h.Renderer.Page(w, "login", "Sign In", viewmodel.LoginPageData{}, "", ""); err != nil {
+	if err := h.renderPage(w, r, "login", "Sign In", viewmodel.AuthPageData{}); err != nil {
 		http.Error(w, "failed to render page", http.StatusInternalServerError)
 	}
 }
 
-func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) HandleSignupPage(w http.ResponseWriter, r *http.Request) {
+	if err := h.renderPage(w, r, "signup", "Create Account", viewmodel.AuthPageData{}); err != nil {
+		http.Error(w, "failed to render page", http.StatusInternalServerError)
+	}
+}
+
+func (h *Handler) HandleSignup(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(r.FormValue("username"))
+	password := r.FormValue("password")
+
 	if !bggUsernameRE.MatchString(username) {
 		h.recordLoginFailure(r)
-		renderLoginError(w, r, h, "Please enter a valid BGG username (1–60 characters).")
+		renderAuthError(w, r, h, "signup", "Create Account", "Invalid BGG username (1–60 characters).")
+		return
+	}
+	if len(password) < 8 {
+		h.recordLoginFailure(r)
+		renderAuthError(w, r, h, "signup", "Create Account", "Password must be at least 8 characters.")
 		return
 	}
 
-	userID, err := h.Store.FindOrCreateUser(username)
+	userID, err := h.Store.RegisterUser(username, password)
 	if err != nil {
-		slog.Error("FindOrCreateUser", "username", username, "error", err)
+		slog.Error("RegisterUser", "username", username, "error", err)
 		h.recordLoginFailure(r)
-		renderLoginError(w, r, h, "Something went wrong. Please try again.")
+		renderAuthError(w, r, h, "signup", "Create Account", err.Error())
+		return
+	}
+
+	h.createSessionAndRedirect(w, r, userID)
+}
+
+func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
+	username := strings.TrimSpace(r.FormValue("username"))
+	password := r.FormValue("password")
+
+	userID, err := h.Store.AuthenticateUser(username, password)
+	if err != nil {
+		h.recordLoginFailure(r)
+		renderAuthError(w, r, h, "login", "Sign In", "Invalid username or password.")
 		return
 	}
 
@@ -42,10 +69,14 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("DeleteUserSessions", "userID", userID, "error", err)
 	}
 
+	h.createSessionAndRedirect(w, r, userID)
+}
+
+func (h *Handler) createSessionAndRedirect(w http.ResponseWriter, r *http.Request, userID int64) {
 	token, err := h.Store.CreateSession(userID)
 	if err != nil {
 		slog.Error("CreateSession", "userID", userID, "error", err)
-		renderLoginError(w, r, h, "Something went wrong. Please try again.")
+		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
@@ -80,9 +111,9 @@ func (h *Handler) recordLoginFailure(r *http.Request) {
 	}
 }
 
-func renderLoginError(w http.ResponseWriter, r *http.Request, h *Handler, msg string) {
+func renderAuthError(w http.ResponseWriter, r *http.Request, h *Handler, template, title, msg string) {
 	w.WriteHeader(http.StatusUnprocessableEntity)
-	if err := h.Renderer.Page(w, "login", "Sign In", viewmodel.LoginPageData{Error: msg}, "", ""); err != nil {
+	if err := h.renderPage(w, r, template, title, viewmodel.AuthPageData{Error: msg}); err != nil {
 		http.Error(w, "failed to render page", http.StatusInternalServerError)
 	}
 }

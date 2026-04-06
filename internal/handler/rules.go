@@ -150,7 +150,7 @@ func (h *Handler) HandlePlayerAidUpload(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	uploadDir := filepath.Join("data", "uploads")
+	uploadDir := filepath.Join(h.DataDir, "uploads")
 	if err := os.MkdirAll(uploadDir, 0o755); err != nil {
 		http.Error(w, "failed to create upload directory", http.StatusInternalServerError)
 		return
@@ -208,7 +208,7 @@ func (h *Handler) HandlePlayerAidDelete(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	_ = os.Remove(filepath.Join("data", "uploads", aid.Filename))
+	_ = os.Remove(filepath.Join(h.DataDir, "uploads", aid.Filename))
 
 	if err := h.Store.DeletePlayerAid(aidID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

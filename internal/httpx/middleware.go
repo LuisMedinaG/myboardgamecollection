@@ -26,12 +26,14 @@ type contextKey string
 const (
 	ctxUserID   contextKey = "userID"
 	ctxUsername contextKey = "username"
+	ctxIsAdmin  contextKey = "isAdmin"
 )
 
-// SetUser stores userID and username in the context.
-func SetUser(ctx context.Context, id int64, username string) context.Context {
+// SetUser stores userID, username, and admin flag in the context.
+func SetUser(ctx context.Context, id int64, username string, isAdmin bool) context.Context {
 	ctx = context.WithValue(ctx, ctxUserID, id)
 	ctx = context.WithValue(ctx, ctxUsername, username)
+	ctx = context.WithValue(ctx, ctxIsAdmin, isAdmin)
 	return ctx
 }
 
@@ -47,18 +49,25 @@ func UsernameFromContext(ctx context.Context) string {
 	return v
 }
 
+// IsAdminFromContext reports whether the authenticated user has admin privileges.
+func IsAdminFromContext(ctx context.Context) bool {
+	v, _ := ctx.Value(ctxIsAdmin).(bool)
+	return v
+}
+
 // --- Session auth middleware ---
 
 // SessionValidator is satisfied by any store that can validate a session token.
 // Using an interface avoids an import cycle between httpx and store.
 type SessionValidator interface {
-	ValidateSession(token string) (int64, string, error)
+	ValidateSession(token string) (int64, string, bool, error)
 }
 
 // RequireAuth reads the session cookie and populates the request context with
-// the user's ID and username. Unauthenticated requests are redirected to /login.
-// HTMX requests receive an HX-Redirect header instead of a 302 so the client
-// can do a full-page navigation rather than swapping partial content.
+// the user's ID, username, and admin flag. Unauthenticated requests are
+// redirected to /login. HTMX requests receive an HX-Redirect header instead of
+// a 302 so the client can do a full-page navigation rather than swapping partial
+// content.
 func RequireAuth(sv SessionValidator) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -67,14 +76,14 @@ func RequireAuth(sv SessionValidator) Middleware {
 				redirectToLogin(w, r)
 				return
 			}
-			userID, username, err := sv.ValidateSession(cookie.Value)
+			userID, username, isAdmin, err := sv.ValidateSession(cookie.Value)
 			if err != nil {
 				// Clear the stale/invalid cookie.
 				http.SetCookie(w, &http.Cookie{Name: "sid", Path: "/", MaxAge: -1})
 				redirectToLogin(w, r)
 				return
 			}
-			ctx := SetUser(r.Context(), userID, username)
+			ctx := SetUser(r.Context(), userID, username, isAdmin)
 			ctx = SetCSRFToken(ctx, computeCSRF(cookie.Value))
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

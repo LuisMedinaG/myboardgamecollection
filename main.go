@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -48,6 +49,11 @@ func main() {
 		dbPath = p
 	}
 
+	dataDir := "data"
+	if p := os.Getenv("DATA_DIR"); p != "" {
+		dataDir = p
+	}
+
 	// Initialize store (database).
 	s, err := store.New(dbPath)
 	if err != nil {
@@ -80,11 +86,11 @@ func main() {
 
 	// Initialize renderer and handler.
 	ren := render.New(templateFS)
-	h := &handler.Handler{Store: s, Renderer: ren, BGG: bc, LoginLimiter: loginLimiter}
+	h := &handler.Handler{Store: s, Renderer: ren, BGG: bc, DataDir: dataDir, LoginLimiter: loginLimiter}
 
 	// Ensure data directories.
-	_ = os.MkdirAll("data/uploads", 0o755)
-	_ = os.MkdirAll("data/images", 0o755)
+	_ = os.MkdirAll(filepath.Join(dataDir, "uploads"), 0o755)
+	_ = os.MkdirAll(filepath.Join(dataDir, "images"), 0o755)
 
 	mux := http.NewServeMux()
 
@@ -101,7 +107,7 @@ func main() {
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 
 	// Uploaded files (on disk).
-	uploads := http.StripPrefix("/uploads/", http.FileServer(http.Dir("data/uploads")))
+	uploads := http.StripPrefix("/uploads/", http.FileServer(http.Dir(filepath.Join(dataDir, "uploads"))))
 	mux.Handle("GET /uploads/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		uploads.ServeHTTP(w, r)
@@ -110,6 +116,8 @@ func main() {
 	// Public routes (no auth required).
 	mux.Handle("GET /login", httpx.Chain(http.HandlerFunc(h.HandleLoginPage), httpx.MethodGuard(http.MethodGet)))
 	mux.Handle("POST /login", httpx.Chain(http.HandlerFunc(h.HandleLogin), httpx.MethodGuard(http.MethodPost), httpx.SameOrigin(), httpx.RateLimit(loginLimiter)))
+	mux.Handle("GET /signup", httpx.Chain(http.HandlerFunc(h.HandleSignupPage), httpx.MethodGuard(http.MethodGet)))
+	mux.Handle("POST /signup", httpx.Chain(http.HandlerFunc(h.HandleSignup), httpx.MethodGuard(http.MethodPost), httpx.SameOrigin(), httpx.RateLimit(loginLimiter)))
 	mux.Handle("POST /logout", httpx.Chain(http.HandlerFunc(h.HandleLogout), httpx.MethodGuard(http.MethodPost), httpx.SameOrigin()))
 	mux.HandleFunc("GET /images/{bgg_id}", h.HandleImage)
 

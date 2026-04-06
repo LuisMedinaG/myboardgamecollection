@@ -20,7 +20,7 @@
     <div class="vibe-manage-item">
         <input type="text" value="{{ .Name }}" data-id="{{ .ID }}" data-original="{{ .Name }}" class="form-input vibe-edit-input" required>
         <form method="POST" action="/vibes/{{ .ID }}/delete" class="vibe-delete-inline" onsubmit="return confirm('Delete this vibe? Games tagged with it will be untagged.')">
-            <button type="submit" class="btn-icon btn-icon-danger vibe-delete-btn" title="Delete">&times;</button>
+                    <button type="submit" class="btn-icon btn-icon-danger vibe-delete-btn" title="Delete">&times;</button>
         </form>
     </div>
     {{ end }}
@@ -59,6 +59,12 @@ document.addEventListener('DOMContentLoaded', () => {
         form.method = 'POST';
         form.action = '/vibes/batch-update';
         form.style.display = 'none';
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_csrf';
+        csrfInput.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        form.appendChild(csrfInput);
 
         const dataInput = document.createElement('input');
         dataInput.type = 'hidden';

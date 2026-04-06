@@ -24,7 +24,7 @@ func (h *Handler) HandleImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cachePath := filepath.Join("data", "images", strconv.FormatInt(bggID, 10))
+	cachePath := filepath.Join(h.DataDir, "images", strconv.FormatInt(bggID, 10))
 
 	// Serve from cache when available.
 	if f, err := os.Open(cachePath); err == nil {
@@ -53,7 +53,7 @@ func (h *Handler) HandleImage(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	if err := os.MkdirAll(filepath.Join("data", "images"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(h.DataDir, "images"), 0o755); err != nil {
 		slog.Error("image cache mkdir", "error", err)
 		http.NotFound(w, r)
 		return

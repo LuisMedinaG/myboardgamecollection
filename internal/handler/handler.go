@@ -14,8 +14,9 @@ import (
 type Handler struct {
 	Store        *store.Store
 	Renderer     *render.Renderer
-	BGG          *bgg.Client          // may be nil if BGG is not configured
-	LoginLimiter *httpx.LoginLimiter  // may be nil; records failed login attempts
+	BGG          *bgg.Client         // may be nil if BGG is not configured
+	DataDir      string              // base directory for user uploads and image cache
+	LoginLimiter *httpx.LoginLimiter // may be nil; records failed login attempts
 }
 
 func parseID(r *http.Request) (int64, error) {
