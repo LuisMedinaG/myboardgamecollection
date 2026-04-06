@@ -54,6 +54,13 @@ func main() {
 		dataDir = p
 	}
 
+	sessionSecret := os.Getenv("SESSION_SECRET")
+	if sessionSecret == "" {
+		slog.Warn("SESSION_SECRET is not set; using an insecure default — set it in production")
+		sessionSecret = "dev-secret-change-me-in-production"
+	}
+	secret := []byte(sessionSecret)
+
 	// Initialize store (database).
 	s, err := store.New(dbPath)
 	if err != nil {
@@ -96,10 +103,10 @@ func main() {
 
 	// Middleware helpers.
 	auth := func(hf http.HandlerFunc) http.Handler {
-		return httpx.Chain(hf, httpx.MethodGuard(http.MethodGet), httpx.RequireAuth(s))
+		return httpx.Chain(hf, httpx.MethodGuard(http.MethodGet), httpx.RequireAuth(s, secret))
 	}
 	authPOST := func(hf http.HandlerFunc) http.Handler {
-		return httpx.Chain(hf, httpx.MethodGuard(http.MethodPost), httpx.RequireAuth(s), httpx.SameOrigin(), httpx.VerifyCSRF())
+		return httpx.Chain(hf, httpx.MethodGuard(http.MethodPost), httpx.RequireAuth(s, secret), httpx.SameOrigin(), httpx.VerifyCSRF())
 	}
 
 	// Static files (embedded).
