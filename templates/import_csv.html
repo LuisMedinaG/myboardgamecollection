@@ -1,0 +1,93 @@
+{{ define "content" }}
+<a href="/import" class="back-btn">&#8592; Sync</a>
+<div class="import-hero">
+    <div class="import-card">
+        <h2 class="csv-import-title">Import collection from CSV</h2>
+        <p class="import-desc">
+            Already have a BoardGameGeek export? Upload the CSV here to add games to your collection in bulk.
+        </p>
+
+        {{ if not .Enabled }}
+        <div class="import-error">
+            BGG import is not configured on this server. Set <code>BGG_TOKEN</code> or <code>BGG_COOKIE</code> and restart the app.
+        </div>
+        {{ end }}
+
+        <hr class="import-divider">
+
+        <details class="csv-instructions" open>
+            <summary>How to get the CSV from BoardGameGeek</summary>
+            <ol>
+                <li>
+                    Open your collection on BGG:
+                    <a href="https://boardgamegeek.com/collection/user/" target="_blank" rel="noopener">
+                        boardgamegeek.com/collection/user/&lt;username&gt;
+                    </a>
+                </li>
+                <li>
+                    In the top-right of the collection table, look for
+                    <strong>Download board games:</strong> followed by two links —
+                    <em>All</em> and <em>Owned</em>. Click whichever you want to import.
+                </li>
+                <li>
+                    BGG will queue the export. After a few seconds you&rsquo;ll receive a
+                    GeekMail with a link to the generated <code>.csv</code> file. Download it.
+                </li>
+                <li>
+                    Upload that file below, click <strong>Preview</strong> to see what will be imported,
+                    then confirm the import.
+                </li>
+            </ol>
+            <p class="csv-required">
+                The only column required for a successful import is
+                <code>objectid</code> (the BGG game ID). The
+                <code>objectname</code> column is recommended so the preview can show titles.
+            </p>
+        </details>
+
+        <form
+            id="csv-upload-form"
+            hx-post="/import/csv/preview"
+            hx-target="#csv-preview"
+            hx-encoding="multipart/form-data"
+            hx-indicator="#csv-preview-spinner"
+            class="import-form csv-upload-form"
+        >
+            <label for="csv_file" class="csv-file-label">CSV file</label>
+            <input
+                type="file"
+                id="csv_file"
+                name="csv_file"
+                accept=".csv,text/csv"
+                required
+                class="csv-file-input"
+            >
+            <button
+                type="submit"
+                class="btn btn-primary csv-preview-btn"
+                {{ if not .Enabled }}disabled{{ end }}
+            >
+                Preview import
+            </button>
+        </form>
+
+        <div id="csv-preview-spinner" class="htmx-indicator">
+            <div class="import-loading">
+                <div class="spinner-inline"></div>
+                <span>Reading CSV&hellip;</span>
+            </div>
+        </div>
+
+        <div id="csv-preview"></div>
+
+        <div id="csv-import-spinner" class="htmx-indicator">
+            <div class="import-loading">
+                <div class="spinner-inline"></div>
+                <span>Importing your games from BGG&hellip; This may take a minute.</span>
+            </div>
+        </div>
+
+        <div id="csv-result"></div>
+    </div>
+</div>
+{{ end }}
