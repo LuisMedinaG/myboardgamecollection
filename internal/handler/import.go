@@ -12,7 +12,10 @@ import (
 
 const (
 	syncLimitRegular = 1
-	syncLimitAdmin   = 10
+	// syncLimitAdmin is effectively unlimited — admins are trusted to bulk-test
+	// imports without hitting the daily cap. CanSync still counts usage so we
+	// can see admin activity, but the ceiling is high enough to never trip.
+	syncLimitAdmin = 100
 )
 
 func (h *Handler) HandleImport(w http.ResponseWriter, r *http.Request) {

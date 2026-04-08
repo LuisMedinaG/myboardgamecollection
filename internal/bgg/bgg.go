@@ -17,15 +17,20 @@ import (
 
 // Client wraps the BoardGameGeek API client.
 type Client struct {
-	bgg  *gobgg.BGG
-	http *http.Client
+	bgg *gobgg.BGG
 }
+
+// bggRPS is the maximum requests-per-second this process will send to BGG. BGG
+// aggressively rate-limits the /xmlapi2 and /api endpoints and returns HTTP 429
+// once you exceed roughly a few requests per second. 2/s is well under that
+// and still syncs a ~120-game collection in about a minute.
+const bggRPS = 2
 
 // New creates a new BGG client with the given auth token.
 func New(token string) *Client {
 	token = strings.TrimSpace(token)
-	httpClient := &http.Client{Transport: &authTransport{base: http.DefaultTransport, token: token}}
-	return &Client{bgg: gobgg.NewBGGClient(gobgg.SetAuthToken(token), gobgg.SetClient(httpClient)), http: httpClient}
+	httpClient := newHTTPClient(&authTransport{base: http.DefaultTransport, token: token})
+	return &Client{bgg: gobgg.NewBGGClient(gobgg.SetAuthToken(token), gobgg.SetClient(httpClient))}
 }
 
 // NewWithCookies creates a new BGG client using a raw cookie string
@@ -36,8 +41,18 @@ func NewWithCookies(raw string) *Client {
 		raw = raw[1 : len(raw)-1]
 	}
 	cookies := parseCookieString(raw)
-	httpClient := &http.Client{Transport: &authTransport{base: http.DefaultTransport, cookies: cookies}}
-	return &Client{bgg: gobgg.NewBGGClient(gobgg.SetCookies("", cookies), gobgg.SetClient(httpClient)), http: httpClient}
+	httpClient := newHTTPClient(&authTransport{base: http.DefaultTransport, cookies: cookies})
+	return &Client{bgg: gobgg.NewBGGClient(gobgg.SetCookies("", cookies), gobgg.SetClient(httpClient))}
+}
+
+// newHTTPClient wraps an authTransport in a throttling/429-aware transport and
+// returns an http.Client configured for BGG.
+func newHTTPClient(auth *authTransport) *http.Client {
+	return &http.Client{Transport: &throttledTransport{
+		base:    auth,
+		tick:    time.NewTicker(time.Second / bggRPS),
+		maxRetry: 3,
+	}}
 }
 
 // authTransport attaches auth cookies, a bearer token, and a User-Agent to every
@@ -68,6 +83,66 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 	}
 	return t.base.RoundTrip(req)
+}
+
+// throttledTransport paces outgoing requests to BGG and transparently retries
+// HTTP 429 responses, honoring the Retry-After header when present. This keeps
+// rate-limit handling out of every individual endpoint caller (and gobgg never
+// needs to know about it).
+type throttledTransport struct {
+	base     http.RoundTripper
+	tick     *time.Ticker
+	maxRetry int
+}
+
+func (t *throttledTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	for attempt := 0; ; attempt++ {
+		// Pace outgoing requests.
+		select {
+		case <-t.tick.C:
+		case <-req.Context().Done():
+			return nil, req.Context().Err()
+		}
+
+		resp, err := t.base.RoundTrip(req)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode != http.StatusTooManyRequests || attempt >= t.maxRetry {
+			return resp, nil
+		}
+
+		// Got 429 — drain & close body, sleep, retry.
+		wait := parseRetryAfter(resp.Header.Get("Retry-After"))
+		if wait <= 0 {
+			wait = time.Duration(1<<attempt) * time.Second // 1s, 2s, 4s
+		}
+		resp.Body.Close()
+		slog.Warn("bgg rate limited; backing off", "attempt", attempt+1, "wait", wait, "url", req.URL.Path)
+		select {
+		case <-time.After(wait):
+		case <-req.Context().Done():
+			return nil, req.Context().Err()
+		}
+	}
+}
+
+// parseRetryAfter parses an HTTP Retry-After header (seconds or HTTP date).
+// Returns 0 if unparseable.
+func parseRetryAfter(v string) time.Duration {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return 0
+	}
+	if secs, err := strconv.Atoi(v); err == nil && secs >= 0 {
+		return time.Duration(secs) * time.Second
+	}
+	if t, err := http.ParseTime(v); err == nil {
+		if d := time.Until(t); d > 0 {
+			return d
+		}
+	}
+	return 0
 }
 
 // parseCookieString parses a raw Cookie header value into []*http.Cookie.
@@ -124,41 +199,27 @@ func (c *Client) ImportCollection(ctx context.Context, s *store.Store, username 
 	return added, updated, collectionCount, nil
 }
 
-// getThingsWithRetry calls the BGG thing API. BGG returns HTTP 202 while it
-// builds the response, in which case we retry with a short backoff. Any other
-// non-200 status (401/403/5xx) fails immediately with a descriptive error so
-// users aren't left waiting on a silent retry loop. We cap at a handful of
-// attempts so a single-game import can't hang for minutes.
+// getThingsWithRetry calls the BGG thing API. Rate-limiting and 429 backoff
+// are handled by the throttledTransport, so this function only needs to retry
+// when BGG returns an empty (queued) response.
 func (c *Client) getThingsWithRetry(ctx context.Context, id int64) ([]gobgg.ThingResult, error) {
-	const maxAttempts = 5
+	const maxAttempts = 4
 	delay := 500 * time.Millisecond
 
 	for attempt := 1; ; attempt++ {
-		status, err := c.probeThingStatus(ctx, id)
-		if err != nil {
-			return nil, fmt.Errorf("probing /thing for bgg_id=%d: %w", id, err)
-		}
-
-		switch {
-		case status == http.StatusOK:
-			things, err := c.bgg.GetThings(ctx, gobgg.GetThingIDs(id))
-			if err != nil {
-				return nil, fmt.Errorf("decoding /thing for bgg_id=%d: %w", id, err)
-			}
-			if len(things) == 0 {
-				return nil, fmt.Errorf("empty thing response for bgg_id=%d", id)
-			}
+		things, err := c.bgg.GetThings(ctx, gobgg.GetThingIDs(id))
+		if err == nil && len(things) > 0 {
 			return things, nil
-		case status == http.StatusAccepted:
-			// BGG is still building the response; retry.
-		case status == http.StatusUnauthorized, status == http.StatusForbidden:
-			return nil, fmt.Errorf("BGG returned HTTP %d for /thing?id=%d — check BGG_TOKEN (or BGG_COOKIE in dev)", status, id)
-		default:
-			return nil, fmt.Errorf("BGG returned HTTP %d for /thing?id=%d", status, id)
+		}
+		if err != nil && !strings.Contains(strings.ToLower(err.Error()), "eof") {
+			return nil, fmt.Errorf("fetching /thing for bgg_id=%d: %w", id, err)
 		}
 
 		if attempt >= maxAttempts {
-			return nil, fmt.Errorf("BGG /thing?id=%d still 202 after %d attempts", id, attempt)
+			if err != nil {
+				return nil, fmt.Errorf("fetching /thing for bgg_id=%d after %d attempts: %w", id, attempt, err)
+			}
+			return nil, fmt.Errorf("empty /thing response for bgg_id=%d after %d attempts", id, attempt)
 		}
 
 		select {
@@ -167,28 +228,7 @@ func (c *Client) getThingsWithRetry(ctx context.Context, id int64) ([]gobgg.Thin
 			return nil, ctx.Err()
 		}
 		delay *= 2
-		if delay > 4*time.Second {
-			delay = 4 * time.Second
-		}
 	}
-}
-
-// probeThingStatus issues a lightweight GET against BGG's /thing endpoint and
-// returns the HTTP status code. We use a GET (not HEAD — BGG's xmlapi2 doesn't
-// reliably honor HEAD) and close the body immediately without decoding. This
-// lets us distinguish 202 (queued) from 401/403 (auth) without parsing XML.
-func (c *Client) probeThingStatus(ctx context.Context, id int64) (int, error) {
-	u := fmt.Sprintf("https://boardgamegeek.com/xmlapi2/thing?id=%d&stats=1", id)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return 0, err
-	}
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return 0, err
-	}
-	defer resp.Body.Close()
-	return resp.StatusCode, nil
 }
 
 // thingToGame converts a BGG API thing into a Game model.
