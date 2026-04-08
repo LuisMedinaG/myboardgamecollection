@@ -42,3 +42,9 @@ static/              # Embedded CSS
 ## More Detail
 
 See `agent_docs/` for routes, env vars, and key patterns.
+
+Never run `git push` without the user explicitly asking to push.
+
+**Why:** User was surprised when a push happened as part of a "commit" request — they only wanted a commit, not a push.
+
+**How to apply:** After committing, stop and tell the user the commit is ready. Only push if they separately say "push" or "make a PR" (which requires a push). When in doubt, ask.
