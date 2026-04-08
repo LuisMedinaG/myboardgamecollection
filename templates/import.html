@@ -42,6 +42,12 @@
             hx-indicator="#import-spinner"
             class="import-form"
         >
+            {{ if .IsAdmin }}
+            <label class="import-refresh-toggle">
+                <input type="checkbox" name="full_refresh" value="1">
+                Full refresh (re-fetch metadata for every owned game)
+            </label>
+            {{ end }}
             <button
                 type="submit"
                 id="sync-btn"

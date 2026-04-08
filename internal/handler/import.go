@@ -76,7 +76,10 @@ func (h *Handler) HandleImportSync(w http.ResponseWriter, r *http.Request) {
 		renderImportError(w, r, h, "No BGG username set. Add your BoardGameGeek username in your profile to sync.")
 		return
 	}
-	added, updated, collCount, err := h.BGG.ImportCollection(r.Context(), h.Store, bggUsername, userID)
+	// Full refresh re-fetches metadata for every owned game. Gated to admins
+	// for now; a future tier system will open it to paid users (see #51).
+	fullRefresh := isAdmin && r.FormValue("full_refresh") == "1"
+	added, updated, collCount, err := h.BGG.ImportCollection(r.Context(), h.Store, bggUsername, userID, fullRefresh)
 	if err != nil {
 		renderImportError(w, r, h, fmt.Sprintf("Import failed: %v", err))
 		return

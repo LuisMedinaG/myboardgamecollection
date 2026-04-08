@@ -152,10 +152,11 @@ func parseCookieString(raw string) []*http.Cookie {
 	return req.Cookies()
 }
 
-// ImportCollection syncs all games from a user's BGG collection into the given
-// userID's data. Returns the number of new games added, games updated, and how
-// many rows BGG returned in the collection response (before per-game fetches).
-func (c *Client) ImportCollection(ctx context.Context, s *store.Store, username string, userID int64) (added, updated, collectionCount int, err error) {
+// ImportCollection syncs a user's BGG collection. When fullRefresh is false
+// (the normal sync path) only games not already in the user's collection are
+// fetched from BGG. When fullRefresh is true every owned item is re-fetched
+// and its metadata updated — intended for admins and future paid tiers.
+func (c *Client) ImportCollection(ctx context.Context, s *store.Store, username string, userID int64, fullRefresh bool) (added, updated, collectionCount int, err error) {
 	items, err := c.bgg.GetCollection(ctx, username, gobgg.SetCollectionTypes(gobgg.CollectionTypeOwn))
 	if err != nil {
 		return 0, 0, 0, fmt.Errorf("fetching collection for %q: %w", username, err)
@@ -167,59 +168,95 @@ func (c *Client) ImportCollection(ctx context.Context, s *store.Store, username 
 		return 0, 0, collectionCount, fmt.Errorf("loading owned IDs: %w", err)
 	}
 
+	// Normal sync: only fetch games we don't already own (0 /thing calls when
+	// nothing changed). Full refresh: fetch every item to update metadata.
+	var idsToFetch []int64
+	for _, item := range items {
+		if fullRefresh || !owned[item.ID] {
+			idsToFetch = append(idsToFetch, item.ID)
+		}
+	}
+
+	if len(idsToFetch) == 0 {
+		return 0, 0, collectionCount, nil
+	}
+
+	// Batch requests in groups of bggThingBatchSize — gobgg/BGG allows up to
+	// 20 IDs per /thing call, so we cut request count by up to 20x.
 	var firstThingErr error
 	thingFailures := 0
-	for _, item := range items {
-		things, fetchErr := c.getThingsWithRetry(ctx, item.ID)
+	for _, batch := range chunkIDs(idsToFetch, bggThingBatchSize) {
+		things, fetchErr := c.getThingsWithRetry(ctx, batch...)
 		if fetchErr != nil {
 			if firstThingErr == nil {
 				firstThingErr = fetchErr
 			}
-			thingFailures++
-			slog.Warn("bgg thing fetch failed", "bgg_id", item.ID, "name", item.Name, "error", fetchErr)
+			thingFailures += len(batch)
+			slog.Warn("bgg thing fetch failed", "batch_size", len(batch), "error", fetchErr)
 			continue
 		}
-
-		game := thingToGame(things[0])
-		if owned[item.ID] {
-			if updateErr := s.UpdateGame(game, userID); updateErr == nil {
-				updated++
-			}
-		} else {
-			if _, createErr := s.CreateGame(game, userID); createErr == nil {
-				added++
+		for _, t := range things {
+			game := thingToGame(t)
+			if owned[t.ID] {
+				if updateErr := s.UpdateGame(game, userID); updateErr == nil {
+					updated++
+				}
+			} else {
+				if _, createErr := s.CreateGame(game, userID); createErr == nil {
+					added++
+				}
 			}
 		}
 	}
 
-	if collectionCount > 0 && thingFailures == collectionCount {
-		return added, updated, collectionCount, fmt.Errorf("could not load game details from BGG for any of %d collection item(s); last error: %w", collectionCount, firstThingErr)
+	if thingFailures == len(idsToFetch) {
+		return added, updated, collectionCount, fmt.Errorf("could not load game details from BGG for any of %d collection item(s); last error: %w", len(idsToFetch), firstThingErr)
 	}
 
 	return added, updated, collectionCount, nil
 }
 
-// getThingsWithRetry calls the BGG thing API. Rate-limiting and 429 backoff
-// are handled by the throttledTransport, so this function only needs to retry
-// when BGG returns an empty (queued) response.
-func (c *Client) getThingsWithRetry(ctx context.Context, id int64) ([]gobgg.ThingResult, error) {
+// bggThingBatchSize is the max number of IDs to request per /thing call.
+// gobgg enforces a hard limit of 20.
+const bggThingBatchSize = 20
+
+// chunkIDs splits ids into contiguous chunks of at most size.
+func chunkIDs(ids []int64, size int) [][]int64 {
+	if size <= 0 {
+		return [][]int64{ids}
+	}
+	var out [][]int64
+	for i := 0; i < len(ids); i += size {
+		end := i + size
+		if end > len(ids) {
+			end = len(ids)
+		}
+		out = append(out, ids[i:end])
+	}
+	return out
+}
+
+// getThingsWithRetry calls the BGG thing API for one or more IDs. Rate-limiting
+// and 429 backoff are handled by the throttledTransport, so this function only
+// needs to retry when BGG returns an empty (queued) response.
+func (c *Client) getThingsWithRetry(ctx context.Context, ids ...int64) ([]gobgg.ThingResult, error) {
 	const maxAttempts = 4
 	delay := 500 * time.Millisecond
 
 	for attempt := 1; ; attempt++ {
-		things, err := c.bgg.GetThings(ctx, gobgg.GetThingIDs(id))
+		things, err := c.bgg.GetThings(ctx, gobgg.GetThingIDs(ids...))
 		if err == nil && len(things) > 0 {
 			return things, nil
 		}
 		if err != nil && !strings.Contains(strings.ToLower(err.Error()), "eof") {
-			return nil, fmt.Errorf("fetching /thing for bgg_id=%d: %w", id, err)
+			return nil, fmt.Errorf("fetching /thing for bgg_ids=%v: %w", ids, err)
 		}
 
 		if attempt >= maxAttempts {
 			if err != nil {
-				return nil, fmt.Errorf("fetching /thing for bgg_id=%d after %d attempts: %w", id, attempt, err)
+				return nil, fmt.Errorf("fetching /thing for bgg_ids=%v after %d attempts: %w", ids, attempt, err)
 			}
-			return nil, fmt.Errorf("empty /thing response for bgg_id=%d after %d attempts", id, attempt)
+			return nil, fmt.Errorf("empty /thing response for bgg_ids=%v after %d attempts", ids, attempt)
 		}
 
 		select {
