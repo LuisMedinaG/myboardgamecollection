@@ -104,5 +104,7 @@ type CollectionEntry struct {
 // User represents a registered user of the application.
 type User struct {
 	ID          int64
+	Username    string
 	BGGUsername string
+	Email       string
 }

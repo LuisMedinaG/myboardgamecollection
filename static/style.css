@@ -1634,6 +1634,18 @@ body {
   text-align: left;
 }
 
+.form-optional {
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-size: 0.85em;
+}
+.form-hint {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+
 .login-note {
   color: var(--text-secondary);
   font-size: 0.82rem;
@@ -1648,4 +1660,52 @@ body {
   margin-bottom: 1rem;
   color: var(--text-secondary);
   font-size: 0.95rem;
+}
+
+.bgg-username-panel {
+  background: #f6f8f4;
+  border: 1px solid #e2e8d8;
+  border-radius: var(--radius);
+  padding: 1.25rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.bgg-username-display {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.bgg-username-label {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+.bgg-username-value {
+  color: var(--primary, #2f5a2a);
+  font-size: 1.05rem;
+  flex: 1;
+}
+.bgg-username-empty {
+  margin: 0 0 0.85rem;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+.bgg-username-form label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.35rem;
+}
+.bgg-username-form .form-input {
+  width: 100%;
+  margin-bottom: 0.75rem;
+}
+.bgg-username-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.import-btn:disabled,
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.3);
 }
