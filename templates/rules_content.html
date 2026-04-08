@@ -64,6 +64,7 @@
         hx-target="#player-aids-list"
         hx-swap="innerHTML"
         hx-encoding="multipart/form-data"
+        hx-on::after-request="if(event.detail.successful) this.classList.add('hidden')"
         class="upload-form hidden"
     >
         <label class="form-label">
