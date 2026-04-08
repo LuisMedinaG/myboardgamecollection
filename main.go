@@ -153,6 +153,9 @@ func main() {
 
 	mux.Handle("GET /import", auth(h.HandleImport))
 	mux.Handle("POST /import", authPOST(h.HandleImportSync))
+	mux.Handle("GET /import/csv", auth(h.HandleImportCSVPage))
+	mux.Handle("POST /import/csv/preview", authPOST(h.HandleImportCSVPreview))
+	mux.Handle("POST /import/csv", authPOST(h.HandleImportCSV))
 	mux.Handle("POST /profile/bgg-username", authPOST(h.HandleSetBGGUsername))
 	mux.Handle("GET /profile/change-password", auth(h.HandleChangePasswordPage))
 	mux.Handle("POST /profile/change-password", authPOST(h.HandleChangePassword))

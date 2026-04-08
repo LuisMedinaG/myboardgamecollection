@@ -45,6 +45,8 @@ func New(templateFS embed.FS) *Renderer {
 			"templates/rules.html", "templates/rules_content.html", "templates/player_aids_list.html")),
 		"import": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
 			"templates/import.html")),
+		"import_csv": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
+			"templates/import_csv.html")),
 		"discover": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
 			"templates/discover.html", "templates/discover_result.html")),
 		"vibes": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
@@ -67,6 +69,10 @@ func New(templateFS embed.FS) *Renderer {
 			template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/player_aids_list.html")),
 		"import_result": template.Must(
 			template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/import_result.html")),
+		"import_csv_preview": template.Must(
+			template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/import_csv_preview.html")),
+		"import_csv_result": template.Must(
+			template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/import_csv_result.html")),
 	}
 
 	return &Renderer{tmpl: tmpl}
