@@ -20,9 +20,16 @@
             <ol>
                 <li>
                     Open your collection on BGG:
+                    {{ if .BGGUsername }}
+                    <a href="https://boardgamegeek.com/collection/user/{{ .BGGUsername }}" target="_blank" rel="noopener">
+                        boardgamegeek.com/collection/user/{{ .BGGUsername }}
+                    </a>
+                    {{ else }}
                     <a href="https://boardgamegeek.com/collection/user/" target="_blank" rel="noopener">
                         boardgamegeek.com/collection/user/&lt;username&gt;
                     </a>
+                    — set your BGG username on the <a href="/import">Sync page</a> to get a direct link
+                    {{ end }}
                 </li>
                 <li>
                     In the top-right of the collection table, look for

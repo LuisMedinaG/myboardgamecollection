@@ -22,11 +22,14 @@ const maxCSVPreviewRows = 50
 
 // HandleImportCSVPage renders the CSV upload page with instructions.
 func (h *Handler) HandleImportCSVPage(w http.ResponseWriter, r *http.Request) {
-	if _, ok := h.requireUserID(w, r); !ok {
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
+	bggUsername, _ := h.Store.GetBGGUsername(userID)
 	data := viewmodel.ImportCSVPageData{
-		Enabled: h.BGG != nil,
+		Enabled:     h.BGG != nil,
+		BGGUsername: bggUsername,
 	}
 	if err := h.renderPage(w, r, "import_csv", "Import from CSV", data); err != nil {
 		http.Error(w, "failed to render page", http.StatusInternalServerError)

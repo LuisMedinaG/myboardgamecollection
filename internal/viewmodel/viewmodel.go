@@ -143,7 +143,8 @@ type ImportResultData struct {
 
 // ImportCSVPageData holds data for the CSV import page.
 type ImportCSVPageData struct {
-	Enabled bool // false when no BGG client is configured server-side
+	Enabled     bool   // false when no BGG client is configured server-side
+	BGGUsername string // set when the user has a BGG username configured
 }
 
 // CSVPreviewRow is one row shown in the CSV import preview table.
