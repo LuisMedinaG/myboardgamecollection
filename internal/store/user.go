@@ -38,6 +38,24 @@ func (s *Store) RegisterUser(username, password, bggUsername, email string) (int
 	return res.LastInsertId()
 }
 
+// ChangePassword verifies currentPassword then replaces the hash with a new one.
+func (s *Store) ChangePassword(userID int64, currentPassword, newPassword string) error {
+	var hash string
+	err := s.db.QueryRow("SELECT password_hash FROM users WHERE id = ?", userID).Scan(&hash)
+	if err != nil {
+		return errors.New("user not found")
+	}
+	if !checkPasswordHash(currentPassword, hash) {
+		return errors.New("current password is incorrect")
+	}
+	newHash, err := hashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec("UPDATE users SET password_hash = ? WHERE id = ?", newHash, userID)
+	return err
+}
+
 // AuthenticateUser verifies the username and password, returning the user's ID
 // on success. Authentication is against the username column only.
 func (s *Store) AuthenticateUser(username, password string) (int64, error) {

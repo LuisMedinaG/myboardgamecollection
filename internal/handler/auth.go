@@ -96,7 +96,41 @@ func (h *Handler) createSessionAndRedirect(w http.ResponseWriter, r *http.Reques
 		SameSite: http.SameSiteStrictMode,
 		Secure:   secure,
 	})
-	http.Redirect(w, r, "/games", http.StatusSeeOther)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func (h *Handler) HandleChangePasswordPage(w http.ResponseWriter, r *http.Request) {
+	data := viewmodel.AuthPageData{Success: r.URL.Query().Get("success") == "1"}
+	if err := h.renderPage(w, r, "change_password", "Change Password", data); err != nil {
+		http.Error(w, "failed to render page", http.StatusInternalServerError)
+	}
+}
+
+func (h *Handler) HandleChangePassword(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	current := r.FormValue("current_password")
+	newPass := r.FormValue("new_password")
+	newPass2 := r.FormValue("new_password2")
+
+	if len(newPass) < 8 {
+		renderAuthError(w, r, h, "change_password", "Change Password", "New password must be at least 8 characters.")
+		return
+	}
+	if newPass != newPass2 {
+		renderAuthError(w, r, h, "change_password", "Change Password", "New passwords do not match.")
+		return
+	}
+
+	if err := h.Store.ChangePassword(userID, current, newPass); err != nil {
+		renderAuthError(w, r, h, "change_password", "Change Password", err.Error())
+		return
+	}
+
+	http.Redirect(w, r, "/profile/change-password?success=1", http.StatusSeeOther)
 }
 
 func (h *Handler) HandleLogout(w http.ResponseWriter, r *http.Request) {

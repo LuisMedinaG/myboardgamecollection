@@ -53,6 +53,8 @@ func New(templateFS embed.FS) *Renderer {
 			"templates/login.html")),
 		"signup": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
 			"templates/signup.html")),
+		"change_password": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
+			"templates/change_password.html")),
 
 		// Partials (no layout, for HTMX responses)
 		"games_result": template.Must(

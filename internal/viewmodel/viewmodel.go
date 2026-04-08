@@ -16,9 +16,10 @@ type PageData struct {
 	Data      any
 }
 
-// AuthPageData holds data for the login and signup pages.
+// AuthPageData holds data for the login, signup, and change-password pages.
 type AuthPageData struct {
-	Error string
+	Error   string
+	Success bool
 }
 
 // GamesPageData holds data for the games list page.

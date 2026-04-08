@@ -21,6 +21,7 @@
             </button>
             <div class="profile-dropdown" id="profile-dropdown">
                 <span class="profile-dropdown-user">{{ .User }}</span>
+                <a href="/profile/change-password" class="profile-dropdown-link">Change password</a>
                 <form method="post" action="/logout" class="nav-logout-form">
                     <button type="submit" class="btn btn-sm nav-logout-btn">Sign out</button>
                 </form>

@@ -154,6 +154,8 @@ func main() {
 	mux.Handle("GET /import", auth(h.HandleImport))
 	mux.Handle("POST /import", authPOST(h.HandleImportSync))
 	mux.Handle("POST /profile/bgg-username", authPOST(h.HandleSetBGGUsername))
+	mux.Handle("GET /profile/change-password", auth(h.HandleChangePasswordPage))
+	mux.Handle("POST /profile/change-password", authPOST(h.HandleChangePassword))
 
 	server := &http.Server{
 		Addr:              ":" + port,
