@@ -51,16 +51,21 @@
 </div>
 <!-- Player Aids Section -->
 <div class="rules-section">
-    <h3 class="section-title">Player Aids</h3>
+    <div class="section-header">
+        <h3 class="section-title">Player Aids</h3>
+        <button class="btn-icon btn-icon-muted" onclick="document.getElementById('upload-aid-form').classList.toggle('hidden')" title="Add player aid">&#43;</button>
+    </div>
     <div id="player-aids-list">
         {{ template "player_aids_list" (playerAidsData .Game.ID .PlayerAids) }}
     </div>
     <form
+        id="upload-aid-form"
         hx-post="/games/{{ .Game.ID }}/rules/upload"
         hx-target="#player-aids-list"
         hx-swap="innerHTML"
         hx-encoding="multipart/form-data"
-        class="upload-form"
+        hx-on::after-request="if(event.detail.successful) { this.reset(); this.classList.add('hidden'); }"
+        class="upload-form hidden"
     >
         <label class="form-label">
             Upload Player Aid Image
@@ -70,7 +75,10 @@
             Label (optional)
             <input type="text" name="label" placeholder="e.g. Turn Order Reference" class="form-input">
         </label>
-        <button type="submit" class="btn btn-primary btn-sm">Upload</button>
+        <div class="rules-url-actions">
+            <button type="submit" class="btn btn-primary btn-sm">Upload</button>
+            <button type="button" class="btn btn-danger btn-sm" onclick="document.getElementById('upload-aid-form').classList.add('hidden')">Close</button>
+        </div>
     </form>
 </div>
 {{ end }}
