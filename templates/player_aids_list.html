@@ -3,14 +3,14 @@
     <p class="empty-state-sm">No player aids uploaded yet.</p>
 {{ else }}
     <div class="player-aids-grid">
-        {{ range .Aids }}
+        {{ range $i, $a := .Aids }}
         <div class="player-aid-card">
-            <img src="/uploads/{{ .Filename }}" alt="{{ .Label }}" class="player-aid-img" onclick="openLightbox(this.src, this.alt)">
+            <img src="/uploads/{{ $a.Filename }}" alt="{{ $a.Label }}" class="player-aid-img" onclick="openLightbox({{ $i }})">
             <div class="player-aid-info">
-                <span class="player-aid-label">{{ .Label }}</span>
+                <span class="player-aid-label">{{ $a.Label }}</span>
                 <button
                     class="btn-icon btn-icon-danger"
-                    hx-post="/games/{{ $.GameID }}/rules/aids/{{ .ID }}/delete"
+                    hx-post="/games/{{ $.GameID }}/rules/aids/{{ $a.ID }}/delete"
                     hx-target="#player-aids-list"
                     hx-swap="innerHTML"
                     hx-confirm="Delete this player aid?"
@@ -22,27 +22,72 @@
         {{ end }}
     </div>
 {{ end }}
-<!-- Lightbox -->
-<div class="lightbox-overlay" id="lightbox" onclick="closeLightbox(event)">
+<!-- Lightbox / Carousel -->
+<div class="lightbox-overlay" id="lightbox" onclick="handleLightboxClick(event)">
     <button class="lightbox-close" onclick="closeLightbox(event)">&times;</button>
+    <button class="lightbox-prev" onclick="prevImage(event)">&#8249;</button>
     <img class="lightbox-img" id="lightbox-img" src="" alt="">
+    <button class="lightbox-next" onclick="nextImage(event)">&#8250;</button>
+    <div class="lightbox-counter" id="lightbox-counter"></div>
 </div>
 <script>
-function openLightbox(src, alt) {
-    var lb = document.getElementById('lightbox');
-    var img = document.getElementById('lightbox-img');
-    img.src = src;
-    img.alt = alt || '';
-    lb.classList.add('active');
-    document.body.style.overflow = 'hidden';
-}
-function closeLightbox(e) {
-    if (e.target.classList.contains('lightbox-img')) return;
-    document.getElementById('lightbox').classList.remove('active');
-    document.body.style.overflow = '';
-}
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeLightbox(e);
-});
+(function() {
+    var imgs = Array.from(document.querySelectorAll('.player-aid-img'));
+    var slides = imgs.map(function(el) { return { src: el.src, alt: el.alt }; });
+    var current = 0;
+
+    function show(index) {
+        if (!slides.length) return;
+        current = (index + slides.length) % slides.length;
+        var img = document.getElementById('lightbox-img');
+        var counter = document.getElementById('lightbox-counter');
+        img.src = slides[current].src;
+        img.alt = slides[current].alt || '';
+        counter.textContent = (current + 1) + ' / ' + slides.length;
+        var prev = document.querySelector('.lightbox-prev');
+        var next = document.querySelector('.lightbox-next');
+        if (slides.length <= 1) {
+            prev.style.display = 'none';
+            next.style.display = 'none';
+        } else {
+            prev.style.display = '';
+            next.style.display = '';
+        }
+    }
+
+    window.openLightbox = function(index) {
+        show(index);
+        document.getElementById('lightbox').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    };
+
+    window.closeLightbox = function(e) {
+        e && e.stopPropagation();
+        document.getElementById('lightbox').classList.remove('active');
+        document.body.style.overflow = '';
+    };
+
+    window.handleLightboxClick = function(e) {
+        if (e.target === document.getElementById('lightbox')) closeLightbox(e);
+    };
+
+    window.prevImage = function(e) {
+        e.stopPropagation();
+        show(current - 1);
+    };
+
+    window.nextImage = function(e) {
+        e.stopPropagation();
+        show(current + 1);
+    };
+
+    document.addEventListener('keydown', function(e) {
+        var lb = document.getElementById('lightbox');
+        if (!lb || !lb.classList.contains('active')) return;
+        if (e.key === 'Escape') closeLightbox();
+        if (e.key === 'ArrowLeft') show(current - 1);
+        if (e.key === 'ArrowRight') show(current + 1);
+    });
+})();
 </script>
 {{ end }}
