@@ -17,13 +17,15 @@ import (
 
 // Client wraps the BoardGameGeek API client.
 type Client struct {
-	bgg *gobgg.BGG
+	bgg  *gobgg.BGG
+	http *http.Client
 }
 
 // New creates a new BGG client with the given auth token.
 func New(token string) *Client {
 	token = strings.TrimSpace(token)
-	return &Client{bgg: gobgg.NewBGGClient(gobgg.SetAuthToken(token))}
+	httpClient := &http.Client{Transport: &authTransport{base: http.DefaultTransport, token: token}}
+	return &Client{bgg: gobgg.NewBGGClient(gobgg.SetAuthToken(token), gobgg.SetClient(httpClient)), http: httpClient}
 }
 
 // NewWithCookies creates a new BGG client using a raw cookie string
@@ -34,7 +36,38 @@ func NewWithCookies(raw string) *Client {
 		raw = raw[1 : len(raw)-1]
 	}
 	cookies := parseCookieString(raw)
-	return &Client{bgg: gobgg.NewBGGClient(gobgg.SetCookies("", cookies))}
+	httpClient := &http.Client{Transport: &authTransport{base: http.DefaultTransport, cookies: cookies}}
+	return &Client{bgg: gobgg.NewBGGClient(gobgg.SetCookies("", cookies), gobgg.SetClient(httpClient)), http: httpClient}
+}
+
+// authTransport attaches auth cookies, a bearer token, and a User-Agent to every
+// outgoing request. gobgg only wires cookies into a handful of endpoints
+// (notably not /xmlapi2/thing), and BGG now returns HTTP 401 for unauthenticated
+// /thing requests, which gobgg surfaces as "XML decoding failed: EOF". Doing it
+// at the transport layer guarantees every call is authenticated.
+type authTransport struct {
+	base    http.RoundTripper
+	cookies []*http.Cookie
+	token   string
+}
+
+func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = req.Clone(req.Context())
+	if req.Header.Get("User-Agent") == "" {
+		req.Header.Set("User-Agent", "myboardgamecollection/1.0 (+https://github.com/LuisMedinaG/myboardgamecollection)")
+	}
+	// Token is the primary auth strategy; cookies are a workaround for local
+	// dev when no token is available. Only fall back to cookies if no token.
+	if t.token != "" {
+		if req.Header.Get("Authorization") == "" {
+			req.Header.Set("Authorization", "Bearer "+t.token)
+		}
+	} else {
+		for _, c := range t.cookies {
+			req.AddCookie(c)
+		}
+	}
+	return t.base.RoundTrip(req)
 }
 
 // parseCookieString parses a raw Cookie header value into []*http.Cookie.
@@ -62,7 +95,7 @@ func (c *Client) ImportCollection(ctx context.Context, s *store.Store, username 
 	var firstThingErr error
 	thingFailures := 0
 	for _, item := range items {
-		things, fetchErr := getThingsWithRetry(ctx, c.bgg, item.ID)
+		things, fetchErr := c.getThingsWithRetry(ctx, item.ID)
 		if fetchErr != nil {
 			if firstThingErr == nil {
 				firstThingErr = fetchErr
@@ -91,34 +124,71 @@ func (c *Client) ImportCollection(ctx context.Context, s *store.Store, username 
 	return added, updated, collectionCount, nil
 }
 
-// getThingsWithRetry calls the BGG thing API with the same backoff strategy as
-// gobgg's collection client. The thing endpoint can return HTTP 202 or an
-// empty payload while BGG builds the response; gobgg.GetThings does not retry.
-func getThingsWithRetry(ctx context.Context, bggc *gobgg.BGG, id int64) ([]gobgg.ThingResult, error) {
-	delay := time.Second
-	for i := 1; ; i++ {
-		things, err := bggc.GetThings(ctx, gobgg.GetThingIDs(id))
+// getThingsWithRetry calls the BGG thing API. BGG returns HTTP 202 while it
+// builds the response, in which case we retry with a short backoff. Any other
+// non-200 status (401/403/5xx) fails immediately with a descriptive error so
+// users aren't left waiting on a silent retry loop. We cap at a handful of
+// attempts so a single-game import can't hang for minutes.
+func (c *Client) getThingsWithRetry(ctx context.Context, id int64) ([]gobgg.ThingResult, error) {
+	const maxAttempts = 5
+	delay := 500 * time.Millisecond
+
+	for attempt := 1; ; attempt++ {
+		status, err := c.probeThingStatus(ctx, id)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("probing /thing for bgg_id=%d: %w", id, err)
 		}
-		if len(things) > 0 {
+
+		switch {
+		case status == http.StatusOK:
+			things, err := c.bgg.GetThings(ctx, gobgg.GetThingIDs(id))
+			if err != nil {
+				return nil, fmt.Errorf("decoding /thing for bgg_id=%d: %w", id, err)
+			}
+			if len(things) == 0 {
+				return nil, fmt.Errorf("empty thing response for bgg_id=%d", id)
+			}
 			return things, nil
+		case status == http.StatusAccepted:
+			// BGG is still building the response; retry.
+		case status == http.StatusUnauthorized, status == http.StatusForbidden:
+			return nil, fmt.Errorf("BGG returned HTTP %d for /thing?id=%d — check BGG_TOKEN (or BGG_COOKIE in dev)", status, id)
+		default:
+			return nil, fmt.Errorf("BGG returned HTTP %d for /thing?id=%d", status, id)
 		}
 
-		if i >= 25 {
-			return nil, fmt.Errorf("empty thing response for bgg_id=%d after %d attempts", id, i)
+		if attempt >= maxAttempts {
+			return nil, fmt.Errorf("BGG /thing?id=%d still 202 after %d attempts", id, attempt)
 		}
 
-		delay += time.Duration(i) * time.Second
-		if delay > 30*time.Second {
-			delay = 30 * time.Second
-		}
 		select {
 		case <-time.After(delay):
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
+		delay *= 2
+		if delay > 4*time.Second {
+			delay = 4 * time.Second
+		}
 	}
+}
+
+// probeThingStatus issues a lightweight GET against BGG's /thing endpoint and
+// returns the HTTP status code. We use a GET (not HEAD — BGG's xmlapi2 doesn't
+// reliably honor HEAD) and close the body immediately without decoding. This
+// lets us distinguish 202 (queued) from 401/403 (auth) without parsing XML.
+func (c *Client) probeThingStatus(ctx context.Context, id int64) (int, error) {
+	u := fmt.Sprintf("https://boardgamegeek.com/xmlapi2/thing?id=%d&stats=1", id)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return 0, err
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode, nil
 }
 
 // thingToGame converts a BGG API thing into a Game model.
