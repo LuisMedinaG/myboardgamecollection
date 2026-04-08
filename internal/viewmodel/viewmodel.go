@@ -140,3 +140,35 @@ type ImportResultData struct {
 	Username        string
 	ErrMsg          string
 }
+
+// ImportCSVPageData holds data for the CSV import page.
+type ImportCSVPageData struct {
+	Enabled bool // false when no BGG client is configured server-side
+}
+
+// CSVPreviewRow is one row shown in the CSV import preview table.
+type CSVPreviewRow struct {
+	BGGID        int64
+	Name         string
+	AlreadyOwned bool
+}
+
+// ImportCSVPreviewData holds data for the CSV preview partial. It is rendered
+// after a user uploads a file but before the actual import is confirmed.
+type ImportCSVPreviewData struct {
+	Rows         []CSVPreviewRow
+	NewCount     int
+	OwnedCount   int
+	SkippedRows  int // rows in the file that had no usable BGG ID
+	TotalParsed  int // unique BGG IDs successfully parsed from the file
+	ImportIDsCSV string // comma-separated list of BGG IDs to send back on confirm
+	ErrMsg       string
+}
+
+// ImportCSVResultData holds data for the CSV import result partial.
+type ImportCSVResultData struct {
+	Added   int
+	Skipped int // already-owned games that were not re-fetched
+	Failed  int // games whose metadata could not be fetched from BGG
+	ErrMsg  string
+}

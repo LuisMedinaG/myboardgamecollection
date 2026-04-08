@@ -1,0 +1,20 @@
+{{ define "import_csv_result" }}
+{{ if .ErrMsg }}
+    <div class="import-error">{{ .ErrMsg }}</div>
+{{ else if and (eq .Added 0) (eq .Skipped 0) (eq .Failed 0) }}
+    <div class="import-info">No games were imported.</div>
+{{ else if eq .Added 0 }}
+    <div class="import-info">
+        No new games were added.
+        {{ if gt .Skipped 0 }}{{ .Skipped }} were already in your collection.{{ end }}
+        {{ if gt .Failed 0 }}{{ .Failed }} could not be loaded from BGG.{{ end }}
+    </div>
+{{ else }}
+    <div class="import-success">
+        Added {{ .Added }} new game{{ if ne .Added 1 }}s{{ end }}!
+        {{ if gt .Skipped 0 }}({{ .Skipped }} already owned){{ end }}
+        {{ if gt .Failed 0 }}({{ .Failed }} failed){{ end }}
+        <a href="/games">View your collection &#8594;</a>
+    </div>
+{{ end }}
+{{ end }}
