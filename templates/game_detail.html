@@ -1,8 +1,8 @@
 {{ define "content" }}
 <a href="/games" class="back-btn">&#8592; All Games</a>
-{{ if .Game.Image }}
+{{ if .Game.ThumbnailURL }}
 <div class="game-image-wrap">
-    <img src="{{ .Game.Image }}" class="game-image" alt="{{ .Game.Name }}">
+    <img src="{{ .Game.ThumbnailURL }}" class="game-image" alt="{{ .Game.Name }}">
 </div>
 {{ end }}
 <div class="game-header">
