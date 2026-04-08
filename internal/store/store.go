@@ -154,8 +154,10 @@ func (s *Store) createTables() error {
 	_, err = s.db.Exec(`
 		CREATE TABLE IF NOT EXISTS users (
 			id               INTEGER PRIMARY KEY AUTOINCREMENT,
-			bgg_username     TEXT    NOT NULL UNIQUE,
+			username         TEXT    NOT NULL UNIQUE,
+			bgg_username     TEXT    NOT NULL DEFAULT '',
 			password_hash    TEXT    NOT NULL DEFAULT '',
+			email            TEXT    NOT NULL DEFAULT '',
 			created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			last_sync_at     DATETIME,
 			sync_count_today INTEGER NOT NULL DEFAULT 0,
@@ -184,6 +186,21 @@ func (s *Store) createTables() error {
 	// Migration: add is_admin and password_hash column (no-op if already present).
 	_, _ = s.db.Exec("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
 	_, _ = s.db.Exec("ALTER TABLE users ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''")
+
+	// Migration: add username and email columns for username-based auth (#49).
+	// username becomes the login identity; bgg_username is kept for BGG syncing.
+	_, _ = s.db.Exec("ALTER TABLE users ADD COLUMN username TEXT NOT NULL DEFAULT ''")
+	_, _ = s.db.Exec("ALTER TABLE users ADD COLUMN email TEXT NOT NULL DEFAULT ''")
+	// Populate username from bgg_username for existing users that lack one.
+	_, _ = s.db.Exec("UPDATE users SET username = bgg_username WHERE username = ''")
+	// Create unique index on username (idempotent via IF NOT EXISTS).
+	_, _ = s.db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username != ''")
+	// bgg_username is no longer unique — multiple users can share a BGG username
+	// (e.g. household members syncing the same collection). Drop any pre-existing
+	// unique index from older schemas. Auto-named SQLite indexes from inline
+	// UNIQUE constraints can't be dropped, but a fresh DB created with the new
+	// schema won't have one.
+	_, _ = s.db.Exec("DROP INDEX IF EXISTS idx_users_bgg_username")
 
 	// FTS5 virtual table for full-text search over game name + description.
 	// content=games makes the FTS index reference the games table rows.
@@ -230,7 +247,7 @@ func (s *Store) migrateAdminUser() error {
 	if admin == "" {
 		return nil
 	}
-	_, err := s.db.Exec("UPDATE users SET is_admin = 1 WHERE bgg_username = ?", admin)
+	_, err := s.db.Exec("UPDATE users SET is_admin = 1 WHERE username = ? OR bgg_username = ?", admin, admin)
 	return err
 }
 
@@ -254,7 +271,7 @@ func (s *Store) migrateUserData() error {
 		// If the user doesn't exist, we create them with a placeholder password.
 		// The user will need to use "forgot password" (if implemented) or
 		// an admin will need to reset it.
-		userID, err = s.RegisterUser(username, "MIGRATED_USER_CHANGE_ME")
+		userID, err = s.RegisterUser(username, "MIGRATED_USER_CHANGE_ME", username, "")
 		if err != nil {
 			return err
 		}

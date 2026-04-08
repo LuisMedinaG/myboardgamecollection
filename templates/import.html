@@ -17,7 +17,25 @@
         </div>
         {{ end }}
         <hr class="import-divider">
-        <p class="import-username-label">Syncing as: <strong>{{ .Username }}</strong></p>
+        <div class="bgg-username-panel">
+            {{ if .Username }}
+            <div class="bgg-username-display" id="bgg-username-display">
+                <span class="bgg-username-label">Syncing as</span>
+                <strong class="bgg-username-value">{{ .Username }}</strong>
+                <button type="button" class="btn btn-sm btn-secondary" id="bgg-edit-btn">Edit</button>
+            </div>
+            {{ else }}
+            <p class="bgg-username-empty">No BGG username set. Add one to sync your collection.</p>
+            {{ end }}
+            <form method="post" action="/profile/bgg-username" class="bgg-username-form" id="bgg-username-form" {{ if .Username }}style="display:none;"{{ end }}>
+                <label for="bgg_username">BGG Username</label>
+                <input type="text" id="bgg_username" name="bgg_username" value="{{ .Username }}" placeholder="BoardGameGeek username" required class="form-input">
+                <div class="bgg-username-actions">
+                    <button type="submit" class="btn btn-primary">{{ if .Username }}Update{{ else }}Save{{ end }}</button>
+                    {{ if .Username }}<button type="button" class="btn btn-secondary" id="bgg-cancel-btn">Cancel</button>{{ end }}
+                </div>
+            </form>
+        </div>
         <form
             hx-post="/import"
             hx-target="#import-result"
@@ -26,12 +44,35 @@
         >
             <button
                 type="submit"
+                id="sync-btn"
                 class="btn btn-primary import-btn"
-                {{ if or (not .Enabled) (not .CanSync) }}disabled{{ end }}
+                {{ if or (not .Enabled) (not .CanSync) (not .Username) }}disabled{{ end }}
             >
                 &#128269; Sync from BGG
             </button>
         </form>
+        <script>
+        (function(){
+            var editBtn = document.getElementById('bgg-edit-btn');
+            var cancelBtn = document.getElementById('bgg-cancel-btn');
+            var form = document.getElementById('bgg-username-form');
+            var display = document.getElementById('bgg-username-display');
+            var syncBtn = document.getElementById('sync-btn');
+            var syncWasEnabled = syncBtn && !syncBtn.disabled;
+            function showForm(){
+                form.style.display = 'block';
+                if (display) display.style.display = 'none';
+                if (syncBtn) syncBtn.disabled = true;
+            }
+            function hideForm(){
+                form.style.display = 'none';
+                if (display) display.style.display = 'flex';
+                if (syncBtn && syncWasEnabled) syncBtn.disabled = false;
+            }
+            if (editBtn) editBtn.addEventListener('click', showForm);
+            if (cancelBtn) cancelBtn.addEventListener('click', hideForm);
+        })();
+        </script>
         <div id="import-spinner" class="htmx-indicator">
             <div class="import-loading">
                 <div class="spinner-inline"></div>

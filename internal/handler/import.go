@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"myboardgamecollection/internal/httpx"
 	"myboardgamecollection/internal/viewmodel"
@@ -28,9 +29,10 @@ func (h *Handler) HandleImport(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("CanSync", "userID", userID, "error", err)
 	}
+	bggUsername, _ := h.Store.GetBGGUsername(userID)
 	data := viewmodel.ImportPageData{
-		Username:  httpx.UsernameFromContext(r.Context()),
-		Enabled:   h.BGG != nil,
+		Username:  bggUsername,
+		Enabled:   h.BGG != nil && bggUsername != "",
 		CanSync:   canSync,
 		IsAdmin:   isAdmin,
 		SyncLimit: limit,
@@ -66,8 +68,12 @@ func (h *Handler) HandleImportSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username := httpx.UsernameFromContext(r.Context())
-	added, updated, collCount, err := h.BGG.ImportCollection(r.Context(), h.Store, username, userID)
+	bggUsername, _ := h.Store.GetBGGUsername(userID)
+	if bggUsername == "" {
+		renderImportError(w, r, h, "No BGG username set. Add your BoardGameGeek username in your profile to sync.")
+		return
+	}
+	added, updated, collCount, err := h.BGG.ImportCollection(r.Context(), h.Store, bggUsername, userID)
 	if err != nil {
 		renderImportError(w, r, h, fmt.Sprintf("Import failed: %v", err))
 		return
@@ -78,10 +84,25 @@ func (h *Handler) HandleImportSync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.Renderer.Partial(w, "import_result", viewmodel.ImportResultData{
-		Count: added, Updated: updated, CollectionItems: collCount, Username: username,
+		Count: added, Updated: updated, CollectionItems: collCount, Username: bggUsername,
 	}); err != nil {
 		http.Error(w, "failed to render partial", http.StatusInternalServerError)
 	}
+}
+
+// HandleSetBGGUsername lets a logged-in user set or update their BGG username.
+func (h *Handler) HandleSetBGGUsername(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
+		return
+	}
+	bgg := strings.TrimSpace(r.FormValue("bgg_username"))
+	if err := h.Store.SetBGGUsername(userID, bgg); err != nil {
+		slog.Error("SetBGGUsername", "userID", userID, "error", err)
+		http.Error(w, "failed to update BGG username", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/import", http.StatusSeeOther)
 }
 
 func renderImportError(w http.ResponseWriter, r *http.Request, h *Handler, msg string) {

@@ -13,20 +13,21 @@ import (
 )
 
 // RegisterUser creates a new user with a hashed password.
-func (s *Store) RegisterUser(bggUsername, password string) (int64, error) {
+// bggUsername and email are optional profile fields.
+func (s *Store) RegisterUser(username, password, bggUsername, email string) (int64, error) {
 	hash, err := hashPassword(password)
 	if err != nil {
 		return 0, err
 	}
 
 	isAdmin := 0
-	if admin := strings.TrimSpace(os.Getenv("ADMIN_USERNAME")); admin != "" && strings.EqualFold(bggUsername, admin) {
+	if admin := strings.TrimSpace(os.Getenv("ADMIN_USERNAME")); admin != "" && strings.EqualFold(username, admin) {
 		isAdmin = 1
 	}
 
 	res, err := s.db.Exec(
-		"INSERT INTO users (bgg_username, password_hash, is_admin) VALUES (?, ?, ?)",
-		bggUsername, hash, isAdmin,
+		"INSERT INTO users (username, bgg_username, password_hash, email, is_admin) VALUES (?, ?, ?, ?, ?)",
+		username, bggUsername, hash, email, isAdmin,
 	)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
@@ -38,12 +39,12 @@ func (s *Store) RegisterUser(bggUsername, password string) (int64, error) {
 }
 
 // AuthenticateUser verifies the username and password, returning the user's ID
-// on success.
+// on success. Authentication is against the username column only.
 func (s *Store) AuthenticateUser(username, password string) (int64, error) {
 	var id int64
 	var hash string
 	err := s.db.QueryRow(
-		"SELECT id, password_hash FROM users WHERE bgg_username = ?",
+		"SELECT id, password_hash FROM users WHERE username = ?",
 		username,
 	).Scan(&id, &hash)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -90,11 +91,25 @@ func checkPasswordHash(password, hash string) bool {
 	return subtle.ConstantTimeCompare(originalHash, newHash) == 1
 }
 
-// GetUsername returns the BGG username for a user ID.
+// GetUsername returns the login username for a user ID.
 func (s *Store) GetUsername(userID int64) (string, error) {
 	var username string
-	err := s.db.QueryRow("SELECT bgg_username FROM users WHERE id = ?", userID).Scan(&username)
+	err := s.db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&username)
 	return username, err
+}
+
+// SetBGGUsername updates the BGG username for a user.
+func (s *Store) SetBGGUsername(userID int64, bggUsername string) error {
+	_, err := s.db.Exec("UPDATE users SET bgg_username = ? WHERE id = ?", bggUsername, userID)
+	return err
+}
+
+// GetBGGUsername returns the BGG username for a user ID. Returns empty string
+// if the user has no BGG username set.
+func (s *Store) GetBGGUsername(userID int64) (string, error) {
+	var bgg string
+	err := s.db.QueryRow("SELECT bgg_username FROM users WHERE id = ?", userID).Scan(&bgg)
+	return bgg, err
 }
 
 // CreateSession generates a cryptographically random session token, stores it,
@@ -114,13 +129,13 @@ func (s *Store) CreateSession(userID int64) (string, error) {
 }
 
 // ValidateSession checks that the token exists and has not expired.
-// On success it returns the user's ID, BGG username, and admin flag.
+// On success it returns the user's ID, login username, and admin flag.
 func (s *Store) ValidateSession(token string) (int64, string, bool, error) {
 	var userID int64
 	var isAdminInt int
 	var username, expiresAt string
 	err := s.db.QueryRow(`
-		SELECT s.user_id, u.bgg_username, s.expires_at, u.is_admin
+		SELECT s.user_id, u.username, s.expires_at, u.is_admin
 		FROM sessions s
 		JOIN users u ON u.id = s.user_id
 		WHERE s.token = ?`, token,

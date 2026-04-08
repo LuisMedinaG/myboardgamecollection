@@ -10,10 +10,8 @@ import (
 	"myboardgamecollection/internal/viewmodel"
 )
 
-// bggUsernameRE allows the characters BGG usernames realistically contain.
-// This is a conservative allow-list; BGG itself is more permissive but these
-// are the characters we trust for URL-safe identity strings.
-var bggUsernameRE = regexp.MustCompile(`^[a-zA-Z0-9_.+\- ]{1,60}$`)
+// usernameRE allows alphanumeric characters, dots, underscores, hyphens, and spaces.
+var usernameRE = regexp.MustCompile(`^[a-zA-Z0-9_.+\- ]{1,60}$`)
 
 func (h *Handler) HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 	if err := h.renderPage(w, r, "login", "Sign In", viewmodel.AuthPageData{}); err != nil {
@@ -30,10 +28,13 @@ func (h *Handler) HandleSignupPage(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) HandleSignup(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(r.FormValue("username"))
 	password := r.FormValue("password")
+	password2 := r.FormValue("password2")
+	bggUsername := strings.TrimSpace(r.FormValue("bgg_username"))
+	email := strings.TrimSpace(r.FormValue("email"))
 
-	if !bggUsernameRE.MatchString(username) {
+	if !usernameRE.MatchString(username) {
 		h.recordLoginFailure(r)
-		renderAuthError(w, r, h, "signup", "Create Account", "Invalid BGG username (1–60 characters).")
+		renderAuthError(w, r, h, "signup", "Create Account", "Invalid username (1–60 characters, letters, numbers, dots, hyphens, underscores).")
 		return
 	}
 	if len(password) < 8 {
@@ -41,8 +42,13 @@ func (h *Handler) HandleSignup(w http.ResponseWriter, r *http.Request) {
 		renderAuthError(w, r, h, "signup", "Create Account", "Password must be at least 8 characters.")
 		return
 	}
+	if password != password2 {
+		h.recordLoginFailure(r)
+		renderAuthError(w, r, h, "signup", "Create Account", "Passwords do not match.")
+		return
+	}
 
-	userID, err := h.Store.RegisterUser(username, password)
+	userID, err := h.Store.RegisterUser(username, password, bggUsername, email)
 	if err != nil {
 		slog.Error("RegisterUser", "username", username, "error", err)
 		h.recordLoginFailure(r)
