@@ -32,8 +32,7 @@
 </div>
 <script>
 (function() {
-    var imgs = Array.from(document.querySelectorAll('.player-aid-img'));
-    var slides = imgs.map(function(el) { return { src: el.src, alt: el.alt }; });
+    var slides = [{{ range .Aids }}{ src: "/uploads/{{ .Filename }}", alt: "{{ .Label }}" },{{ end }}];
     var current = 0;
 
     function show(index) {
