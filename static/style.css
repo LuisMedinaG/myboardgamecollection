@@ -957,7 +957,8 @@ body {
   margin-top: 0.75rem;
 }
 
-.rules-url-form.hidden {
+.rules-url-form.hidden,
+.upload-form.hidden {
   display: none;
 }
 
