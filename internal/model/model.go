@@ -21,6 +21,7 @@ type Game struct {
 	Mechanics     string
 	Types         string // BGG subdomain (e.g. "Family Games, Strategy Games")
 	RulesURL      string // Google Drive link to rulebook PDF
+	Vibes         []Vibe // populated on demand; nil when not fetched
 }
 
 // PlayersStr returns a formatted player count string.
@@ -90,6 +91,22 @@ type PlayerAid struct {
 type Vibe struct {
 	ID   int64
 	Name string
+}
+
+var vibeColorClasses = [...]string{
+	"vibe-color-0",
+	"vibe-color-1",
+	"vibe-color-2",
+	"vibe-color-3",
+	"vibe-color-4",
+	"vibe-color-5",
+	"vibe-color-6",
+	"vibe-color-7",
+}
+
+// ColorClass returns a stable CSS class for this vibe based on its ID.
+func (v Vibe) ColorClass() string {
+	return vibeColorClasses[v.ID%int64(len(vibeColorClasses))]
 }
 
 // CollectionEntry holds a game from a user's BGG collection.

@@ -39,6 +39,15 @@ func (h *Handler) HandleGames(w http.ResponseWriter, r *http.Request) {
 	categories, _ := h.Store.DistinctCategories(userID)
 	vibes, _ := h.Store.AllVibes(userID)
 
+	gameIDs := make([]int64, len(games))
+	for i, g := range games {
+		gameIDs[i] = g.ID
+	}
+	gameVibes, _ := h.Store.VibesForGames(gameIDs)
+	for i := range games {
+		games[i].Vibes = gameVibes[games[i].ID]
+	}
+
 	data := viewmodel.GamesPageData{
 		Games:      games,
 		Categories: categories,
