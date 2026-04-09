@@ -1999,3 +1999,22 @@ body {
   cursor: not-allowed;
   filter: grayscale(0.3);
 }
+
+/* =========================================================
+   BGG footer
+   ========================================================= */
+.bgg-footer {
+  text-align: center;
+  padding: 1.5rem 1rem;
+  margin-top: 2rem;
+}
+
+.bgg-footer-link {
+  display: inline-block;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+
+.bgg-footer-link:hover {
+  opacity: 1;
+}
