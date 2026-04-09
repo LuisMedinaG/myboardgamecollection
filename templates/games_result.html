@@ -20,6 +20,11 @@
                 <div class="game-list-info">
                     <div class="game-list-name">{{ .Name }}</div>
                     <div class="game-list-meta">{{ .PlayersStr }} players · {{ .PlaytimeStr }}</div>
+                    {{ if .Vibes }}
+                    <div class="game-list-vibes">
+                        {{ range .Vibes }}<span class="vibe-pill {{ .ColorClass }}">{{ .Name }}</span>{{ end }}
+                    </div>
+                    {{ end }}
                 </div>
                 <span class="chevron">&#8250;</span>
             </a>

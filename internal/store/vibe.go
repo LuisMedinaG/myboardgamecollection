@@ -1,6 +1,11 @@
 package store
 
-import "myboardgamecollection/internal/model"
+import (
+	"fmt"
+	"strings"
+
+	"myboardgamecollection/internal/model"
+)
 
 // AllVibes returns all vibes owned by userID, ordered by name.
 func (s *Store) AllVibes(userID int64) ([]model.Vibe, error) {
@@ -88,6 +93,41 @@ func (s *Store) AddVibesToGames(gameIDs, vibeIDs []int64) error {
 		}
 	}
 	return tx.Commit()
+}
+
+// VibesForGames returns a map of game ID → vibes for the given game IDs.
+// Games with no vibes are omitted from the map.
+func (s *Store) VibesForGames(gameIDs []int64) (map[int64][]model.Vibe, error) {
+	if len(gameIDs) == 0 {
+		return nil, nil
+	}
+	placeholders := strings.Repeat("?,", len(gameIDs))
+	placeholders = placeholders[:len(placeholders)-1]
+	query := fmt.Sprintf(`
+		SELECT gv.game_id, v.id, v.name
+		FROM game_vibes gv
+		JOIN vibes v ON v.id = gv.vibe_id
+		WHERE gv.game_id IN (%s)
+		ORDER BY v.name`, placeholders)
+	args := make([]any, len(gameIDs))
+	for i, id := range gameIDs {
+		args[i] = id
+	}
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make(map[int64][]model.Vibe)
+	for rows.Next() {
+		var gameID int64
+		var v model.Vibe
+		if err := rows.Scan(&gameID, &v.ID, &v.Name); err != nil {
+			return nil, err
+		}
+		result[gameID] = append(result[gameID], v)
+	}
+	return result, rows.Err()
 }
 
 // SetGameVibes replaces all vibe associations for a game.
