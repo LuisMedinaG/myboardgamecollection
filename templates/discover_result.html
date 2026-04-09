@@ -3,7 +3,7 @@
     {{/* Step 1: Show vibe grid */}}
     <div class="vibe-grid">
         {{ range .Vibes }}
-        <a href="/discover?vibe={{ .ID }}" class="vibe-btn">{{ .Name }}</a>
+        <a href="/discover?vibe={{ .ID }}" class="vibe-btn {{ .ColorClass }}">{{ .Name }}</a>
         {{ end }}
     </div>
     {{ if eq (len .Vibes) 0 }}

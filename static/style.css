@@ -1243,8 +1243,8 @@ body {
 }
 
 .vibe-btn:hover {
-  border-color: var(--accent);
-  background: var(--accent-light);
+  border-color: currentColor;
+  filter: brightness(0.92);
 }
 
 /* Category pills */
