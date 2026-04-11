@@ -77,13 +77,30 @@ func (s *Store) VibesForGame(gameID int64) ([]model.Vibe, error) {
 	return vibes, rows.Err()
 }
 
-// AddVibesToGames adds vibes to multiple games (keeps existing associations).
-func (s *Store) AddVibesToGames(gameIDs, vibeIDs []int64) error {
+// AddVibesToGames adds vibes to multiple games owned by userID.
+func (s *Store) AddVibesToGames(userID int64, gameIDs, vibeIDs []int64) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+
+	ownedGames, err := ownedIDs(tx, "games", userID, gameIDs)
+	if err != nil {
+		return err
+	}
+	if len(ownedGames) != len(gameIDs) {
+		return ErrForeignOwnership
+	}
+
+	ownedVibes, err := ownedIDs(tx, "vibes", userID, vibeIDs)
+	if err != nil {
+		return err
+	}
+	if len(ownedVibes) != len(vibeIDs) {
+		return ErrForeignOwnership
+	}
+
 	for _, gid := range gameIDs {
 		for _, vid := range vibeIDs {
 			_, err := tx.Exec("INSERT OR IGNORE INTO game_vibes (game_id, vibe_id) VALUES (?, ?)", gid, vid)
@@ -130,13 +147,30 @@ func (s *Store) VibesForGames(gameIDs []int64) (map[int64][]model.Vibe, error) {
 	return result, rows.Err()
 }
 
-// SetGameVibes replaces all vibe associations for a game.
-func (s *Store) SetGameVibes(gameID int64, vibeIDs []int64) error {
+// SetGameVibes replaces all vibe associations for a game owned by userID.
+func (s *Store) SetGameVibes(userID, gameID int64, vibeIDs []int64) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+
+	ownedGames, err := ownedIDs(tx, "games", userID, []int64{gameID})
+	if err != nil {
+		return err
+	}
+	if !ownedGames[gameID] {
+		return ErrForeignOwnership
+	}
+
+	ownedVibes, err := ownedIDs(tx, "vibes", userID, vibeIDs)
+	if err != nil {
+		return err
+	}
+	if len(ownedVibes) != len(vibeIDs) {
+		return ErrForeignOwnership
+	}
+
 	if _, err := tx.Exec("DELETE FROM game_vibes WHERE game_id = ?", gameID); err != nil {
 		return err
 	}

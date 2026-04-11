@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"myboardgamecollection/internal/store"
 	"myboardgamecollection/internal/viewmodel"
 )
 
@@ -197,7 +198,11 @@ func (h *Handler) HandleGameVibesSave(w http.ResponseWriter, r *http.Request) {
 			vibeIDs = append(vibeIDs, vid)
 		}
 	}
-	if err := h.Store.SetGameVibes(id, vibeIDs); err != nil {
+	if err := h.Store.SetGameVibes(userID, id, vibeIDs); err != nil {
+		if store.IsOwnershipError(err) {
+			http.Error(w, "one or more selected vibes were not found", http.StatusNotFound)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

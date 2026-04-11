@@ -49,8 +49,8 @@ func (h *Handler) HandleAPICreateVibe(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusBadRequest, "name is required")
 		return
 	}
-	if len(name) > 60 {
-		writeAPIError(w, http.StatusBadRequest, "name too long (max 60 characters)")
+	if len(name) > 100 {
+		writeAPIError(w, http.StatusBadRequest, "name too long (max 100 characters)")
 		return
 	}
 
@@ -95,8 +95,8 @@ func (h *Handler) HandleAPIUpdateVibe(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusBadRequest, "name is required")
 		return
 	}
-	if len(name) > 60 {
-		writeAPIError(w, http.StatusBadRequest, "name too long (max 60 characters)")
+	if len(name) > 100 {
+		writeAPIError(w, http.StatusBadRequest, "name too long (max 100 characters)")
 		return
 	}
 

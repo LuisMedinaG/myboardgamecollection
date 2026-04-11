@@ -35,10 +35,13 @@ func TestHashPasswordFormat(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			hash, err := hashPassword(c.password)
 			require.NoError(t, err)
-			parts := strings.Split(hash, ":")
-			require.Len(t, parts, 2, "hash must be <salt>:<hash>")
-			assert.Len(t, parts[0], 32, "salt should be 16 bytes hex-encoded (32 chars)")
-			assert.Len(t, parts[1], 64, "sha256 hash should be 32 bytes hex-encoded (64 chars)")
+			parts := strings.Split(hash, "$")
+			require.Len(t, parts, 6, "hash must be $sha256$v=<n>$i=<n>$<salt>$<hash>")
+			assert.Equal(t, "sha256", parts[1])
+			assert.Equal(t, "v=2", parts[2])
+			assert.Equal(t, "i=120000", parts[3])
+			assert.Len(t, parts[4], 32, "salt should be 16 bytes hex-encoded (32 chars)")
+			assert.Len(t, parts[5], 64, "sha256 hash should be 32 bytes hex-encoded (64 chars)")
 		})
 	}
 }
@@ -68,8 +71,12 @@ func TestCheckPasswordHashCorrect(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			hash, err := hashPassword(c.password)
 			require.NoError(t, err)
-			assert.True(t, checkPasswordHash(c.password, hash), "correct password must verify")
-			assert.False(t, checkPasswordHash(c.password+"x", hash), "wrong password must not verify")
+			match, legacy := checkPasswordHash(c.password, hash)
+			assert.True(t, match, "correct password must verify")
+			assert.False(t, legacy, "fresh hashes should not be treated as legacy")
+
+			match, _ = checkPasswordHash(c.password+"x", hash)
+			assert.False(t, match, "wrong password must not verify")
 		})
 	}
 }
@@ -87,7 +94,8 @@ func TestCheckPasswordHashMalformed(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			assert.False(t, checkPasswordHash("anything", c.hash),
+			match, _ := checkPasswordHash("anything", c.hash)
+			assert.False(t, match,
 				"malformed hash must return false")
 		})
 	}
