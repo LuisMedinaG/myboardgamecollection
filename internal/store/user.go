@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -45,7 +46,7 @@ func (s *Store) ChangePassword(userID int64, currentPassword, newPassword string
 	if err != nil {
 		return errors.New("user not found")
 	}
-	if !checkPasswordHash(currentPassword, hash) {
+	if ok, _ := checkPasswordHash(currentPassword, hash); !ok {
 		return errors.New("current password is incorrect")
 	}
 	newHash, err := hashPassword(newPassword)
@@ -72,34 +73,56 @@ func (s *Store) AuthenticateUser(username, password string) (int64, error) {
 		return 0, err
 	}
 
-	if !checkPasswordHash(password, hash) {
+	ok, legacy := checkPasswordHash(password, hash)
+	if !ok {
 		return 0, errors.New("invalid username or password")
+	}
+	if legacy {
+		upgradedHash, hashErr := hashPassword(password)
+		if hashErr == nil {
+			_, _ = s.db.Exec("UPDATE users SET password_hash = ? WHERE id = ?", upgradedHash, id)
+		}
 	}
 	return id, nil
 }
 
-// hashPassword returns a salt+hash string.
-// NOTE: For a real product, use golang.org/x/crypto/argon2.
-// This is a simplified SHA-256 implementation for demonstration.
+const (
+	passwordSaltLen       = 16
+	sha256IterationsV2    = 120000
+	sha256HashVersion     = 2
+	sha256HashBytesLength = 32
+)
+
+// hashPassword returns an encoded salted+iterated SHA-256 hash string.
 func hashPassword(password string) (string, error) {
-	salt := make([]byte, 16)
+	salt := make([]byte, passwordSaltLen)
 	if _, err := rand.Read(salt); err != nil {
 		return "", err
 	}
-	h := sha256.New()
-	h.Write(salt)
-	h.Write([]byte(password))
-	hash := h.Sum(nil)
-	return hex.EncodeToString(salt) + ":" + hex.EncodeToString(hash), nil
+	hash := iterativeSHA256([]byte(password), salt, sha256IterationsV2)
+	return fmt.Sprintf("$sha256$v=%d$i=%d$%s$%s", sha256HashVersion, sha256IterationsV2, hex.EncodeToString(salt), hex.EncodeToString(hash)), nil
 }
 
-func checkPasswordHash(password, hash string) bool {
+func checkPasswordHash(password, hash string) (match bool, legacy bool) {
+	if strings.HasPrefix(hash, "$sha256$") {
+		return verifySHA256V2Hash(password, hash), false
+	}
+	return verifyLegacySHA256Hash(password, hash), true
+}
+
+func verifyLegacySHA256Hash(password, hash string) bool {
 	parts := strings.Split(hash, ":")
 	if len(parts) != 2 {
 		return false
 	}
-	salt, _ := hex.DecodeString(parts[0])
-	originalHash, _ := hex.DecodeString(parts[1])
+	salt, err := hex.DecodeString(parts[0])
+	if err != nil {
+		return false
+	}
+	originalHash, err := hex.DecodeString(parts[1])
+	if err != nil {
+		return false
+	}
 
 	h := sha256.New()
 	h.Write(salt)
@@ -107,6 +130,43 @@ func checkPasswordHash(password, hash string) bool {
 	newHash := h.Sum(nil)
 
 	return subtle.ConstantTimeCompare(originalHash, newHash) == 1
+}
+
+func verifySHA256V2Hash(password, encoded string) bool {
+	parts := strings.Split(encoded, "$")
+	if len(parts) != 6 || parts[1] != "sha256" {
+		return false
+	}
+	var version, iterations int
+	if _, err := fmt.Sscanf(parts[2], "v=%d", &version); err != nil || version != sha256HashVersion {
+		return false
+	}
+	if _, err := fmt.Sscanf(parts[3], "i=%d", &iterations); err != nil || iterations <= 0 {
+		return false
+	}
+	salt, err := hex.DecodeString(parts[4])
+	if err != nil {
+		return false
+	}
+	originalHash, err := hex.DecodeString(parts[5])
+	if err != nil || len(originalHash) != sha256HashBytesLength {
+		return false
+	}
+	newHash := iterativeSHA256([]byte(password), salt, iterations)
+	return subtle.ConstantTimeCompare(originalHash, newHash) == 1
+}
+
+func iterativeSHA256(password, salt []byte, iterations int) []byte {
+	h := sha256.New()
+	h.Write(salt)
+	h.Write(password)
+	sum := h.Sum(nil)
+	for i := 1; i < iterations; i++ {
+		h.Reset()
+		h.Write(sum)
+		sum = h.Sum(nil)
+	}
+	return sum
 }
 
 // GetUsername returns the login username for a user ID.
