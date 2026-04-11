@@ -130,7 +130,7 @@ func TestRegisterUserDuplicateUsername(t *testing.T) {
 
 	_, err = s.RegisterUser("bob", "pass2", "", "")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "username already taken")
+	assert.ErrorIs(t, err, ErrDuplicate)
 }
 
 func TestAuthenticateUserWrongPassword(t *testing.T) {

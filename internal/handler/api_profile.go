@@ -2,9 +2,12 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
+
+	"myboardgamecollection/internal/store"
 )
 
 // HandleAPIGetProfile returns the authenticated user's profile info.
@@ -89,7 +92,7 @@ func (h *Handler) HandleAPIChangePassword(w http.ResponseWriter, r *http.Request
 	}
 
 	if err := h.Store.ChangePassword(userID, body.CurrentPassword, body.NewPassword); err != nil {
-		if strings.Contains(err.Error(), "current password") {
+		if errors.Is(err, store.ErrWrongPassword) {
 			writeAPIError(w, http.StatusForbidden, "current password incorrect")
 			return
 		}

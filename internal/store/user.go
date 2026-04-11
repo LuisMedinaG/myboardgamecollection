@@ -31,8 +31,8 @@ func (s *Store) RegisterUser(username, password, bggUsername, email string) (int
 		username, bggUsername, hash, email, isAdmin,
 	)
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			return 0, errors.New("username already taken")
+		if strings.Contains(err.Error(), "UNIQUE") {
+			return 0, ErrDuplicate
 		}
 		return 0, err
 	}
@@ -47,7 +47,7 @@ func (s *Store) ChangePassword(userID int64, currentPassword, newPassword string
 		return errors.New("user not found")
 	}
 	if ok, _ := checkPasswordHash(currentPassword, hash); !ok {
-		return errors.New("current password is incorrect")
+		return ErrWrongPassword
 	}
 	newHash, err := hashPassword(newPassword)
 	if err != nil {
