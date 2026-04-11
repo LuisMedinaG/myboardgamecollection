@@ -25,13 +25,20 @@ func (h *Handler) HandleGames(w http.ResponseWriter, r *http.Request) {
 		page = 1
 	}
 
-	games, total, err := h.Store.FilterGames(q, category, players, playtime, page, userID)
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 {
+		limit = store.DefaultPageSize
+	} else if limit > store.MaxPageSize {
+		limit = store.MaxPageSize
+	}
+
+	games, total, err := h.Store.FilterGames(q, category, players, playtime, page, limit, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	totalPages := (total + store.GamesPageSize - 1) / store.GamesPageSize
+	totalPages := (total + limit - 1) / limit
 	if totalPages < 1 {
 		totalPages = 1
 	}
@@ -59,6 +66,7 @@ func (h *Handler) HandleGames(w http.ResponseWriter, r *http.Request) {
 		Page:       page,
 		TotalPages: totalPages,
 		TotalCount: total,
+		PerPage:    limit,
 	}
 
 	if isHTMX(r) {

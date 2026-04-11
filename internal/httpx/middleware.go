@@ -177,3 +177,36 @@ func MethodGuard(method string) Middleware {
 		})
 	}
 }
+
+// --- JWT auth middleware ---
+
+// RequireJWT validates an Authorization: Bearer <token> header and populates the
+// request context with the user's identity. API requests that fail auth receive a
+// 401 JSON response — never a redirect.
+func RequireJWT(secret string) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			const prefix = "Bearer "
+			auth := r.Header.Get("Authorization")
+			if !strings.HasPrefix(auth, prefix) {
+				WriteJSONError(w, http.StatusUnauthorized, "unauthorized")
+				return
+			}
+			claims, err := ParseAccessToken(strings.TrimPrefix(auth, prefix), secret)
+			if err != nil {
+				WriteJSONError(w, http.StatusUnauthorized, "unauthorized")
+				return
+			}
+			ctx := SetUser(r.Context(), claims.UserID, claims.Username, claims.IsAdmin)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// WriteJSONError writes a JSON error response with the given status code.
+// Used by API middlewares and handlers so they never return HTML.
+func WriteJSONError(w http.ResponseWriter, status int, msg string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	fmt.Fprintf(w, `{"error":%q}`, msg)
+}

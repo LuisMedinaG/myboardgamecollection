@@ -192,6 +192,66 @@ func (s *Store) DeleteExpiredSessions() error {
 	return err
 }
 
+// GetUserInfo returns the username and admin flag for a user ID.
+// Used by the JWT login handler to encode claims at token issuance time.
+func (s *Store) GetUserInfo(userID int64) (username string, isAdmin bool, err error) {
+	var isAdminInt int
+	err = s.db.QueryRow(
+		"SELECT username, is_admin FROM users WHERE id = ?", userID,
+	).Scan(&username, &isAdminInt)
+	return username, isAdminInt == 1, err
+}
+
+// CreateAPIRefreshToken generates a random token stored in the sessions table
+// with kind='api', used as a long-lived refresh token for the JSON API.
+func (s *Store) CreateAPIRefreshToken(userID int64) (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	token := hex.EncodeToString(b)
+	expires := time.Now().Add(30 * 24 * time.Hour).UTC().Format(time.RFC3339)
+	_, err := s.db.Exec(
+		"INSERT INTO sessions (token, user_id, expires_at, kind) VALUES (?, ?, ?, 'api')",
+		token, userID, expires,
+	)
+	return token, err
+}
+
+// ValidateAPIRefreshToken checks that the token exists, has kind='api', and has
+// not expired. Returns the user's ID, login username, and admin flag on success.
+func (s *Store) ValidateAPIRefreshToken(token string) (int64, string, bool, error) {
+	var userID int64
+	var isAdminInt int
+	var username, expiresAt string
+	err := s.db.QueryRow(`
+		SELECT s.user_id, u.username, s.expires_at, u.is_admin
+		FROM sessions s
+		JOIN users u ON u.id = s.user_id
+		WHERE s.token = ? AND s.kind = 'api'`, token,
+	).Scan(&userID, &username, &expiresAt, &isAdminInt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, "", false, errors.New("invalid or expired refresh token")
+	}
+	if err != nil {
+		return 0, "", false, err
+	}
+	exp, err := time.Parse(time.RFC3339, expiresAt)
+	if err != nil {
+		return 0, "", false, err
+	}
+	if time.Now().After(exp) {
+		return 0, "", false, errors.New("invalid or expired refresh token")
+	}
+	return userID, username, isAdminInt == 1, nil
+}
+
+// DeleteAPIRefreshToken removes a single API refresh token (API logout).
+func (s *Store) DeleteAPIRefreshToken(token string) error {
+	_, err := s.db.Exec("DELETE FROM sessions WHERE token = ? AND kind = 'api'", token)
+	return err
+}
+
 // CanSync returns true if the user has not yet consumed their daily sync quota.
 // limit is the maximum number of syncs allowed per day for this user.
 func (s *Store) CanSync(userID int64, limit int) (bool, error) {

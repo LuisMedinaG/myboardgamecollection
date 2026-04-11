@@ -93,7 +93,7 @@ func main() {
 
 	// Initialize renderer and handler.
 	ren := render.New(templateFS)
-	h := &handler.Handler{Store: s, Renderer: ren, BGG: bc, DataDir: dataDir, LoginLimiter: loginLimiter}
+	h := &handler.Handler{Store: s, Renderer: ren, BGG: bc, DataDir: dataDir, LoginLimiter: loginLimiter, JWTSecret: sessionSecret}
 
 	// Ensure data directories.
 	_ = os.MkdirAll(filepath.Join(dataDir, "uploads"), 0o755)
@@ -119,6 +119,22 @@ func main() {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		uploads.ServeHTTP(w, r)
 	}))
+
+	// API middleware helpers.
+	apiGET := func(hf http.HandlerFunc) http.Handler {
+		return httpx.Chain(hf, httpx.MethodGuard(http.MethodGet), httpx.RequireJWT(sessionSecret))
+	}
+	apiPOSTPublic := func(hf http.HandlerFunc) http.Handler {
+		return httpx.Chain(hf, httpx.MethodGuard(http.MethodPost))
+	}
+
+	// API routes — unauthenticated.
+	mux.Handle("POST /api/v1/auth/login", apiPOSTPublic(h.HandleAPILogin))
+	mux.Handle("POST /api/v1/auth/refresh", apiPOSTPublic(h.HandleAPIRefresh))
+	mux.Handle("POST /api/v1/auth/logout", apiPOSTPublic(h.HandleAPILogout))
+
+	// API routes — JWT-protected.
+	mux.Handle("GET /api/v1/ping", apiGET(h.HandleAPIPing))
 
 	// Public routes (no auth required).
 	mux.Handle("GET /login", httpx.Chain(http.HandlerFunc(h.HandleLoginPage), httpx.MethodGuard(http.MethodGet)))

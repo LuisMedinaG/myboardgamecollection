@@ -183,6 +183,9 @@ func (s *Store) createTables() error {
 	// Migration: add user_id columns to games and vibes (no-op if already present).
 	_, _ = s.db.Exec("ALTER TABLE games ADD COLUMN user_id INTEGER REFERENCES users(id)")
 	_, _ = s.db.Exec("ALTER TABLE vibes ADD COLUMN user_id INTEGER REFERENCES users(id)")
+	// Migration: add kind column to sessions to distinguish browser sessions from
+	// API refresh tokens. Existing rows get kind='session' via the DEFAULT.
+	_, _ = s.db.Exec("ALTER TABLE sessions ADD COLUMN kind TEXT NOT NULL DEFAULT 'session'")
 	// Migration: add is_admin and password_hash column (no-op if already present).
 	_, _ = s.db.Exec("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
 	_, _ = s.db.Exec("ALTER TABLE users ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''")

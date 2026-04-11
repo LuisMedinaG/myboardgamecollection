@@ -17,6 +17,7 @@ type Handler struct {
 	BGG          *bgg.Client         // may be nil if BGG is not configured
 	DataDir      string              // base directory for user uploads and image cache
 	LoginLimiter *httpx.LoginLimiter // may be nil; records failed login attempts
+	JWTSecret    string              // signing key for API access tokens
 }
 
 func parseID(r *http.Request) (int64, error) {

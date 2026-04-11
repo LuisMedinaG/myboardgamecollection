@@ -1,6 +1,7 @@
 {{ define "content" }}
 <a href="/" class="back-btn">&#8592; Home</a>
 <div class="filters" id="game-filters" hx-get="/games" hx-target="#games-result" hx-trigger="change" hx-push-url="true" hx-swap="innerHTML" hx-include="this">
+    <input type="hidden" name="limit" id="grid-limit" value="20">
     <input type="search" name="q" value="{{ .Q }}" placeholder="Search games…" class="filter-search"
            hx-trigger="input changed delay:300ms, search"
            hx-get="/games" hx-target="#games-result" hx-push-url="true" hx-swap="innerHTML" hx-include="#game-filters">
@@ -30,6 +31,56 @@
 {{ if .AllVibes }}
 <button type="button" class="btn btn-secondary btn-sm" id="select-mode-toggle">Select</button>
 {{ end }}
+
+<div class="view-toolbar" id="view-toolbar">
+  <button class="view-btn" data-view="list" title="List view">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+      <rect x="2" y="3" width="2" height="2" rx="0.5" fill="currentColor"/>
+      <rect x="6" y="3" width="10" height="2" rx="1" fill="currentColor"/>
+      <rect x="2" y="8" width="2" height="2" rx="0.5" fill="currentColor"/>
+      <rect x="6" y="8" width="10" height="2" rx="1" fill="currentColor"/>
+      <rect x="2" y="13" width="2" height="2" rx="0.5" fill="currentColor"/>
+      <rect x="6" y="13" width="10" height="2" rx="1" fill="currentColor"/>
+    </svg>
+  </button>
+  <button class="view-btn" data-view="grid" title="Grid view">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+      <rect x="2" y="2" width="6" height="6" rx="1" fill="currentColor"/>
+      <rect x="10" y="2" width="6" height="6" rx="1" fill="currentColor"/>
+      <rect x="2" y="10" width="6" height="6" rx="1" fill="currentColor"/>
+      <rect x="10" y="10" width="6" height="6" rx="1" fill="currentColor"/>
+    </svg>
+  </button>
+  <div class="view-size-btns" id="view-size-btns">
+    <button class="view-btn" data-view="grid-sm" title="Small grid">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="4" height="4" rx="0.5" fill="currentColor"/>
+        <rect x="7" y="1" width="4" height="4" rx="0.5" fill="currentColor"/>
+        <rect x="13" y="1" width="4" height="4" rx="0.5" fill="currentColor"/>
+        <rect x="1" y="7" width="4" height="4" rx="0.5" fill="currentColor"/>
+        <rect x="7" y="7" width="4" height="4" rx="0.5" fill="currentColor"/>
+        <rect x="13" y="7" width="4" height="4" rx="0.5" fill="currentColor"/>
+        <rect x="1" y="13" width="4" height="4" rx="0.5" fill="currentColor"/>
+        <rect x="7" y="13" width="4" height="4" rx="0.5" fill="currentColor"/>
+        <rect x="13" y="13" width="4" height="4" rx="0.5" fill="currentColor"/>
+      </svg>
+    </button>
+    <button class="view-btn" data-view="grid-md" title="Medium grid">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="7" height="7" rx="1" fill="currentColor"/>
+        <rect x="10" y="1" width="7" height="7" rx="1" fill="currentColor"/>
+        <rect x="1" y="10" width="7" height="7" rx="1" fill="currentColor"/>
+        <rect x="10" y="10" width="7" height="7" rx="1" fill="currentColor"/>
+      </svg>
+    </button>
+    <button class="view-btn" data-view="grid-lg" title="Large grid">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="7" height="16" rx="1.5" fill="currentColor"/>
+        <rect x="10" y="1" width="7" height="16" rx="1.5" fill="currentColor"/>
+      </svg>
+    </button>
+  </div>
+</div>
 
 <div id="games-result">
     {{ template "games_result" . }}
@@ -206,8 +257,97 @@
     document.body.addEventListener('htmx:afterSwap', function(e) {
         if (e.detail.target.id === 'games-result') {
             applySelectMode();
+            applyView(currentView);
         }
     });
+
+    // ── View management ──────────────────────────────────────────
+    var currentView = localStorage.getItem('gamesView') || 'list';
+    var lastGridView = localStorage.getItem('gamesGridView') || 'grid-md';
+
+    // Grid geometry: minWidth and extra panel height below the square image
+    var gridCfg = {
+        'grid-sm': { minW: 75,  gap: 4, extraH: 0  },
+        'grid-md': { minW: 115, gap: 6, extraH: 52 },
+        'grid-lg': { minW: 160, gap: 8, extraH: 68 }
+    };
+
+    function calcLimit(view) {
+        if (view === 'list') return 20;
+        var c = gridCfg[view];
+        if (!c) return 20;
+
+        var resultEl = document.getElementById('games-result');
+        var contentW = resultEl ? resultEl.offsetWidth : (window.innerWidth - 32);
+        // Use getBoundingClientRect to know how far down the grid starts
+        var topOffset = resultEl ? resultEl.getBoundingClientRect().top : 220;
+        var availH = window.innerHeight - topOffset - 16;
+
+        var cols = Math.max(1, Math.floor((contentW + c.gap) / (c.minW + c.gap)));
+        var itemW = Math.floor((contentW - (cols - 1) * c.gap) / cols);
+        var itemH = itemW + c.extraH;
+        var rows  = Math.max(4, Math.ceil(availH / (itemH + c.gap)) * 2);
+
+        return cols * rows;
+    }
+
+    function setLimit(view) {
+        var limitInput = document.getElementById('grid-limit');
+        if (limitInput) limitInput.value = calcLimit(view);
+    }
+
+    function applyView(view) {
+        currentView = view;
+        var gameList = document.querySelector('.game-list');
+        if (gameList) {
+            gameList.classList.remove('grid-sm', 'grid-md', 'grid-lg');
+            if (view !== 'list') gameList.classList.add(view);
+        }
+        var isGrid = (view !== 'list');
+        // Update button active states
+        document.querySelectorAll('#view-toolbar .view-btn').forEach(function(btn) {
+            var v = btn.dataset.view;
+            if (v === 'grid') {
+                btn.classList.toggle('active', isGrid);
+            } else {
+                btn.classList.toggle('active', v === view);
+            }
+        });
+        // Show size sub-buttons only when in a grid mode
+        var sizeBtns = document.getElementById('view-size-btns');
+        if (sizeBtns) sizeBtns.classList.toggle('visible', isGrid);
+    }
+
+    document.getElementById('view-toolbar').addEventListener('click', function(e) {
+        var btn = e.target.closest('.view-btn');
+        if (!btn) return;
+        var view = btn.dataset.view;
+        if (view === 'grid') view = lastGridView;
+        if (view === currentView) return;
+        localStorage.setItem('gamesView', view);
+        if (view !== 'list') localStorage.setItem('gamesGridView', view);
+        applyView(view);
+        // Update limit and reload results for new page size
+        setLimit(view);
+        document.getElementById('game-filters').dispatchEvent(new Event('change', {bubbles: false}));
+    });
+
+    // Apply view CSS immediately (no flash)
+    applyView(currentView);
+
+    // On initial load, wait for layout so offsetWidth is accurate, then
+    // trigger an HTMX reload if the grid needs a different limit than what
+    // the server rendered (defaults to 20 when no ?limit is in the URL).
+    if (currentView !== 'list') {
+        requestAnimationFrame(function() {
+            var neededLimit = calcLimit(currentView);
+            setLimit(currentView);
+            var urlLimit = parseInt(new URLSearchParams(window.location.search).get('limit') || '20', 10);
+            if (neededLimit !== urlLimit) {
+                document.getElementById('game-filters').dispatchEvent(new Event('change', {bubbles: false}));
+            }
+        });
+    }
 })();
 </script>
 {{ end }}
