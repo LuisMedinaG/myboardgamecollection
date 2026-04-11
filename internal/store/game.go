@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"regexp"
 	"strings"
 
@@ -81,13 +82,41 @@ func (s *Store) CreateGame(g model.Game, userID int64) (int64, error) {
 
 // UpdateGame refreshes a game's BGG data. Only updates the game if it belongs to userID.
 func (s *Store) UpdateGame(g model.Game, userID int64) error {
-	_, err := s.db.Exec(
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec(
 		"UPDATE games SET name=?, description=?, year_published=?, image=?, thumbnail=?, min_players=?, max_players=?, play_time=?, categories=?, mechanics=?, types=? WHERE bgg_id=? AND user_id=?",
 		g.Name, g.Description, g.YearPublished, g.Image, g.Thumbnail,
 		g.MinPlayers, g.MaxPlayers, g.PlayTime, g.Categories, g.Mechanics, g.Types,
 		g.BGGID, userID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+
+	gameID, err := updatedGameID(tx, res, g.BGGID, userID)
+	if err != nil {
+		return err
+	}
+	if gameID == 0 {
+		return nil
+	}
+
+	if _, err := tx.Exec("DELETE FROM game_categories WHERE game_id = ?", gameID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec("DELETE FROM game_mechanics WHERE game_id = ?", gameID); err != nil {
+		return err
+	}
+	if err := upsertGameTaxonomyTx(tx, gameID, g.Categories, g.Mechanics); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // UpdateGameRulesURL sets the rules URL for a game owned by userID.
@@ -107,6 +136,17 @@ func (s *Store) GameCount(userID int64) int {
 	var count int
 	_ = s.db.QueryRow("SELECT COUNT(*) FROM games WHERE user_id = ?", userID).Scan(&count)
 	return count
+}
+
+func updatedGameID(tx *sql.Tx, res sql.Result, bggID, userID int64) (int64, error) {
+	rowsAffected, err := res.RowsAffected()
+	if err != nil || rowsAffected == 0 {
+		return 0, err
+	}
+
+	var gameID int64
+	err = tx.QueryRow("SELECT id FROM games WHERE bgg_id = ? AND user_id = ?", bggID, userID).Scan(&gameID)
+	return gameID, err
 }
 
 // OwnedBGGIDs returns a set of BGG IDs already in the user's collection.

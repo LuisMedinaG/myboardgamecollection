@@ -157,7 +157,11 @@ func (h *Handler) HandleAPISetGameVibes(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := h.Store.SetGameVibes(id, body.VibeIDs); err != nil {
+	if err := h.Store.SetGameVibes(userID, id, body.VibeIDs); err != nil {
+		if store.IsOwnershipError(err) {
+			writeAPIError(w, http.StatusNotFound, "one or more vibes were not found")
+			return
+		}
 		slog.Error("HandleAPISetGameVibes: SetGameVibes", "error", err)
 		writeAPIError(w, http.StatusInternalServerError, "internal error")
 		return
@@ -174,7 +178,7 @@ func (h *Handler) HandleAPISetGameVibes(w http.ResponseWriter, r *http.Request) 
 // POST /api/v1/games/bulk-vibes
 // Body: {"game_ids": [1,2,3], "vibe_ids": [4,5]}
 func (h *Handler) HandleAPIBulkVibes(w http.ResponseWriter, r *http.Request) {
-	_, ok := h.requireAPIUserID(w, r)
+	userID, ok := h.requireAPIUserID(w, r)
 	if !ok {
 		return
 	}
@@ -192,7 +196,11 @@ func (h *Handler) HandleAPIBulkVibes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.Store.AddVibesToGames(body.GameIDs, body.VibeIDs); err != nil {
+	if err := h.Store.AddVibesToGames(userID, body.GameIDs, body.VibeIDs); err != nil {
+		if store.IsOwnershipError(err) {
+			writeAPIError(w, http.StatusNotFound, "one or more games or vibes were not found")
+			return
+		}
 		slog.Error("HandleAPIBulkVibes: AddVibesToGames", "error", err)
 		writeAPIError(w, http.StatusInternalServerError, "internal error")
 		return

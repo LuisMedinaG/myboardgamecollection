@@ -104,6 +104,10 @@ func (h *Handler) HandleGameDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleBulkVibeAssign(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
+		return
+	}
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
@@ -126,7 +130,11 @@ func (h *Handler) HandleBulkVibeAssign(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "select at least one game and one vibe", http.StatusBadRequest)
 		return
 	}
-	if err := h.Store.AddVibesToGames(gameIDs, vibeIDs); err != nil {
+	if err := h.Store.AddVibesToGames(userID, gameIDs, vibeIDs); err != nil {
+		if store.IsOwnershipError(err) {
+			http.Error(w, "one or more selected games or vibes were not found", http.StatusNotFound)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
