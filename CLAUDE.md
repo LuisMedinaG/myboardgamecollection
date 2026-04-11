@@ -78,9 +78,9 @@ The HTMX frontend and all existing routes remain untouched.
 ### Completed phases
 1. ✅ JWT foundation — `POST /api/v1/auth/login|refresh|logout`
 2. ✅ Core data — games, vibes, import, profile (16 endpoints)
+3. ✅ Rules, player aids, discovery (4 endpoints)
 
 ### Next
-3. Rules, player aids, discovery
 4. Test suite
 
 ## More Detail
