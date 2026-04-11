@@ -1,19 +1,14 @@
 package store
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 
 	"myboardgamecollection/internal/model"
 )
 
-// AllVibes returns all vibes owned by userID, ordered by name.
-func (s *Store) AllVibes(userID int64) ([]model.Vibe, error) {
-	rows, err := s.db.Query("SELECT id, name FROM vibes WHERE user_id = ? ORDER BY name", userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+func scanVibes(rows *sql.Rows) ([]model.Vibe, error) {
 	var vibes []model.Vibe
 	for rows.Next() {
 		var v model.Vibe
@@ -23,6 +18,16 @@ func (s *Store) AllVibes(userID int64) ([]model.Vibe, error) {
 		vibes = append(vibes, v)
 	}
 	return vibes, rows.Err()
+}
+
+// AllVibes returns all vibes owned by userID, ordered by name.
+func (s *Store) AllVibes(userID int64) ([]model.Vibe, error) {
+	rows, err := s.db.Query("SELECT id, name FROM vibes WHERE user_id = ? ORDER BY name", userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanVibes(rows)
 }
 
 // GetVibe returns a single vibe by ID, verifying it belongs to userID.
@@ -38,7 +43,7 @@ func (s *Store) GetVibe(id, userID int64) (model.Vibe, error) {
 func (s *Store) CreateVibe(name string, userID int64) (int64, error) {
 	res, err := s.db.Exec("INSERT INTO vibes (name, user_id) VALUES (?, ?)", name, userID)
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE") {
+		if isDuplicateError(err) {
 			return 0, ErrDuplicate
 		}
 		return 0, err
@@ -50,7 +55,7 @@ func (s *Store) CreateVibe(name string, userID int64) (int64, error) {
 // Returns ErrDuplicate if the new name already exists for this user.
 func (s *Store) UpdateVibe(id int64, name string, userID int64) error {
 	_, err := s.db.Exec("UPDATE vibes SET name = ? WHERE id = ? AND user_id = ?", name, id, userID)
-	if err != nil && strings.Contains(err.Error(), "UNIQUE") {
+	if isDuplicateError(err) {
 		return ErrDuplicate
 	}
 	return err
@@ -67,7 +72,7 @@ func (s *Store) BatchUpdateVibes(userID int64, updates map[int64]string) error {
 
 	for id, name := range updates {
 		if _, err := tx.Exec("UPDATE vibes SET name = ? WHERE id = ? AND user_id = ?", name, id, userID); err != nil {
-			if strings.Contains(err.Error(), "UNIQUE") {
+			if isDuplicateError(err) {
 				return ErrDuplicate
 			}
 			return err
@@ -94,15 +99,7 @@ func (s *Store) VibesForGame(gameID int64) ([]model.Vibe, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var vibes []model.Vibe
-	for rows.Next() {
-		var v model.Vibe
-		if err := rows.Scan(&v.ID, &v.Name); err != nil {
-			return nil, err
-		}
-		vibes = append(vibes, v)
-	}
-	return vibes, rows.Err()
+	return scanVibes(rows)
 }
 
 // AddVibesToGames adds vibes to multiple games owned by userID.

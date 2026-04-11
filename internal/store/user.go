@@ -31,7 +31,7 @@ func (s *Store) RegisterUser(username, password, bggUsername, email string) (int
 		username, bggUsername, hash, email, isAdmin,
 	)
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE") {
+		if isDuplicateError(err) {
 			return 0, ErrDuplicate
 		}
 		return 0, err
@@ -190,9 +190,10 @@ func (s *Store) GetBGGUsername(userID int64) (string, error) {
 	return bgg, err
 }
 
-// CreateSession generates a cryptographically random session token, stores it,
-// and returns the token string.
-func (s *Store) CreateSession(userID int64) (string, error) {
+// createToken generates a cryptographically random token, stores it in the
+// sessions table with the given kind, and returns the token string.
+// kind="" for browser sessions, kind="api" for API refresh tokens.
+func (s *Store) createToken(userID int64, kind string) (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
@@ -200,26 +201,38 @@ func (s *Store) CreateSession(userID int64) (string, error) {
 	token := hex.EncodeToString(b)
 	expires := time.Now().Add(30 * 24 * time.Hour).UTC().Format(time.RFC3339)
 	_, err := s.db.Exec(
-		"INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)",
-		token, userID, expires,
+		"INSERT INTO sessions (token, user_id, expires_at, kind) VALUES (?, ?, ?, ?)",
+		token, userID, expires, kind,
 	)
 	return token, err
 }
 
-// ValidateSession checks that the token exists and has not expired.
-// On success it returns the user's ID, login username, and admin flag.
-func (s *Store) ValidateSession(token string) (int64, string, bool, error) {
+// CreateSession generates a cryptographically random session token, stores it,
+// and returns the token string.
+func (s *Store) CreateSession(userID int64) (string, error) {
+	return s.createToken(userID, "")
+}
+
+// validateToken checks that a token exists (optionally filtered by kind) and
+// has not expired. Returns the user's ID, login username, and admin flag.
+func (s *Store) validateToken(token, kind, notFoundMsg string) (int64, string, bool, error) {
 	var userID int64
 	var isAdminInt int
 	var username, expiresAt string
-	err := s.db.QueryRow(`
-		SELECT s.user_id, u.username, s.expires_at, u.is_admin
+
+	query := `SELECT s.user_id, u.username, s.expires_at, u.is_admin
 		FROM sessions s
 		JOIN users u ON u.id = s.user_id
-		WHERE s.token = ?`, token,
-	).Scan(&userID, &username, &expiresAt, &isAdminInt)
+		WHERE s.token = ?`
+	args := []any{token}
+	if kind != "" {
+		query += " AND s.kind = ?"
+		args = append(args, kind)
+	}
+
+	err := s.db.QueryRow(query, args...).Scan(&userID, &username, &expiresAt, &isAdminInt)
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, "", false, errors.New("session not found")
+		return 0, "", false, errors.New(notFoundMsg)
 	}
 	if err != nil {
 		return 0, "", false, err
@@ -229,9 +242,15 @@ func (s *Store) ValidateSession(token string) (int64, string, bool, error) {
 		return 0, "", false, err
 	}
 	if time.Now().After(exp) {
-		return 0, "", false, errors.New("session expired")
+		return 0, "", false, errors.New(notFoundMsg)
 	}
 	return userID, username, isAdminInt == 1, nil
+}
+
+// ValidateSession checks that the token exists and has not expired.
+// On success it returns the user's ID, login username, and admin flag.
+func (s *Store) ValidateSession(token string) (int64, string, bool, error) {
+	return s.validateToken(token, "", "session not found")
 }
 
 // DeleteUserSessions removes all sessions for a user (session rotation on login).
@@ -265,45 +284,13 @@ func (s *Store) GetUserInfo(userID int64) (username string, isAdmin bool, err er
 // CreateAPIRefreshToken generates a random token stored in the sessions table
 // with kind='api', used as a long-lived refresh token for the JSON API.
 func (s *Store) CreateAPIRefreshToken(userID int64) (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	token := hex.EncodeToString(b)
-	expires := time.Now().Add(30 * 24 * time.Hour).UTC().Format(time.RFC3339)
-	_, err := s.db.Exec(
-		"INSERT INTO sessions (token, user_id, expires_at, kind) VALUES (?, ?, ?, 'api')",
-		token, userID, expires,
-	)
-	return token, err
+	return s.createToken(userID, "api")
 }
 
 // ValidateAPIRefreshToken checks that the token exists, has kind='api', and has
 // not expired. Returns the user's ID, login username, and admin flag on success.
 func (s *Store) ValidateAPIRefreshToken(token string) (int64, string, bool, error) {
-	var userID int64
-	var isAdminInt int
-	var username, expiresAt string
-	err := s.db.QueryRow(`
-		SELECT s.user_id, u.username, s.expires_at, u.is_admin
-		FROM sessions s
-		JOIN users u ON u.id = s.user_id
-		WHERE s.token = ? AND s.kind = 'api'`, token,
-	).Scan(&userID, &username, &expiresAt, &isAdminInt)
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, "", false, errors.New("invalid or expired refresh token")
-	}
-	if err != nil {
-		return 0, "", false, err
-	}
-	exp, err := time.Parse(time.RFC3339, expiresAt)
-	if err != nil {
-		return 0, "", false, err
-	}
-	if time.Now().After(exp) {
-		return 0, "", false, errors.New("invalid or expired refresh token")
-	}
-	return userID, username, isAdminInt == 1, nil
+	return s.validateToken(token, "api", "invalid or expired refresh token")
 }
 
 // DeleteAPIRefreshToken removes a single API refresh token (API logout).
