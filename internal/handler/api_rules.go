@@ -61,6 +61,12 @@ func (h *Handler) HandleAPIUploadPlayerAid(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Verify ownership before accepting the upload body, matching the HTMX handler.
+	if _, err := h.Store.GetGame(id, userID); err != nil {
+		writeAPIError(w, http.StatusNotFound, "game not found")
+		return
+	}
+
 	r.Body = http.MaxBytesReader(w, r.Body, maxPlayerAidUploadBytes)
 	if err := r.ParseMultipartForm(maxPlayerAidUploadBytes); err != nil {
 		var maxBytesErr *http.MaxBytesError
@@ -69,11 +75,6 @@ func (h *Handler) HandleAPIUploadPlayerAid(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		writeAPIError(w, http.StatusBadRequest, "invalid multipart form")
-		return
-	}
-
-	if _, err := h.Store.GetGame(id, userID); err != nil {
-		writeAPIError(w, http.StatusNotFound, "game not found")
 		return
 	}
 
@@ -99,6 +100,7 @@ func (h *Handler) HandleAPIUploadPlayerAid(w http.ResponseWriter, r *http.Reques
 
 	aidID, err := h.Store.CreatePlayerAid(id, filename, label)
 	if err != nil {
+		_ = os.Remove(filepath.Join(h.DataDir, "uploads", filename))
 		slog.Error("CreatePlayerAid", "gameID", id, "error", err)
 		writeAPIError(w, http.StatusInternalServerError, "internal error")
 		return
