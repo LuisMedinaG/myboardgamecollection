@@ -34,6 +34,10 @@ On first run the app creates `games.db`, creates `data/uploads/`, and seeds a fe
 | `make build` | Build the `boardgames` binary |
 | `make run` | Build and run the app |
 | `make dev` | Run with `go run .` |
+| `make test` | Run all tests |
+| `make test-v` | Run tests with verbose output |
+| `make cover` | Run tests with coverage report |
+| `make cover-html` | Generate HTML coverage report |
 | `make clean` | Remove the binary and local database |
 
 ## Configuration
@@ -126,6 +130,28 @@ Recommended:
 - SQLite data lives in `games.db` by default.
 - Uploaded player-aid files are stored in `data/uploads/`.
 - Uploaded files are validated as images before being saved.
+
+## Testing
+
+Run the test suite via Make:
+
+```sh
+make test           # Run all tests
+make test-v         # Run with verbose output
+make cover          # Run with coverage report
+make cover-html     # Generate HTML coverage report (saved to /tmp/coverage.html)
+```
+
+Or run tests directly:
+
+```sh
+go test ./...                         # All tests
+go test ./... -v                      # Verbose output
+go test ./internal/store/ -cover      # Store layer with coverage
+go test ./internal/httpx/ -cover      # Middleware with coverage
+```
+
+**Coverage:** Phase 1 (security foundations) complete with 57 tests covering password hashing, session management, JWT tokens, CSRF protection, and rate limiting.
 
 ## Maintenance
 
