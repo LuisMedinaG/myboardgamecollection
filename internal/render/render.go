@@ -31,48 +31,38 @@ func New(templateFS embed.FS) *Renderer {
 		template.New("layout.html").Funcs(funcMap).ParseFS(templateFS, "templates/layout.html"),
 	)
 
+	// fullPage clones the layout and parses page-specific templates into it.
+	fullPage := func(files ...string) *template.Template {
+		return template.Must(template.Must(layout.Clone()).ParseFS(templateFS, files...))
+	}
+	// partial parses a standalone template (no layout) for HTMX responses.
+	partial := func(files ...string) *template.Template {
+		return template.Must(template.New("").Funcs(funcMap).ParseFS(templateFS, files...))
+	}
+
 	tmpl := map[string]*template.Template{
 		// Full pages (with layout)
-		"home": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
-			"templates/home.html")),
-		"games": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
-			"templates/games.html", "templates/games_result.html")),
-		"game_detail": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
-			"templates/game_detail.html")),
-		"game_edit": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
-			"templates/game_edit.html")),
-		"rules": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
-			"templates/rules.html", "templates/rules_content.html", "templates/player_aids_list.html")),
-		"import": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
-			"templates/import.html")),
-		"import_csv": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
-			"templates/import_csv.html")),
-		"discover": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
-			"templates/discover.html", "templates/discover_result.html")),
-		"vibes": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
-			"templates/vibes.html")),
-		"login": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
-			"templates/login.html")),
-		"signup": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
-			"templates/signup.html")),
-		"change_password": template.Must(template.Must(layout.Clone()).ParseFS(templateFS,
-			"templates/change_password.html")),
+		"home":            fullPage("templates/home.html"),
+		"games":           fullPage("templates/games.html", "templates/games_result.html"),
+		"game_detail":     fullPage("templates/game_detail.html"),
+		"game_edit":       fullPage("templates/game_edit.html"),
+		"rules":           fullPage("templates/rules.html", "templates/rules_content.html", "templates/player_aids_list.html"),
+		"import":          fullPage("templates/import.html"),
+		"import_csv":      fullPage("templates/import_csv.html"),
+		"discover":        fullPage("templates/discover.html", "templates/discover_result.html"),
+		"vibes":           fullPage("templates/vibes.html"),
+		"login":           fullPage("templates/login.html"),
+		"signup":          fullPage("templates/signup.html"),
+		"change_password": fullPage("templates/change_password.html"),
 
 		// Partials (no layout, for HTMX responses)
-		"games_result": template.Must(
-			template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/games_result.html")),
-		"discover_result": template.Must(
-			template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/discover_result.html")),
-		"rules_content": template.Must(
-			template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/rules_content.html", "templates/player_aids_list.html")),
-		"player_aids_list": template.Must(
-			template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/player_aids_list.html")),
-		"import_result": template.Must(
-			template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/import_result.html")),
-		"import_csv_preview": template.Must(
-			template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/import_csv_preview.html")),
-		"import_csv_result": template.Must(
-			template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/import_csv_result.html")),
+		"games_result":      partial("templates/games_result.html"),
+		"discover_result":   partial("templates/discover_result.html"),
+		"rules_content":     partial("templates/rules_content.html", "templates/player_aids_list.html"),
+		"player_aids_list":  partial("templates/player_aids_list.html"),
+		"import_result":     partial("templates/import_result.html"),
+		"import_csv_preview": partial("templates/import_csv_preview.html"),
+		"import_csv_result": partial("templates/import_csv_result.html"),
 	}
 
 	return &Renderer{tmpl: tmpl}

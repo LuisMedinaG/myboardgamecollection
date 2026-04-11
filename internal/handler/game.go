@@ -19,18 +19,7 @@ func (h *Handler) HandleGames(w http.ResponseWriter, r *http.Request) {
 	category := r.URL.Query().Get("category")
 	players := r.URL.Query().Get("players")
 	playtime := r.URL.Query().Get("playtime")
-
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	if page < 1 {
-		page = 1
-	}
-
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit < 1 {
-		limit = store.DefaultPageSize
-	} else if limit > store.MaxPageSize {
-		limit = store.MaxPageSize
-	}
+	page, limit := parsePagination(r)
 
 	games, total, err := h.Store.FilterGames(q, category, players, playtime, page, limit, userID)
 	if err != nil {
@@ -52,17 +41,7 @@ func (h *Handler) HandleGames(w http.ResponseWriter, r *http.Request) {
 		slog.Error("AllVibes", "userID", userID, "error", err)
 	}
 
-	gameIDs := make([]int64, len(games))
-	for i, g := range games {
-		gameIDs[i] = g.ID
-	}
-	gameVibes, err := h.Store.VibesForGames(gameIDs)
-	if err != nil {
-		slog.Error("VibesForGames", "error", err)
-	}
-	for i := range games {
-		games[i].Vibes = gameVibes[games[i].ID]
-	}
+	h.populateGameVibes(games)
 
 	data := viewmodel.GamesPageData{
 		Games:      games,

@@ -23,11 +23,8 @@ func (h *Handler) HandleImport(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	limit := syncLimit(r)
 	isAdmin := httpx.IsAdminFromContext(r.Context())
-	limit := syncLimitRegular
-	if isAdmin {
-		limit = syncLimitAdmin
-	}
 	canSync, err := h.Store.CanSync(userID, limit)
 	if err != nil {
 		slog.Error("CanSync", "userID", userID, "error", err)
@@ -56,11 +53,8 @@ func (h *Handler) HandleImportSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	limit := syncLimit(r)
 	isAdmin := httpx.IsAdminFromContext(r.Context())
-	limit := syncLimitRegular
-	if isAdmin {
-		limit = syncLimitAdmin
-	}
 	canSync, err := h.Store.CanSync(userID, limit)
 	if err != nil {
 		slog.Error("CanSync", "userID", userID, "error", err)

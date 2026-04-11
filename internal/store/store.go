@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 
@@ -572,30 +573,24 @@ func (s *Store) upsertGameTaxonomy(gameID int64, categories, mechanics string) e
 }
 
 func upsertGameTaxonomyTx(tx *sql.Tx, gameID int64, categories, mechanics string) error {
-	for _, name := range splitTaxonomy(categories) {
-		if _, err := tx.Exec("INSERT OR IGNORE INTO categories (name) VALUES (?)", name); err != nil {
+	if err := upsertTaxonomyItems(tx, gameID, "categories", "game_categories", "category_id", splitTaxonomy(categories)); err != nil {
+		return err
+	}
+	return upsertTaxonomyItems(tx, gameID, "mechanics", "game_mechanics", "mechanic_id", splitTaxonomy(mechanics))
+}
+
+func upsertTaxonomyItems(tx *sql.Tx, gameID int64, table, joinTable, fkColumn string, items []string) error {
+	for _, name := range items {
+		if _, err := tx.Exec(fmt.Sprintf("INSERT OR IGNORE INTO %s (name) VALUES (?)", table), name); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(
-			"INSERT OR IGNORE INTO game_categories (game_id, category_id) SELECT ?, id FROM categories WHERE name = ?",
+			fmt.Sprintf("INSERT OR IGNORE INTO %s (game_id, %s) SELECT ?, id FROM %s WHERE name = ?", joinTable, fkColumn, table),
 			gameID, name,
 		); err != nil {
 			return err
 		}
 	}
-
-	for _, name := range splitTaxonomy(mechanics) {
-		if _, err := tx.Exec("INSERT OR IGNORE INTO mechanics (name) VALUES (?)", name); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(
-			"INSERT OR IGNORE INTO game_mechanics (game_id, mechanic_id) SELECT ?, id FROM mechanics WHERE name = ?",
-			gameID, name,
-		); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 

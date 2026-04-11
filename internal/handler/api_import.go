@@ -28,11 +28,8 @@ func (h *Handler) HandleAPIImportSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	limit := syncLimit(r)
 	isAdmin := httpx.IsAdminFromContext(r.Context())
-	limit := syncLimitRegular
-	if isAdmin {
-		limit = syncLimitAdmin
-	}
 
 	canSync, err := h.Store.CanSync(userID, limit)
 	if err != nil {

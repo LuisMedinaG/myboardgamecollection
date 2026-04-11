@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 
 	"myboardgamecollection/internal/bgg"
 	"myboardgamecollection/internal/httpx"
+	"myboardgamecollection/internal/model"
 	"myboardgamecollection/internal/render"
 	"myboardgamecollection/internal/store"
 )
@@ -66,4 +68,46 @@ func (h *Handler) renderPage(w http.ResponseWriter, r *http.Request, name, title
 
 func isHTMX(r *http.Request) bool {
 	return r.Header.Get("HX-Request") == "true"
+}
+
+func syncLimit(r *http.Request) int {
+	if httpx.IsAdminFromContext(r.Context()) {
+		return syncLimitAdmin
+	}
+	return syncLimitRegular
+}
+
+// parsePagination reads page and limit from query parameters, applying defaults
+// and clamping to [1, MaxPageSize].
+func parsePagination(r *http.Request) (page, limit int) {
+	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ = strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 {
+		limit = store.DefaultPageSize
+	} else if limit > store.MaxPageSize {
+		limit = store.MaxPageSize
+	}
+	return page, limit
+}
+
+// populateGameVibes fetches and assigns vibes for each game in the slice.
+func (h *Handler) populateGameVibes(games []model.Game) {
+	if len(games) == 0 {
+		return
+	}
+	gameIDs := make([]int64, len(games))
+	for i, g := range games {
+		gameIDs[i] = g.ID
+	}
+	gameVibes, err := h.Store.VibesForGames(gameIDs)
+	if err != nil {
+		slog.Error("populateGameVibes", "error", err)
+		return
+	}
+	for i := range games {
+		games[i].Vibes = gameVibes[games[i].ID]
+	}
 }

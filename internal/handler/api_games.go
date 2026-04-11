@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"strconv"
 
 	"myboardgamecollection/internal/store"
 )
@@ -23,18 +22,7 @@ func (h *Handler) HandleAPIListGames(w http.ResponseWriter, r *http.Request) {
 	category := r.URL.Query().Get("category")
 	players := r.URL.Query().Get("players")
 	playtime := r.URL.Query().Get("playtime")
-
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	if page < 1 {
-		page = 1
-	}
-
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit < 1 {
-		limit = store.DefaultPageSize
-	} else if limit > store.MaxPageSize {
-		limit = store.MaxPageSize
-	}
+	page, limit := parsePagination(r)
 
 	games, total, err := h.Store.FilterGames(q, category, players, playtime, page, limit, userID)
 	if err != nil {
@@ -49,21 +37,7 @@ func (h *Handler) HandleAPIListGames(w http.ResponseWriter, r *http.Request) {
 		categories = []string{}
 	}
 
-	// Populate vibes for each game.
-	gameIDs := make([]int64, len(games))
-	for i, g := range games {
-		gameIDs[i] = g.ID
-	}
-	if len(gameIDs) > 0 {
-		gameVibes, err := h.Store.VibesForGames(gameIDs)
-		if err != nil {
-			slog.Error("HandleAPIListGames: VibesForGames", "error", err)
-		} else {
-			for i := range games {
-				games[i].Vibes = gameVibes[games[i].ID]
-			}
-		}
-	}
+	h.populateGameVibes(games)
 
 	writeAPIJSON(w, http.StatusOK, map[string]any{
 		"data":       gamesToAPI(games),
