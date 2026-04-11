@@ -127,6 +127,15 @@ func main() {
 	apiPOSTPublic := func(hf http.HandlerFunc) http.Handler {
 		return httpx.Chain(hf, httpx.MethodGuard(http.MethodPost))
 	}
+	apiPOST := func(hf http.HandlerFunc) http.Handler {
+		return httpx.Chain(hf, httpx.MethodGuard(http.MethodPost), httpx.RequireJWT(sessionSecret))
+	}
+	apiPUT := func(hf http.HandlerFunc) http.Handler {
+		return httpx.Chain(hf, httpx.MethodGuard(http.MethodPut), httpx.RequireJWT(sessionSecret))
+	}
+	apiDELETE := func(hf http.HandlerFunc) http.Handler {
+		return httpx.Chain(hf, httpx.MethodGuard(http.MethodDelete), httpx.RequireJWT(sessionSecret))
+	}
 
 	// API routes — unauthenticated.
 	mux.Handle("POST /api/v1/auth/login", apiPOSTPublic(h.HandleAPILogin))
@@ -135,6 +144,29 @@ func main() {
 
 	// API routes — JWT-protected.
 	mux.Handle("GET /api/v1/ping", apiGET(h.HandleAPIPing))
+
+	// Games.
+	mux.Handle("GET /api/v1/games", apiGET(h.HandleAPIListGames))
+	mux.Handle("GET /api/v1/games/{id}", apiGET(h.HandleAPIGetGame))
+	mux.Handle("DELETE /api/v1/games/{id}", apiDELETE(h.HandleAPIDeleteGame))
+	mux.Handle("POST /api/v1/games/{id}/vibes", apiPOST(h.HandleAPISetGameVibes))
+	mux.Handle("POST /api/v1/games/bulk-vibes", apiPOST(h.HandleAPIBulkVibes))
+
+	// Vibes.
+	mux.Handle("GET /api/v1/vibes", apiGET(h.HandleAPIListVibes))
+	mux.Handle("POST /api/v1/vibes", apiPOST(h.HandleAPICreateVibe))
+	mux.Handle("PUT /api/v1/vibes/{id}", apiPUT(h.HandleAPIUpdateVibe))
+	mux.Handle("DELETE /api/v1/vibes/{id}", apiDELETE(h.HandleAPIDeleteVibe))
+
+	// Import.
+	mux.Handle("POST /api/v1/import/sync", apiPOST(h.HandleAPIImportSync))
+	mux.Handle("POST /api/v1/import/csv/preview", apiPOST(h.HandleAPIImportCSVPreview))
+	mux.Handle("POST /api/v1/import/csv", apiPOST(h.HandleAPIImportCSV))
+
+	// Profile.
+	mux.Handle("GET /api/v1/profile", apiGET(h.HandleAPIGetProfile))
+	mux.Handle("PUT /api/v1/profile/bgg-username", apiPUT(h.HandleAPISetBGGUsername))
+	mux.Handle("PUT /api/v1/profile/password", apiPUT(h.HandleAPIChangePassword))
 
 	// Public routes (no auth required).
 	mux.Handle("GET /login", httpx.Chain(http.HandlerFunc(h.HandleLoginPage), httpx.MethodGuard(http.MethodGet)))
