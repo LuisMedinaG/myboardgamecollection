@@ -168,6 +168,14 @@ func main() {
 	mux.Handle("PUT /api/v1/profile/bgg-username", apiPUT(h.HandleAPISetBGGUsername))
 	mux.Handle("PUT /api/v1/profile/password", apiPUT(h.HandleAPIChangePassword))
 
+	// Rules & player aids.
+	mux.Handle("PUT /api/v1/games/{id}/rules-url", apiPUT(h.HandleAPIUpdateRulesURL))
+	mux.Handle("POST /api/v1/games/{id}/player-aids", apiPOST(h.HandleAPIUploadPlayerAid))
+	mux.Handle("DELETE /api/v1/games/{id}/player-aids/{aid_id}", apiDELETE(h.HandleAPIDeletePlayerAid))
+
+	// Discovery.
+	mux.Handle("GET /api/v1/discover", apiGET(h.HandleAPIDiscover))
+
 	// Public routes (no auth required).
 	mux.Handle("GET /login", httpx.Chain(http.HandlerFunc(h.HandleLoginPage), httpx.MethodGuard(http.MethodGet)))
 	mux.Handle("POST /login", httpx.Chain(http.HandlerFunc(h.HandleLogin), httpx.MethodGuard(http.MethodPost), httpx.SameOrigin(), httpx.RateLimit(loginLimiter)))
