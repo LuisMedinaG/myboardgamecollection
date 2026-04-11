@@ -85,6 +85,9 @@ func (s *Store) AddVibesToGames(userID int64, gameIDs, vibeIDs []int64) error {
 	}
 	defer tx.Rollback()
 
+	gameIDs = uniqueInt64s(gameIDs)
+	vibeIDs = uniqueInt64s(vibeIDs)
+
 	ownedGames, err := ownedIDs(tx, "games", userID, gameIDs)
 	if err != nil {
 		return err
@@ -101,10 +104,15 @@ func (s *Store) AddVibesToGames(userID int64, gameIDs, vibeIDs []int64) error {
 		return ErrForeignOwnership
 	}
 
+	insertAssoc, err := tx.Prepare("INSERT OR IGNORE INTO game_vibes (game_id, vibe_id) VALUES (?, ?)")
+	if err != nil {
+		return err
+	}
+	defer insertAssoc.Close()
+
 	for _, gid := range gameIDs {
 		for _, vid := range vibeIDs {
-			_, err := tx.Exec("INSERT OR IGNORE INTO game_vibes (game_id, vibe_id) VALUES (?, ?)", gid, vid)
-			if err != nil {
+			if _, err := insertAssoc.Exec(gid, vid); err != nil {
 				return err
 			}
 		}
@@ -115,6 +123,7 @@ func (s *Store) AddVibesToGames(userID int64, gameIDs, vibeIDs []int64) error {
 // VibesForGames returns a map of game ID → vibes for the given game IDs.
 // Games with no vibes are omitted from the map.
 func (s *Store) VibesForGames(gameIDs []int64) (map[int64][]model.Vibe, error) {
+	gameIDs = uniqueInt64s(gameIDs)
 	if len(gameIDs) == 0 {
 		return nil, nil
 	}
@@ -155,6 +164,8 @@ func (s *Store) SetGameVibes(userID, gameID int64, vibeIDs []int64) error {
 	}
 	defer tx.Rollback()
 
+	vibeIDs = uniqueInt64s(vibeIDs)
+
 	ownedGames, err := ownedIDs(tx, "games", userID, []int64{gameID})
 	if err != nil {
 		return err
@@ -174,8 +185,14 @@ func (s *Store) SetGameVibes(userID, gameID int64, vibeIDs []int64) error {
 	if _, err := tx.Exec("DELETE FROM game_vibes WHERE game_id = ?", gameID); err != nil {
 		return err
 	}
+	insertAssoc, err := tx.Prepare("INSERT INTO game_vibes (game_id, vibe_id) VALUES (?, ?)")
+	if err != nil {
+		return err
+	}
+	defer insertAssoc.Close()
+
 	for _, vid := range vibeIDs {
-		if _, err := tx.Exec("INSERT INTO game_vibes (game_id, vibe_id) VALUES (?, ?)", gameID, vid); err != nil {
+		if _, err := insertAssoc.Exec(gameID, vid); err != nil {
 			return err
 		}
 	}
