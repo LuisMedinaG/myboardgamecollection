@@ -12,7 +12,7 @@ import (
 // HandleAPIListGames returns a paginated, filtered list of the user's games.
 //
 // GET /api/v1/games
-// Query: q, category, players, playtime, page
+// Query: q, category, players, playtime, page, limit
 func (h *Handler) HandleAPIListGames(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.requireAPIUserID(w, r)
 	if !ok {
@@ -29,7 +29,14 @@ func (h *Handler) HandleAPIListGames(w http.ResponseWriter, r *http.Request) {
 		page = 1
 	}
 
-	games, total, err := h.Store.FilterGames(q, category, players, playtime, page, store.DefaultPageSize, userID)
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 {
+		limit = store.DefaultPageSize
+	} else if limit > store.MaxPageSize {
+		limit = store.MaxPageSize
+	}
+
+	games, total, err := h.Store.FilterGames(q, category, players, playtime, page, limit, userID)
 	if err != nil {
 		slog.Error("HandleAPIListGames: FilterGames", "error", err)
 		writeAPIError(w, http.StatusInternalServerError, "internal error")
@@ -62,7 +69,7 @@ func (h *Handler) HandleAPIListGames(w http.ResponseWriter, r *http.Request) {
 		"data":       gamesToAPI(games),
 		"total":      total,
 		"page":       page,
-		"per_page":   store.DefaultPageSize,
+		"per_page":   limit,
 		"categories": categories,
 	})
 }

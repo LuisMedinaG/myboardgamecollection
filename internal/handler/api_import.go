@@ -145,7 +145,7 @@ func (h *Handler) HandleAPIImportCSVPreview(w http.ResponseWriter, r *http.Reque
 // POST /api/v1/import/csv
 // Body: {"bgg_ids": [123, 456]}
 func (h *Handler) HandleAPIImportCSV(w http.ResponseWriter, r *http.Request) {
-	_, ok := h.requireAPIUserID(w, r)
+	userID, ok := h.requireAPIUserID(w, r)
 	if !ok {
 		return
 	}
@@ -166,8 +166,6 @@ func (h *Handler) HandleAPIImportCSV(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusServiceUnavailable, "BGG import is not configured")
 		return
 	}
-
-	userID, _ := httpx.UserIDFromContext(r.Context())
 
 	added, _, failed, err := h.BGG.ImportByBGGIDs(r.Context(), h.Store, body.BGGIDs, userID)
 	if err != nil {

@@ -2,9 +2,12 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
+
+	"myboardgamecollection/internal/store"
 )
 
 // HandleAPIListVibes returns all vibes owned by the authenticated user.
@@ -56,7 +59,7 @@ func (h *Handler) HandleAPICreateVibe(w http.ResponseWriter, r *http.Request) {
 
 	id, err := h.Store.CreateVibe(name, userID)
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE") {
+		if errors.Is(err, store.ErrDuplicate) {
 			writeAPIError(w, http.StatusConflict, "vibe already exists")
 			return
 		}
@@ -106,7 +109,7 @@ func (h *Handler) HandleAPIUpdateVibe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.Store.UpdateVibe(id, name, userID); err != nil {
-		if strings.Contains(err.Error(), "UNIQUE") {
+		if errors.Is(err, store.ErrDuplicate) {
 			writeAPIError(w, http.StatusConflict, "vibe already exists")
 			return
 		}

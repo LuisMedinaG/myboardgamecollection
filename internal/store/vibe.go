@@ -34,18 +34,46 @@ func (s *Store) GetVibe(id, userID int64) (model.Vibe, error) {
 }
 
 // CreateVibe inserts a new vibe owned by userID and returns its ID.
+// Returns ErrDuplicate if the name already exists for this user.
 func (s *Store) CreateVibe(name string, userID int64) (int64, error) {
 	res, err := s.db.Exec("INSERT INTO vibes (name, user_id) VALUES (?, ?)", name, userID)
 	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE") {
+			return 0, ErrDuplicate
+		}
 		return 0, err
 	}
 	return res.LastInsertId()
 }
 
 // UpdateVibe renames a vibe, verifying ownership.
+// Returns ErrDuplicate if the new name already exists for this user.
 func (s *Store) UpdateVibe(id int64, name string, userID int64) error {
 	_, err := s.db.Exec("UPDATE vibes SET name = ? WHERE id = ? AND user_id = ?", name, id, userID)
+	if err != nil && strings.Contains(err.Error(), "UNIQUE") {
+		return ErrDuplicate
+	}
 	return err
+}
+
+// BatchUpdateVibes renames multiple vibes in a single transaction, verifying
+// ownership for each. Returns ErrDuplicate if any name conflicts.
+func (s *Store) BatchUpdateVibes(userID int64, updates map[int64]string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	for id, name := range updates {
+		if _, err := tx.Exec("UPDATE vibes SET name = ? WHERE id = ? AND user_id = ?", name, id, userID); err != nil {
+			if strings.Contains(err.Error(), "UNIQUE") {
+				return ErrDuplicate
+			}
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // DeleteVibe removes a vibe, verifying ownership.
