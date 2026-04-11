@@ -20,7 +20,7 @@ make build      # outputs ./boardgames binary
 make bgg-login  # utility to grab BGG auth headers
 ```
 
-No test suite — verification is manual.
+A test suite is planned. Verification is currently manual (`make dev` + curl).
 
 ## Project Structure
 
@@ -41,20 +41,47 @@ templates/           # Embedded HTML templates
 static/              # Embedded CSS
 ```
 
-## In-Progress: JWT REST API
+## Branching Strategy
 
-A parallel JSON REST API is being added under `/api/v1/` alongside the existing HTMX app.
-The HTMX frontend and all existing routes remain untouched throughout this work.
+```
+main       <- production, stable
+staging    <- pre-production / QA sign-off gate
+dev        <- integration branch — all feature branches target this
+```
+
+**Promotion flow:** `feature/*` → PR → `dev` → PR → `staging` → PR → `main`
+
+### Branch protection
+
+| Branch | Direct push | Force push | Deletion | PR required | Source enforced |
+|--------|------------|------------|----------|-------------|-----------------|
+| `dev` | allowed | blocked | blocked | no | — |
+| `staging` | blocked | blocked | blocked | yes (0 approvals) | must be `dev` |
+| `main` | blocked | blocked | blocked | yes (0 approvals) | must be `staging` |
+
+- Enforced by two GitHub rulesets ("Protect dev", "Protect main and staging")
+- Source branch restriction enforced by `.github/workflows/enforce-merge-direction.yml` — PRs to `staging`/`main` fail if source is wrong
+- Admin bypass is **always on** — you are never locked out for emergency fixes
+- Never push directly to `main` or `staging` (admin bypass exists for emergencies only)
+
+## JWT REST API
+
+A parallel JSON REST API lives under `/api/v1/` alongside the existing HTMX app.
+The HTMX frontend and all existing routes remain untouched.
 
 - **Auth:** `github.com/golang-jwt/jwt/v5` — access tokens (15 min JWT) + refresh tokens (30 day, stored in sessions table)
 - **Middleware:** `RequireJWT(secret)` in `internal/httpx/` — reads `Authorization: Bearer`, returns 401 JSON on failure
 - **Handlers:** All API handlers live in `internal/handler/api_*.go`
-- **Responses:** `{ "data": ... }` for success, `{ "error": "..." }` for failures
+- **Helpers:** `api_helpers.go` — `requireAPIUserID`, `requireAPIID`, `writeAPIJSON`, model→snake_case converters
+- **Responses:** `{ "data": ... }` for success, `{ "error": "..." }` for failures; paginated lists include `total`, `page`, `per_page` at the top level
 
-Phases:
-1. JWT foundation + `/api/v1/auth/*` — login, refresh, logout
-2. Core data — games, vibes, import, profile
+### Completed phases
+1. ✅ JWT foundation — `POST /api/v1/auth/login|refresh|logout`
+2. ✅ Core data — games, vibes, import, profile (16 endpoints)
+
+### Next
 3. Rules, player aids, discovery
+4. Test suite
 
 ## More Detail
 
