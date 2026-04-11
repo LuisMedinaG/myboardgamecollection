@@ -131,7 +131,8 @@ func (h *Handler) HandlePlayerAidUpload(w http.ResponseWriter, r *http.Request) 
 	label := sanitizePlayerAidLabel(r.FormValue("label"), header.Filename)
 
 	if _, err := h.Store.CreatePlayerAid(id, filename, label); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		_ = os.Remove(filepath.Join(h.DataDir, "uploads", filename))
+		http.Error(w, "failed to save player aid", http.StatusInternalServerError)
 		return
 	}
 

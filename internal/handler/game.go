@@ -43,14 +43,23 @@ func (h *Handler) HandleGames(w http.ResponseWriter, r *http.Request) {
 		totalPages = 1
 	}
 
-	categories, _ := h.Store.DistinctCategories(userID)
-	vibes, _ := h.Store.AllVibes(userID)
+	categories, err := h.Store.DistinctCategories(userID)
+	if err != nil {
+		slog.Error("DistinctCategories", "userID", userID, "error", err)
+	}
+	vibes, err := h.Store.AllVibes(userID)
+	if err != nil {
+		slog.Error("AllVibes", "userID", userID, "error", err)
+	}
 
 	gameIDs := make([]int64, len(games))
 	for i, g := range games {
 		gameIDs[i] = g.ID
 	}
-	gameVibes, _ := h.Store.VibesForGames(gameIDs)
+	gameVibes, err := h.Store.VibesForGames(gameIDs)
+	if err != nil {
+		slog.Error("VibesForGames", "error", err)
+	}
 	for i := range games {
 		games[i].Vibes = gameVibes[games[i].ID]
 	}

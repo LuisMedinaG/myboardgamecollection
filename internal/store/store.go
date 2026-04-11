@@ -252,11 +252,16 @@ func (s *Store) createTables() error {
 	if err != nil {
 		return err
 	}
-	// Rebuild the FTS index from the content table. This is idempotent and
-	// ensures rows that existed before the FTS table was created are indexed.
-	_, err = s.db.Exec("INSERT INTO games_fts(games_fts) VALUES ('rebuild')")
-	if err != nil {
-		return err
+	// Rebuild the FTS index once on first setup — ensures any rows that existed
+	// before the FTS table was created are indexed. Subsequent startups skip
+	// this because the triggers above keep the index current.
+	if s.GetConfig("fts_rebuilt") == "" {
+		if _, err = s.db.Exec("INSERT INTO games_fts(games_fts) VALUES ('rebuild')"); err != nil {
+			return err
+		}
+		if err = s.SetConfig("fts_rebuilt", "1"); err != nil {
+			return err
+		}
 	}
 	return nil
 }
