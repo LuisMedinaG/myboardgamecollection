@@ -32,27 +32,12 @@ make bgg-login  # grab BGG auth headers
 
 ## Test Suite
 
-Phase 1 (security foundations) is complete: **57 tests, 100% coverage of critical functions**.
-
-Run tests via Make:
-```sh
-make test           # Run all tests
-make test-v         # Verbose output
-make cover          # Coverage report
-make cover-html     # HTML coverage report → /tmp/coverage.html
-```
-
-Or run directly:
-```sh
-go test ./... -v                    # All tests, verbose
-go test ./internal/store/ -cover    # Store layer coverage
-go test ./internal/httpx/ -cover    # HTTP middleware coverage
-```
+**66 tests** across `internal/store` and `internal/httpx`.
 
 ### Coverage by Phase
-1. ✅ **Phase 1:** Password hashing, sessions, JWT, CSRF, rate limiting (100% critical functions)
-2. 🔄 **Phase 2:** Store layer (CRUD, filtering, taxonomy) — in progress
-3. ⏳ **Phase 3:** HTTP handlers (integration tests)
+1. ✅ **Phase 1:** Password hashing, sessions, JWT, CSRF, rate limiting, multi-user ownership (100% critical functions)
+2. 🔄 **Phase 2:** HTTP handlers (httptest + Playwright e2e)
+3. ⏳ **Phase 3:** Store layer (CRUD, filtering, taxonomy)
 4. ⏳ **Phase 4:** External integrations (BGG, file uploads)
 
 ## Project Structure
@@ -102,24 +87,12 @@ dev        <- integration branch — all feature branches target this
 A parallel JSON REST API lives under `/api/v1/` alongside the existing HTMX app.
 The HTMX frontend and all existing routes remain untouched.
 
-- **Auth:** `github.com/golang-jwt/jwt/v5` — access tokens (15 min JWT) + refresh tokens (30 day, stored in sessions table)
+- **Auth:** `github.com/golang-jwt/jwt/v5` — access tokens (15 min) + refresh tokens (30 day, stored in sessions table)
 - **Middleware:** `RequireJWT(secret)` in `internal/httpx/` — reads `Authorization: Bearer`, returns 401 JSON on failure
-- **Handlers:** All API handlers live in `internal/handler/api_*.go`
+- **Handlers:** `internal/handler/api_*.go` — auth, games, vibes, import, profile, rules, discovery
 - **Helpers:** `api_helpers.go` — `requireAPIUserID`, `requireAPIID`, `writeAPIJSON`, model→snake_case converters
-- **Responses:** `{ "data": ... }` for success, `{ "error": "..." }` for failures; paginated lists include `total`, `page`, `per_page` at the top level
-
-### Completed API phases
-1. ✅ JWT foundation — `POST /api/v1/auth/login|refresh|logout`
-2. ✅ Core data — games, vibes, import, profile (16 endpoints)
-3. ✅ Rules, player aids, discovery (4 endpoints)
-
-### Test suite phases
-1. ✅ **Phase 1:** Security foundations — password hashing, sessions, JWT, CSRF, rate limiting (57 tests, 100%)
-2. ⏳ **Phase 2:** Data layer — store CRUD, filtering, taxonomy
-3. ⏳ **Phase 3:** HTTP handlers — integration tests (all API endpoints)
-4. ⏳ **Phase 4:** External integrations — BGG client, file uploads
-
-## More Detail
+- **Responses:** `{ "data": ... }` for success, `{ "error": "..." }` for failures; paginated lists include `total`, `page`, `per_page` at top level
+- **Error handling:** Sentinel errors (`store.ErrDuplicate`, `store.ErrWrongPassword` in `store/errors.go`) — never expose raw DB errors to clients
 
 See `agent_docs/` for routes, env vars, and key patterns.
 
