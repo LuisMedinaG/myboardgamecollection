@@ -11,7 +11,25 @@ import (
 // that are not owned by the authenticated user.
 var ErrForeignOwnership = errors.New("one or more ids are not owned by the user")
 
+func uniqueInt64s(ids []int64) []int64 {
+	if len(ids) < 2 {
+		return ids
+	}
+
+	seen := make(map[int64]struct{}, len(ids))
+	out := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
+}
+
 func ownedIDs(tx *sql.Tx, table string, userID int64, ids []int64) (map[int64]bool, error) {
+	ids = uniqueInt64s(ids)
 	if len(ids) == 0 {
 		return map[int64]bool{}, nil
 	}
