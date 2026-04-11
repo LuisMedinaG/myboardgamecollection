@@ -14,20 +14,37 @@ upload player aids, and import games from BoardGameGeek (BGG).
 ## Commands
 
 ```sh
+# Development
 make dev        # go run .
 make run        # build + run
 make build      # outputs ./boardgames binary
-make bgg-login  # utility to grab BGG auth headers
-make test       # run test suite (go test ./...)
+make clean      # remove binary and database
+
+# Testing
+make test       # run all tests
+make test-v     # run tests with verbose output
+make cover      # run tests with coverage report
+make cover-html # generate HTML coverage report
+
+# Utilities
+make bgg-login  # grab BGG auth headers
 ```
 
 ## Test Suite
 
 Phase 1 (security foundations) is complete: **57 tests, 100% coverage of critical functions**.
 
-Run tests:
+Run tests via Make:
 ```sh
-go test ./... -v           # All tests
+make test           # Run all tests
+make test-v         # Verbose output
+make cover          # Coverage report
+make cover-html     # HTML coverage report → /tmp/coverage.html
+```
+
+Or run directly:
+```sh
+go test ./... -v                    # All tests, verbose
 go test ./internal/store/ -cover    # Store layer coverage
 go test ./internal/httpx/ -cover    # HTTP middleware coverage
 ```

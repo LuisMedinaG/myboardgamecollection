@@ -34,6 +34,10 @@ On first run the app creates `games.db`, creates `data/uploads/`, and seeds a fe
 | `make build` | Build the `boardgames` binary |
 | `make run` | Build and run the app |
 | `make dev` | Run with `go run .` |
+| `make test` | Run all tests |
+| `make test-v` | Run tests with verbose output |
+| `make cover` | Run tests with coverage report |
+| `make cover-html` | Generate HTML coverage report |
 | `make clean` | Remove the binary and local database |
 
 ## Configuration
@@ -129,7 +133,16 @@ Recommended:
 
 ## Testing
 
-Run the test suite:
+Run the test suite via Make:
+
+```sh
+make test           # Run all tests
+make test-v         # Run with verbose output
+make cover          # Run with coverage report
+make cover-html     # Generate HTML coverage report (saved to /tmp/coverage.html)
+```
+
+Or run tests directly:
 
 ```sh
 go test ./...                         # All tests
