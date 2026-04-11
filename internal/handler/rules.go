@@ -1,10 +1,8 @@
 package handler
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -120,53 +118,17 @@ func (h *Handler) HandlePlayerAidUpload(w http.ResponseWriter, r *http.Request) 
 	}
 	defer file.Close()
 
-	buffer := make([]byte, 512)
-	n, err := file.Read(buffer)
-	if err != nil && err != io.EOF {
-		http.Error(w, "failed to read uploaded file", http.StatusBadRequest)
-		return
-	}
-
-	contentType := http.DetectContentType(buffer[:n])
-	ext, ok := allowedImageExtension(contentType)
-	if !ok {
-		http.Error(w, "unsupported file type; upload PNG, JPEG, GIF, or WebP", http.StatusBadRequest)
-		return
-	}
-
-	label := strings.TrimSpace(r.FormValue("label"))
-	if label == "" {
-		label = strings.TrimSuffix(header.Filename, filepath.Ext(header.Filename))
-	}
-	if len(label) > 200 {
-		label = label[:200]
-	}
-
-	reader := io.MultiReader(bytes.NewReader(buffer[:n]), file)
-
-	filename, err := randomFilename(ext)
+	filename, err := h.savePlayerAidFile(file)
 	if err != nil {
-		http.Error(w, "failed to generate filename", http.StatusInternalServerError)
-		return
-	}
-
-	uploadDir := filepath.Join(h.DataDir, "uploads")
-	if err := os.MkdirAll(uploadDir, 0o755); err != nil {
-		http.Error(w, "failed to create upload directory", http.StatusInternalServerError)
-		return
-	}
-
-	dst, err := os.Create(filepath.Join(uploadDir, filename))
-	if err != nil {
+		if err == errUnsupportedPlayerAidType {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		http.Error(w, "failed to save file", http.StatusInternalServerError)
 		return
 	}
-	defer dst.Close()
 
-	if _, err := io.Copy(dst, reader); err != nil {
-		http.Error(w, "failed to save file", http.StatusInternalServerError)
-		return
-	}
+	label := sanitizePlayerAidLabel(r.FormValue("label"), header.Filename)
 
 	if _, err := h.Store.CreatePlayerAid(id, filename, label); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

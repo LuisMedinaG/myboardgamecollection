@@ -3,12 +3,10 @@ package handler
 import (
 	"encoding/json"
 	"errors"
-	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"myboardgamecollection/internal/model"
 )
@@ -86,42 +84,18 @@ func (h *Handler) HandleAPIUploadPlayerAid(w http.ResponseWriter, r *http.Reques
 	}
 	defer file.Close()
 
-	ext := filepath.Ext(header.Filename)
-	filename, err := randomFilename(ext)
+	filename, err := h.savePlayerAidFile(file)
 	if err != nil {
-		slog.Error("randomFilename", "error", err)
+		if err == errUnsupportedPlayerAidType {
+			writeAPIError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		slog.Error("HandleAPIUploadPlayerAid: savePlayerAidFile", "error", err)
 		writeAPIError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
-	uploadDir := filepath.Join(h.DataDir, "uploads")
-	if err := os.MkdirAll(uploadDir, 0o755); err != nil {
-		slog.Error("MkdirAll", "path", uploadDir, "error", err)
-		writeAPIError(w, http.StatusInternalServerError, "internal error")
-		return
-	}
-
-	dst, err := os.Create(filepath.Join(uploadDir, filename))
-	if err != nil {
-		slog.Error("os.Create", "filename", filename, "error", err)
-		writeAPIError(w, http.StatusInternalServerError, "internal error")
-		return
-	}
-	defer dst.Close()
-
-	if _, err := io.Copy(dst, file); err != nil {
-		slog.Error("io.Copy", "filename", filename, "error", err)
-		writeAPIError(w, http.StatusInternalServerError, "internal error")
-		return
-	}
-
-	label := strings.TrimSpace(r.FormValue("label"))
-	if label == "" {
-		label = strings.TrimSuffix(header.Filename, ext)
-	}
-	if len(label) > 200 {
-		label = label[:200]
-	}
+	label := sanitizePlayerAidLabel(r.FormValue("label"), header.Filename)
 
 	aidID, err := h.Store.CreatePlayerAid(id, filename, label)
 	if err != nil {
