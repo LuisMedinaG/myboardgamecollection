@@ -1,7 +1,7 @@
 name: Enforce merge direction
 
 # Ensures the promotion flow is respected:
-#   feature/* → dev → staging → main
+#   feature/* -> dev -> staging -> main
 #
 # PRs to staging must come from dev.
 # PRs to main must come from staging.
@@ -22,24 +22,24 @@ jobs:
           BASE="${{ github.base_ref }}"
           HEAD="${{ github.head_ref }}"
 
-          echo "PR: $HEAD → $BASE"
+          echo "PR: $HEAD -> $BASE"
 
           if [ "$BASE" = "staging" ] && [ "$HEAD" != "dev" ]; then
             echo ""
-            echo "❌  PRs to 'staging' must come from 'dev'."
-            echo "    Source branch was: $HEAD"
+            echo "ERROR: PRs to 'staging' must come from 'dev'."
+            echo "       Source branch was: $HEAD"
             echo ""
-            echo "    Promotion flow:  feature/* → dev → staging → main"
+            echo "       Promotion flow: feature/* -> dev -> staging -> main"
             exit 1
           fi
 
           if [ "$BASE" = "main" ] && [ "$HEAD" != "staging" ]; then
             echo ""
-            echo "❌  PRs to 'main' must come from 'staging'."
-            echo "    Source branch was: $HEAD"
+            echo "ERROR: PRs to 'main' must come from 'staging'."
+            echo "       Source branch was: $HEAD"
             echo ""
-            echo "    Promotion flow:  feature/* → dev → staging → main"
+            echo "       Promotion flow: feature/* -> dev -> staging -> main"
             exit 1
           fi
 
-          echo "✅  $HEAD → $BASE is allowed."
+          echo "OK: $HEAD -> $BASE is allowed."
