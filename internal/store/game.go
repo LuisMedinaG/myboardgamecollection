@@ -127,8 +127,11 @@ func (s *Store) OwnedBGGIDs(userID int64) (map[int64]bool, error) {
 	return m, rows.Err()
 }
 
-// GamesPageSize is the number of games returned per page by FilterGames.
-const GamesPageSize = 20
+// DefaultPageSize is the default number of games per page.
+const DefaultPageSize = 20
+
+// MaxPageSize caps the client-supplied limit to prevent abuse.
+const MaxPageSize = 300
 
 // buildGameConditions constructs the shared WHERE conditions and argument list
 // used by both FilterGames and the accompanying count query. userID is always
@@ -161,7 +164,8 @@ func buildGameConditions(q, category, players, playtime string, userID int64) ([
 
 // FilterGames returns one page of games matching the given filters plus the
 // total number of matching games (for pagination). Page is 1-based.
-func (s *Store) FilterGames(q, category, players, playtime string, page int, userID int64) ([]model.Game, int, error) {
+// pageSize controls how many results per page; use DefaultPageSize if unsure.
+func (s *Store) FilterGames(q, category, players, playtime string, page, pageSize int, userID int64) ([]model.Game, int, error) {
 	conditions, args := buildGameConditions(q, category, players, playtime, userID)
 	where := " WHERE " + strings.Join(conditions, " AND ")
 
@@ -173,10 +177,10 @@ func (s *Store) FilterGames(q, category, players, playtime string, page int, use
 	if page < 1 {
 		page = 1
 	}
-	offset := (page - 1) * GamesPageSize
+	offset := (page - 1) * pageSize
 	query := "SELECT " + gameColumns + " FROM games" + where + " ORDER BY name LIMIT ? OFFSET ?"
 
-	rows, err := s.db.Query(query, append(args, GamesPageSize, offset)...)
+	rows, err := s.db.Query(query, append(args, pageSize, offset)...)
 	if err != nil {
 		return nil, total, err
 	}

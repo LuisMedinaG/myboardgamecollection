@@ -34,6 +34,7 @@ type GamesPageData struct {
 	Page       int
 	TotalPages int
 	TotalCount int
+	PerPage    int
 }
 
 // PageURL builds a /games URL that preserves all active filters and sets the
@@ -54,6 +55,9 @@ func (d GamesPageData) PageURL(page int) string {
 	}
 	if page > 1 {
 		params.Set("page", strconv.Itoa(page))
+	}
+	if d.PerPage > 0 && d.PerPage != 20 {
+		params.Set("limit", strconv.Itoa(d.PerPage))
 	}
 	if len(params) == 0 {
 		return "/games"

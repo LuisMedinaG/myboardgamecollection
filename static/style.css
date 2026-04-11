@@ -1999,3 +1999,176 @@ body {
   cursor: not-allowed;
   filter: grayscale(0.3);
 }
+
+/* ── View toolbar (list / grid toggle) ────────────────────────── */
+.view-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0.5rem 0 0.25rem;
+}
+
+.view-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.view-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.view-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.view-size-btns {
+  display: none;
+  gap: 0.25rem;
+  margin-left: 0.25rem;
+  padding-left: 0.5rem;
+  border-left: 1.5px solid var(--border);
+}
+
+.view-size-btns.visible {
+  display: flex;
+}
+
+/* ── Grid layouts ─────────────────────────────────────────────── */
+.game-list.grid-sm {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+  gap: 4px;
+}
+
+.game-list.grid-md {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+  gap: 6px;
+}
+
+.game-list.grid-lg {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+/* Grid: wrapper becomes a stacking context for the checkbox overlay */
+.game-list.grid-sm .game-list-item-wrap,
+.game-list.grid-md .game-list-item-wrap,
+.game-list.grid-lg .game-list-item-wrap {
+  position: relative;
+  display: block;
+}
+
+/* Grid: link becomes a vertical card */
+.game-list.grid-sm .game-list-item,
+.game-list.grid-md .game-list-item,
+.game-list.grid-lg .game-list-item {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+/* Small: no border/shadow — pure image tiles */
+.game-list.grid-sm .game-list-item {
+  border: none;
+  box-shadow: none;
+  background: var(--border);
+}
+
+/* Grid: square image that shows the full art */
+.game-list.grid-sm .game-cover,
+.game-list.grid-md .game-cover,
+.game-list.grid-lg .game-cover {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 0;
+  flex-shrink: unset;
+}
+
+.game-list.grid-sm .game-cover-placeholder,
+.game-list.grid-md .game-cover-placeholder,
+.game-list.grid-lg .game-cover-placeholder {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 0;
+  flex-shrink: unset;
+}
+
+/* Always hide chevron in grid */
+.game-list.grid-sm .chevron,
+.game-list.grid-md .chevron,
+.game-list.grid-lg .chevron {
+  display: none;
+}
+
+/* Small: hide everything below the image */
+.game-list.grid-sm .game-list-info {
+  display: none;
+}
+
+/* Medium: show only vibes, hide name + meta */
+.game-list.grid-md .game-list-name,
+.game-list.grid-md .game-list-meta {
+  display: none;
+}
+
+.game-list.grid-md .game-list-info {
+  padding: 0.3rem 0.4rem 0.4rem;
+}
+
+.game-list.grid-md .game-list-vibes {
+  margin-top: 0;
+}
+
+/* Large: hide name, show players/time + vibes */
+.game-list.grid-lg .game-list-name {
+  display: none;
+}
+
+.game-list.grid-lg .game-list-info {
+  padding: 0.4rem 0.5rem 0.5rem;
+}
+
+.game-list.grid-lg .game-list-meta {
+  margin-top: 0;
+  font-size: 0.75rem;
+}
+
+.game-list.grid-lg .game-list-vibes {
+  margin-top: 0.3rem;
+}
+
+/* Grid select mode: checkbox overlays top-left corner of image */
+.game-list.grid-sm .game-select-check,
+.game-list.grid-md .game-select-check,
+.game-list.grid-lg .game-select-check {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 2;
+  padding: 2px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(2px);
+}
