@@ -113,6 +113,8 @@ func (s *Store) createTables() error {
 	}
 	// Migration: add types column if missing (for existing DBs).
 	_, _ = s.db.Exec("ALTER TABLE games ADD COLUMN types TEXT NOT NULL DEFAULT ''")
+	// Migration: add weight column for BGG average weight/complexity.
+	_, _ = s.db.Exec("ALTER TABLE games ADD COLUMN weight REAL NOT NULL DEFAULT 0.0")
 
 	// Normalized category and mechanic tables (used for filtering).
 	// The comma-string columns on games remain as a denormalized display cache.
@@ -392,6 +394,7 @@ func (s *Store) migrateGamesTableForPerUserUniqueness() error {
 			mechanics      TEXT    NOT NULL DEFAULT '',
 			rules_url      TEXT    NOT NULL DEFAULT '',
 			types          TEXT    NOT NULL DEFAULT '',
+			weight         REAL    NOT NULL DEFAULT 0.0,
 			user_id        INTEGER,
 			UNIQUE (user_id, bgg_id)
 		)
@@ -404,12 +407,12 @@ func (s *Store) migrateGamesTableForPerUserUniqueness() error {
 		INSERT INTO games_new (
 			id, bgg_id, name, description, year_published, image, thumbnail,
 			min_players, max_players, play_time, categories, mechanics,
-			rules_url, types, user_id
+			rules_url, types, weight, user_id
 		)
 		SELECT
 			id, bgg_id, name, description, year_published, image, thumbnail,
 			min_players, max_players, play_time, categories, mechanics,
-			rules_url, COALESCE(types, ''), user_id
+			rules_url, COALESCE(types, ''), COALESCE(weight, 0.0), user_id
 		FROM games
 	`)
 	if err != nil {
@@ -606,13 +609,13 @@ func splitTaxonomy(s string) []string {
 	return out
 }
 
-const gameColumns = "id, bgg_id, name, description, year_published, image, thumbnail, min_players, max_players, play_time, categories, mechanics, types, rules_url"
+const gameColumns = "id, bgg_id, name, description, year_published, image, thumbnail, min_players, max_players, play_time, categories, mechanics, types, weight, rules_url"
 
 func scanGame(row interface{ Scan(...any) error }) (model.Game, error) {
 	var g model.Game
 	err := row.Scan(&g.ID, &g.BGGID, &g.Name, &g.Description, &g.YearPublished,
 		&g.Image, &g.Thumbnail, &g.MinPlayers, &g.MaxPlayers, &g.PlayTime,
-		&g.Categories, &g.Mechanics, &g.Types, &g.RulesURL)
+		&g.Categories, &g.Mechanics, &g.Types, &g.Weight, &g.RulesURL)
 	return g, err
 }
 

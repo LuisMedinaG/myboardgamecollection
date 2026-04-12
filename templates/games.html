@@ -25,6 +25,12 @@
         <option value="medium" {{ if eq .Playtime "medium" }}selected{{ end }}>30–60 min</option>
         <option value="long" {{ if eq .Playtime "long" }}selected{{ end }}>&gt; 60 min</option>
     </select>
+    <select name="weight" class="filter-select">
+        <option value="">Any Complexity</option>
+        <option value="light" {{ if eq .Weight "light" }}selected{{ end }}>Light (&lt; 2)</option>
+        <option value="medium" {{ if eq .Weight "medium" }}selected{{ end }}>Medium (2–3)</option>
+        <option value="heavy" {{ if eq .Weight "heavy" }}selected{{ end }}>Heavy (3+)</option>
+    </select>
 </div>
 <div class="active-filters" id="active-filters"></div>
 
@@ -115,7 +121,7 @@
 
 <script>
 (function() {
-    var labels = {category: 'Category', players: 'Players', playtime: 'Duration'};
+    var labels = {category: 'Category', players: 'Players', playtime: 'Duration', weight: 'Complexity'};
     function updateChips() {
         var container = document.getElementById('active-filters');
         var selects = document.querySelectorAll('#game-filters select');

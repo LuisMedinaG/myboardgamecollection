@@ -41,14 +41,15 @@ func (h *Handler) HandleDiscover(w http.ResponseWriter, r *http.Request) {
 	mechanic := r.URL.Query().Get("mechanic")
 	players := r.URL.Query().Get("players")
 	playtime := r.URL.Query().Get("playtime")
+	weight := r.URL.Query().Get("weight")
 
-	games, err := h.Store.FilterGamesByVibe(vibeID, typ, category, mechanic, players, playtime, userID)
+	games, err := h.Store.FilterGamesByVibe(vibeID, typ, category, mechanic, players, playtime, weight, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	data := buildDiscoverData(vibe, vibeID, games, typ, category, mechanic, players, playtime)
+	data := buildDiscoverData(vibe, vibeID, games, typ, category, mechanic, players, playtime, weight)
 
 	if isHTMX(r) {
 		if err := h.Renderer.Partial(w, "discover_result", data); err != nil {
@@ -78,7 +79,7 @@ func (h *Handler) renderDiscoverGrid(w http.ResponseWriter, r *http.Request, use
 	}
 }
 
-func buildDiscoverData(vibe model.Vibe, vibeID int64, games []model.Game, typ, category, mechanic, players, playtime string) viewmodel.DiscoverPageData {
+func buildDiscoverData(vibe model.Vibe, vibeID int64, games []model.Game, typ, category, mechanic, players, playtime, weight string) viewmodel.DiscoverPageData {
 	return viewmodel.DiscoverPageData{
 		VibeID:         vibeID,
 		VibeName:       vibe.Name,
@@ -91,7 +92,9 @@ func buildDiscoverData(vibe model.Vibe, vibeID int64, games []model.Game, typ, c
 		Mechanic:       mechanic,
 		Players:        players,
 		Playtime:       playtime,
+		Weight:         weight,
 		ValidPlayers:   filter.ValidPlayerOptions(games),
 		ValidPlaytimes: filter.ValidPlaytimeOptions(games),
+		ValidWeights:   filter.ValidWeightOptions(games),
 	}
 }

@@ -93,6 +93,45 @@ func ValidPlaytimeOptions(games []model.Game) []viewmodel.PlaytimeOption {
 	return opts
 }
 
+// WeightCondition returns a SQL condition for the given weight filter value.
+// BGG weight scale: 1.0–2.0 = Light, 2.0–3.0 = Medium, 3.0–5.0 = Heavy.
+func WeightCondition(weight, prefix string) string {
+	switch weight {
+	case "light":
+		return prefix + "weight > 0 AND " + prefix + "weight < 2.0"
+	case "medium":
+		return prefix + "weight >= 2.0 AND " + prefix + "weight < 3.0"
+	case "heavy":
+		return prefix + "weight >= 3.0"
+	default:
+		return ""
+	}
+}
+
+// ValidWeightOptions returns weight filter options that match at least one game.
+func ValidWeightOptions(games []model.Game) []viewmodel.WeightOption {
+	type def struct {
+		value string
+		label string
+		match func(model.Game) bool
+	}
+	all := []def{
+		{"light", "Light (< 2)", func(g model.Game) bool { return g.Weight > 0 && g.Weight < 2.0 }},
+		{"medium", "Medium (2–3)", func(g model.Game) bool { return g.Weight >= 2.0 && g.Weight < 3.0 }},
+		{"heavy", "Heavy (3+)", func(g model.Game) bool { return g.Weight >= 3.0 }},
+	}
+	var opts []viewmodel.WeightOption
+	for _, o := range all {
+		for _, g := range games {
+			if o.match(g) {
+				opts = append(opts, viewmodel.WeightOption{Value: o.value, Label: o.label})
+				break
+			}
+		}
+	}
+	return opts
+}
+
 // ExtractField collects unique comma-separated values from a game field, sorted.
 func ExtractField(games []model.Game, field func(model.Game) string) []string {
 	seen := make(map[string]bool)
