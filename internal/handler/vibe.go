@@ -2,12 +2,14 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"myboardgamecollection/internal/store"
 	"myboardgamecollection/internal/viewmodel"
 )
 
@@ -40,7 +42,7 @@ func (h *Handler) HandleVibeCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := h.Store.CreateVibe(name, userID); err != nil {
-		if strings.Contains(err.Error(), "UNIQUE") {
+		if errors.Is(err, store.ErrDuplicate) {
 			h.renderVibesWithError(w, r, userID, fmt.Sprintf("A vibe named %q already exists.", name))
 			return
 		}
@@ -69,7 +71,7 @@ func (h *Handler) HandleVibeUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.Store.UpdateVibe(id, name, userID); err != nil {
-		if strings.Contains(err.Error(), "UNIQUE") {
+		if errors.Is(err, store.ErrDuplicate) {
 			h.renderVibesWithError(w, r, userID, fmt.Sprintf("A vibe named %q already exists.", name))
 			return
 		}
@@ -90,13 +92,15 @@ func (h *Handler) HandleVibeBatchUpdate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var updates map[string]string
-	if err := json.Unmarshal([]byte(raw), &updates); err != nil {
+	var rawUpdates map[string]string
+	if err := json.Unmarshal([]byte(raw), &rawUpdates); err != nil {
 		http.Error(w, "invalid updates", http.StatusBadRequest)
 		return
 	}
 
-	for idStr, name := range updates {
+	// Validate all entries up-front before touching the database.
+	updates := make(map[int64]string, len(rawUpdates))
+	for idStr, name := range rawUpdates {
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
 			http.Error(w, "invalid id", http.StatusBadRequest)
@@ -111,14 +115,17 @@ func (h *Handler) HandleVibeBatchUpdate(w http.ResponseWriter, r *http.Request) 
 			http.Error(w, "name too long (max 100 characters)", http.StatusBadRequest)
 			return
 		}
-		if err := h.Store.UpdateVibe(id, name, userID); err != nil {
-			if strings.Contains(err.Error(), "UNIQUE") {
-				h.renderVibesWithError(w, r, userID, fmt.Sprintf("A vibe named %q already exists.", name))
-				return
-			}
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+		updates[id] = name
+	}
+
+	// All updates in a single transaction — atomically succeeds or fails.
+	if err := h.Store.BatchUpdateVibes(userID, updates); err != nil {
+		if errors.Is(err, store.ErrDuplicate) {
+			h.renderVibesWithError(w, r, userID, "A vibe with that name already exists.")
 			return
 		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	http.Redirect(w, r, "/vibes", http.StatusSeeOther)
@@ -197,7 +204,11 @@ func (h *Handler) HandleGameVibesSave(w http.ResponseWriter, r *http.Request) {
 			vibeIDs = append(vibeIDs, vid)
 		}
 	}
-	if err := h.Store.SetGameVibes(id, vibeIDs); err != nil {
+	if err := h.Store.SetGameVibes(userID, id, vibeIDs); err != nil {
+		if store.IsOwnershipError(err) {
+			http.Error(w, "one or more selected vibes were not found", http.StatusNotFound)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

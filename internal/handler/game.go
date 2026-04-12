@@ -19,18 +19,7 @@ func (h *Handler) HandleGames(w http.ResponseWriter, r *http.Request) {
 	category := r.URL.Query().Get("category")
 	players := r.URL.Query().Get("players")
 	playtime := r.URL.Query().Get("playtime")
-
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	if page < 1 {
-		page = 1
-	}
-
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit < 1 {
-		limit = store.DefaultPageSize
-	} else if limit > store.MaxPageSize {
-		limit = store.MaxPageSize
-	}
+	page, limit := parsePagination(r)
 
 	games, total, err := h.Store.FilterGames(q, category, players, playtime, page, limit, userID)
 	if err != nil {
@@ -43,17 +32,16 @@ func (h *Handler) HandleGames(w http.ResponseWriter, r *http.Request) {
 		totalPages = 1
 	}
 
-	categories, _ := h.Store.DistinctCategories(userID)
-	vibes, _ := h.Store.AllVibes(userID)
+	categories, err := h.Store.DistinctCategories(userID)
+	if err != nil {
+		slog.Error("DistinctCategories", "userID", userID, "error", err)
+	}
+	vibes, err := h.Store.AllVibes(userID)
+	if err != nil {
+		slog.Error("AllVibes", "userID", userID, "error", err)
+	}
 
-	gameIDs := make([]int64, len(games))
-	for i, g := range games {
-		gameIDs[i] = g.ID
-	}
-	gameVibes, _ := h.Store.VibesForGames(gameIDs)
-	for i := range games {
-		games[i].Vibes = gameVibes[games[i].ID]
-	}
+	h.populateGameVibes(games)
 
 	data := viewmodel.GamesPageData{
 		Games:      games,
@@ -104,6 +92,10 @@ func (h *Handler) HandleGameDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleBulkVibeAssign(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
+		return
+	}
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
@@ -126,7 +118,11 @@ func (h *Handler) HandleBulkVibeAssign(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "select at least one game and one vibe", http.StatusBadRequest)
 		return
 	}
-	if err := h.Store.AddVibesToGames(gameIDs, vibeIDs); err != nil {
+	if err := h.Store.AddVibesToGames(userID, gameIDs, vibeIDs); err != nil {
+		if store.IsOwnershipError(err) {
+			http.Error(w, "one or more selected games or vibes were not found", http.StatusNotFound)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

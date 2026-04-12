@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 
@@ -50,7 +51,7 @@ func (s *Store) createTables() error {
 	_, err := s.db.Exec(`
 		CREATE TABLE IF NOT EXISTS games (
 			id             INTEGER PRIMARY KEY AUTOINCREMENT,
-			bgg_id         INTEGER NOT NULL UNIQUE,
+			bgg_id         INTEGER NOT NULL,
 			name           TEXT    NOT NULL,
 			description    TEXT    NOT NULL DEFAULT '',
 			year_published INTEGER NOT NULL DEFAULT 0,
@@ -61,7 +62,9 @@ func (s *Store) createTables() error {
 			play_time      INTEGER NOT NULL DEFAULT 30,
 			categories     TEXT    NOT NULL DEFAULT '',
 			mechanics      TEXT    NOT NULL DEFAULT '',
-			rules_url      TEXT    NOT NULL DEFAULT ''
+			rules_url      TEXT    NOT NULL DEFAULT '',
+			user_id        INTEGER,
+			UNIQUE (user_id, bgg_id)
 		)
 	`)
 	if err != nil {
@@ -90,7 +93,9 @@ func (s *Store) createTables() error {
 	_, err = s.db.Exec(`
 		CREATE TABLE IF NOT EXISTS vibes (
 			id   INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL UNIQUE
+			name TEXT NOT NULL,
+			user_id INTEGER,
+			UNIQUE (user_id, name)
 		)
 	`)
 	if err != nil {
@@ -205,6 +210,10 @@ func (s *Store) createTables() error {
 	// schema won't have one.
 	_, _ = s.db.Exec("DROP INDEX IF EXISTS idx_users_bgg_username")
 
+	if err := s.migratePerUserConstraints(); err != nil {
+		return err
+	}
+
 	// FTS5 virtual table for full-text search over game name + description.
 	// content=games makes the FTS index reference the games table rows.
 	_, err = s.db.Exec(`
@@ -233,13 +242,236 @@ func (s *Store) createTables() error {
 	if err != nil {
 		return err
 	}
-	// Rebuild the FTS index from the content table. This is idempotent and
-	// ensures rows that existed before the FTS table was created are indexed.
-	_, err = s.db.Exec("INSERT INTO games_fts(games_fts) VALUES ('rebuild')")
+	_, err = s.db.Exec(`
+		CREATE TRIGGER IF NOT EXISTS games_fts_update AFTER UPDATE ON games BEGIN
+			INSERT INTO games_fts(games_fts, rowid, name, description)
+			VALUES ('delete', old.id, old.name, old.description);
+			INSERT INTO games_fts(rowid, name, description)
+			VALUES (new.id, new.name, new.description);
+		END
+	`)
 	if err != nil {
 		return err
 	}
+	// Rebuild the FTS index once on first setup — ensures any rows that existed
+	// before the FTS table was created are indexed. Subsequent startups skip
+	// this because the triggers above keep the index current.
+	if s.GetConfig("fts_rebuilt") == "" {
+		if _, err = s.db.Exec("INSERT INTO games_fts(games_fts) VALUES ('rebuild')"); err != nil {
+			return err
+		}
+		if err = s.SetConfig("fts_rebuilt", "1"); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func (s *Store) migratePerUserConstraints() error {
+	gamesNeedsMigration, err := hasSingleColumnUniqueIndex(s.db, "games", "bgg_id")
+	if err != nil {
+		return err
+	}
+	if gamesNeedsMigration {
+		if err := s.migrateGamesTableForPerUserUniqueness(); err != nil {
+			return err
+		}
+	}
+
+	vibesNeedsMigration, err := hasSingleColumnUniqueIndex(s.db, "vibes", "name")
+	if err != nil {
+		return err
+	}
+	if vibesNeedsMigration {
+		if err := s.migrateVibesTableForPerUserUniqueness(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func hasSingleColumnUniqueIndex(db *sql.DB, tableName, columnName string) (bool, error) {
+	rows, err := db.Query("PRAGMA index_list(" + tableName + ")")
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			seq     int
+			name    string
+			unique  int
+			origin  string
+			partial int
+		)
+		if err := rows.Scan(&seq, &name, &unique, &origin, &partial); err != nil {
+			return false, err
+		}
+		if unique == 0 {
+			continue
+		}
+
+		infoRows, err := db.Query("PRAGMA index_info(" + quoteSQLiteIdentifier(name) + ")")
+		if err != nil {
+			return false, err
+		}
+
+		var indexedColumns []string
+		for infoRows.Next() {
+			var seqno, cid int
+			var indexedColumn string
+			if err := infoRows.Scan(&seqno, &cid, &indexedColumn); err != nil {
+				infoRows.Close()
+				return false, err
+			}
+			indexedColumns = append(indexedColumns, indexedColumn)
+		}
+		if err := infoRows.Err(); err != nil {
+			infoRows.Close()
+			return false, err
+		}
+		infoRows.Close()
+
+		if len(indexedColumns) == 1 && indexedColumns[0] == columnName {
+			return true, nil
+		}
+	}
+
+	return false, rows.Err()
+}
+
+func quoteSQLiteIdentifier(name string) string {
+	return "'" + strings.ReplaceAll(name, "'", "''") + "'"
+}
+
+func (s *Store) migrateGamesTableForPerUserUniqueness() error {
+	_, err := s.db.Exec("DROP TRIGGER IF EXISTS games_fts_insert")
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec("DROP TRIGGER IF EXISTS games_fts_delete")
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec("DROP TRIGGER IF EXISTS games_fts_update")
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec("DROP TABLE IF EXISTS games_fts")
+	if err != nil {
+		return err
+	}
+
+	_, err = s.db.Exec("PRAGMA foreign_keys = OFF")
+	if err != nil {
+		return err
+	}
+	defer s.db.Exec("PRAGMA foreign_keys = ON")
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`
+		CREATE TABLE games_new (
+			id             INTEGER PRIMARY KEY AUTOINCREMENT,
+			bgg_id         INTEGER NOT NULL,
+			name           TEXT    NOT NULL,
+			description    TEXT    NOT NULL DEFAULT '',
+			year_published INTEGER NOT NULL DEFAULT 0,
+			image          TEXT    NOT NULL DEFAULT '',
+			thumbnail      TEXT    NOT NULL DEFAULT '',
+			min_players    INTEGER NOT NULL DEFAULT 1,
+			max_players    INTEGER NOT NULL DEFAULT 4,
+			play_time      INTEGER NOT NULL DEFAULT 30,
+			categories     TEXT    NOT NULL DEFAULT '',
+			mechanics      TEXT    NOT NULL DEFAULT '',
+			rules_url      TEXT    NOT NULL DEFAULT '',
+			types          TEXT    NOT NULL DEFAULT '',
+			user_id        INTEGER,
+			UNIQUE (user_id, bgg_id)
+		)
+	`)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(`
+		INSERT INTO games_new (
+			id, bgg_id, name, description, year_published, image, thumbnail,
+			min_players, max_players, play_time, categories, mechanics,
+			rules_url, types, user_id
+		)
+		SELECT
+			id, bgg_id, name, description, year_published, image, thumbnail,
+			min_players, max_players, play_time, categories, mechanics,
+			rules_url, COALESCE(types, ''), user_id
+		FROM games
+	`)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec("DROP TABLE games")
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec("ALTER TABLE games_new RENAME TO games")
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (s *Store) migrateVibesTableForPerUserUniqueness() error {
+	_, err := s.db.Exec("PRAGMA foreign_keys = OFF")
+	if err != nil {
+		return err
+	}
+	defer s.db.Exec("PRAGMA foreign_keys = ON")
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`
+		CREATE TABLE vibes_new (
+			id      INTEGER PRIMARY KEY AUTOINCREMENT,
+			name    TEXT NOT NULL,
+			user_id INTEGER,
+			UNIQUE (user_id, name)
+		)
+	`)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(`
+		INSERT INTO vibes_new (id, name, user_id)
+		SELECT id, name, user_id
+		FROM vibes
+	`)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec("DROP TABLE vibes")
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec("ALTER TABLE vibes_new RENAME TO vibes")
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // migrateAdminUser promotes the ADMIN_USERNAME user (if they already exist in
@@ -333,31 +565,33 @@ func (s *Store) upsertGameTaxonomy(gameID int64, categories, mechanics string) e
 	}
 	defer tx.Rollback()
 
-	for _, name := range splitTaxonomy(categories) {
-		if _, err := tx.Exec("INSERT OR IGNORE INTO categories (name) VALUES (?)", name); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(
-			"INSERT OR IGNORE INTO game_categories (game_id, category_id) SELECT ?, id FROM categories WHERE name = ?",
-			gameID, name,
-		); err != nil {
-			return err
-		}
-	}
-
-	for _, name := range splitTaxonomy(mechanics) {
-		if _, err := tx.Exec("INSERT OR IGNORE INTO mechanics (name) VALUES (?)", name); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(
-			"INSERT OR IGNORE INTO game_mechanics (game_id, mechanic_id) SELECT ?, id FROM mechanics WHERE name = ?",
-			gameID, name,
-		); err != nil {
-			return err
-		}
+	if err := upsertGameTaxonomyTx(tx, gameID, categories, mechanics); err != nil {
+		return err
 	}
 
 	return tx.Commit()
+}
+
+func upsertGameTaxonomyTx(tx *sql.Tx, gameID int64, categories, mechanics string) error {
+	if err := upsertTaxonomyItems(tx, gameID, "categories", "game_categories", "category_id", splitTaxonomy(categories)); err != nil {
+		return err
+	}
+	return upsertTaxonomyItems(tx, gameID, "mechanics", "game_mechanics", "mechanic_id", splitTaxonomy(mechanics))
+}
+
+func upsertTaxonomyItems(tx *sql.Tx, gameID int64, table, joinTable, fkColumn string, items []string) error {
+	for _, name := range items {
+		if _, err := tx.Exec(fmt.Sprintf("INSERT OR IGNORE INTO %s (name) VALUES (?)", table), name); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(
+			fmt.Sprintf("INSERT OR IGNORE INTO %s (game_id, %s) SELECT ?, id FROM %s WHERE name = ?", joinTable, fkColumn, table),
+			gameID, name,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // splitTaxonomy splits a comma-separated tag string into trimmed, non-empty terms.

@@ -6,15 +6,16 @@ A small Go web app for browsing your board games, opening rulebook links, and st
 
 ## What It Does
 
-- Shows your collection in a fast server-rendered UI
+- Multi-user accounts with per-user game collections
 - Filters games by category, player count, and play time
-- Stores a Google Drive rulebook link per game
-- Uploads player-aid images to local disk
-- Optionally syncs owned games from BoardGameGeek
+- Stores rulebook links and uploads player-aid files
+- Tags games with custom "vibes" for mood-based browsing
+- Syncs owned games from BoardGameGeek
+- JSON REST API (`/api/v1/`) with JWT auth alongside the HTMX frontend
 
 ## Prerequisites
 
-- Go 1.23 or newer
+- Go 1.25 or newer
 - No C compiler required
 
 ## Quick Start
@@ -34,6 +35,10 @@ On first run the app creates `games.db`, creates `data/uploads/`, and seeds a fe
 | `make build` | Build the `boardgames` binary |
 | `make run` | Build and run the app |
 | `make dev` | Run with `go run .` |
+| `make test` | Run all tests |
+| `make test-v` | Run tests with verbose output |
+| `make cover` | Run tests with coverage report |
+| `make cover-html` | Generate HTML coverage report |
 | `make clean` | Remove the binary and local database |
 
 ## Configuration
@@ -42,83 +47,66 @@ On first run the app creates `games.db`, creates `data/uploads/`, and seeds a fe
 |----------|---------|-------------|
 | `PORT` | `8080` | HTTP server port |
 | `DB_PATH` | `games.db` | SQLite database path |
-| `BGG_TOKEN` | unset | Enables BoardGameGeek import |
-| `ADMIN_USERNAME` | unset | Required to access admin pages and all write actions |
-| `ADMIN_PASSWORD` | unset | Required to access admin pages and all write actions |
+| `DATA_DIR` | `data` | Directory for uploads and images |
+| `SESSION_SECRET` | insecure default | Secret for sessions and JWT signing — set in production |
+| `BGG_TOKEN` | unset | Enables BoardGameGeek import (server-side only) |
+| `BGG_COOKIE` | unset | Fallback BGG auth if `BGG_TOKEN` is not set |
 
 Example:
 
 ```sh
-PORT=3000 DB_PATH=./data/collection.db make run
+PORT=3000 DB_PATH=./data/collection.db SESSION_SECRET=your-secret make run
 ```
 
-If `BGG_TOKEN` is not set, import remains unavailable.
+Create accounts via `/signup`. The first registered user can be promoted to admin in the database.
 
-If `ADMIN_USERNAME` and `ADMIN_PASSWORD` are not set, the app fails closed for admin routes: public read-only pages still work, but import/edit/upload/delete routes are unavailable.
-
-For local development, keep secrets in environment variables or a local `.env` file that is not committed.
+For local development, keep secrets in a `.env` file (not committed).
 
 ## Fly.io Deployment
 
-Use Fly secrets for sensitive values instead of storing them in the repo or in SQLite:
+Use Fly secrets for sensitive values:
 
 ```sh
 fly secrets set \
-  BGG_TOKEN=your_bgg_token \
-  ADMIN_USERNAME=admin \
-  ADMIN_PASSWORD='choose-a-long-random-password'
+  SESSION_SECRET='your-long-random-secret' \
+  BGG_TOKEN=your_bgg_token
 ```
 
 Recommended:
 
-- Keep `BGG_TOKEN` server-side only. Never expose it in HTML, JavaScript, or browser storage.
-- Use a long random `ADMIN_PASSWORD`.
 - Mount a persistent Fly volume for the SQLite database and uploads directory.
 - Set `DB_PATH` to your mounted volume, for example `/data/games.db`.
+- Keep `BGG_TOKEN` server-side only. Never expose it in HTML, JavaScript, or browser storage.
 - Run the app behind Fly's HTTPS endpoint; this app sends HSTS when served over HTTPS.
 
 ## Project Structure
 
 ```text
 .
-├── main.go
-├── handlers.go
-├── render.go
-├── db.go
-├── bgg.go
-├── models.go
-├── templates/
-│   ├── layout.html
-│   ├── home.html
-│   ├── games.html
-│   ├── games_result.html
-│   ├── game_detail.html
-│   ├── rules.html
-│   ├── rules_content.html
-│   ├── player_aids_list.html
-│   ├── import.html
-│   └── import_result.html
-├── static/
-│   └── style.css
-├── data/
-│   └── uploads/
+├── main.go              # Server setup, routes, middleware
+├── internal/
+│   ├── handler/         # HTTP handlers (HTMX + JSON API)
+│   ├── store/           # SQLite data access layer
+│   ├── httpx/           # Middleware (auth, CSRF, rate-limit, JWT)
+│   ├── bgg/             # BGG API client
+│   ├── render/          # Template renderer
+│   ├── model/           # Domain structs
+│   ├── viewmodel/       # View-layer data for templates
+│   └── filter/          # Game filtering logic
+├── templates/           # Embedded HTML templates
+├── static/              # Embedded CSS
+├── data/uploads/        # Uploaded player-aid files
 └── Makefile
 ```
 
 ## Routes
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | Home page |
-| GET | `/games` | Collection list with filters |
-| GET | `/games/{id}` | Game detail page |
-| POST | `/games/{id}/delete` | Remove a game from the collection |
-| GET | `/games/{id}/rules` | Rules and player-aids page |
-| POST | `/games/{id}/rules/url` | Save or update the Google Drive rulebook link |
-| POST | `/games/{id}/rules/upload` | Upload a player-aid image |
-| POST | `/games/{id}/rules/aids/{aid_id}/delete` | Delete a player-aid image |
-| GET | `/import` | BGG import page |
-| POST | `/import` | Sync owned games from BGG |
+The app serves two interfaces from the same server:
+
+- **HTMX frontend** — server-rendered HTML at `/`, `/games`, `/vibes`, `/import`, etc.
+- **JSON REST API** — under `/api/v1/` with JWT auth (`Authorization: Bearer`)
+
+See `main.go` for the full route table.
 
 ## Storage
 
@@ -126,6 +114,17 @@ Recommended:
 - SQLite data lives in `games.db` by default.
 - Uploaded player-aid files are stored in `data/uploads/`.
 - Uploaded files are validated as images before being saved.
+
+## Testing
+
+```sh
+make test           # Run all tests
+make test-v         # Verbose output
+make cover          # Coverage report
+make cover-html     # HTML coverage report → /tmp/coverage.html
+```
+
+**66 tests** covering password hashing, sessions, JWT, CSRF, rate limiting, and multi-user ownership.
 
 ## Maintenance
 

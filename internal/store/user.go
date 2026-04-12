@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -30,8 +31,8 @@ func (s *Store) RegisterUser(username, password, bggUsername, email string) (int
 		username, bggUsername, hash, email, isAdmin,
 	)
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			return 0, errors.New("username already taken")
+		if isDuplicateError(err) {
+			return 0, ErrDuplicate
 		}
 		return 0, err
 	}
@@ -45,8 +46,8 @@ func (s *Store) ChangePassword(userID int64, currentPassword, newPassword string
 	if err != nil {
 		return errors.New("user not found")
 	}
-	if !checkPasswordHash(currentPassword, hash) {
-		return errors.New("current password is incorrect")
+	if ok, _ := checkPasswordHash(currentPassword, hash); !ok {
+		return ErrWrongPassword
 	}
 	newHash, err := hashPassword(newPassword)
 	if err != nil {
@@ -72,34 +73,56 @@ func (s *Store) AuthenticateUser(username, password string) (int64, error) {
 		return 0, err
 	}
 
-	if !checkPasswordHash(password, hash) {
+	ok, legacy := checkPasswordHash(password, hash)
+	if !ok {
 		return 0, errors.New("invalid username or password")
+	}
+	if legacy {
+		upgradedHash, hashErr := hashPassword(password)
+		if hashErr == nil {
+			_, _ = s.db.Exec("UPDATE users SET password_hash = ? WHERE id = ?", upgradedHash, id)
+		}
 	}
 	return id, nil
 }
 
-// hashPassword returns a salt+hash string.
-// NOTE: For a real product, use golang.org/x/crypto/argon2.
-// This is a simplified SHA-256 implementation for demonstration.
+const (
+	passwordSaltLen       = 16
+	sha256IterationsV2    = 120000
+	sha256HashVersion     = 2
+	sha256HashBytesLength = 32
+)
+
+// hashPassword returns an encoded salted+iterated SHA-256 hash string.
 func hashPassword(password string) (string, error) {
-	salt := make([]byte, 16)
+	salt := make([]byte, passwordSaltLen)
 	if _, err := rand.Read(salt); err != nil {
 		return "", err
 	}
-	h := sha256.New()
-	h.Write(salt)
-	h.Write([]byte(password))
-	hash := h.Sum(nil)
-	return hex.EncodeToString(salt) + ":" + hex.EncodeToString(hash), nil
+	hash := iterativeSHA256([]byte(password), salt, sha256IterationsV2)
+	return fmt.Sprintf("$sha256$v=%d$i=%d$%s$%s", sha256HashVersion, sha256IterationsV2, hex.EncodeToString(salt), hex.EncodeToString(hash)), nil
 }
 
-func checkPasswordHash(password, hash string) bool {
+func checkPasswordHash(password, hash string) (match bool, legacy bool) {
+	if strings.HasPrefix(hash, "$sha256$") {
+		return verifySHA256V2Hash(password, hash), false
+	}
+	return verifyLegacySHA256Hash(password, hash), true
+}
+
+func verifyLegacySHA256Hash(password, hash string) bool {
 	parts := strings.Split(hash, ":")
 	if len(parts) != 2 {
 		return false
 	}
-	salt, _ := hex.DecodeString(parts[0])
-	originalHash, _ := hex.DecodeString(parts[1])
+	salt, err := hex.DecodeString(parts[0])
+	if err != nil {
+		return false
+	}
+	originalHash, err := hex.DecodeString(parts[1])
+	if err != nil {
+		return false
+	}
 
 	h := sha256.New()
 	h.Write(salt)
@@ -107,6 +130,43 @@ func checkPasswordHash(password, hash string) bool {
 	newHash := h.Sum(nil)
 
 	return subtle.ConstantTimeCompare(originalHash, newHash) == 1
+}
+
+func verifySHA256V2Hash(password, encoded string) bool {
+	parts := strings.Split(encoded, "$")
+	if len(parts) != 6 || parts[1] != "sha256" {
+		return false
+	}
+	var version, iterations int
+	if _, err := fmt.Sscanf(parts[2], "v=%d", &version); err != nil || version != sha256HashVersion {
+		return false
+	}
+	if _, err := fmt.Sscanf(parts[3], "i=%d", &iterations); err != nil || iterations <= 0 {
+		return false
+	}
+	salt, err := hex.DecodeString(parts[4])
+	if err != nil {
+		return false
+	}
+	originalHash, err := hex.DecodeString(parts[5])
+	if err != nil || len(originalHash) != sha256HashBytesLength {
+		return false
+	}
+	newHash := iterativeSHA256([]byte(password), salt, iterations)
+	return subtle.ConstantTimeCompare(originalHash, newHash) == 1
+}
+
+func iterativeSHA256(password, salt []byte, iterations int) []byte {
+	h := sha256.New()
+	h.Write(salt)
+	h.Write(password)
+	sum := h.Sum(nil)
+	for i := 1; i < iterations; i++ {
+		h.Reset()
+		h.Write(sum)
+		sum = h.Sum(nil)
+	}
+	return sum
 }
 
 // GetUsername returns the login username for a user ID.
@@ -130,9 +190,10 @@ func (s *Store) GetBGGUsername(userID int64) (string, error) {
 	return bgg, err
 }
 
-// CreateSession generates a cryptographically random session token, stores it,
-// and returns the token string.
-func (s *Store) CreateSession(userID int64) (string, error) {
+// createToken generates a cryptographically random token, stores it in the
+// sessions table with the given kind, and returns the token string.
+// kind="" for browser sessions, kind="api" for API refresh tokens.
+func (s *Store) createToken(userID int64, kind string) (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
@@ -140,26 +201,38 @@ func (s *Store) CreateSession(userID int64) (string, error) {
 	token := hex.EncodeToString(b)
 	expires := time.Now().Add(30 * 24 * time.Hour).UTC().Format(time.RFC3339)
 	_, err := s.db.Exec(
-		"INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)",
-		token, userID, expires,
+		"INSERT INTO sessions (token, user_id, expires_at, kind) VALUES (?, ?, ?, ?)",
+		token, userID, expires, kind,
 	)
 	return token, err
 }
 
-// ValidateSession checks that the token exists and has not expired.
-// On success it returns the user's ID, login username, and admin flag.
-func (s *Store) ValidateSession(token string) (int64, string, bool, error) {
+// CreateSession generates a cryptographically random session token, stores it,
+// and returns the token string.
+func (s *Store) CreateSession(userID int64) (string, error) {
+	return s.createToken(userID, "")
+}
+
+// validateToken checks that a token exists (optionally filtered by kind) and
+// has not expired. Returns the user's ID, login username, and admin flag.
+func (s *Store) validateToken(token, kind, notFoundMsg string) (int64, string, bool, error) {
 	var userID int64
 	var isAdminInt int
 	var username, expiresAt string
-	err := s.db.QueryRow(`
-		SELECT s.user_id, u.username, s.expires_at, u.is_admin
+
+	query := `SELECT s.user_id, u.username, s.expires_at, u.is_admin
 		FROM sessions s
 		JOIN users u ON u.id = s.user_id
-		WHERE s.token = ?`, token,
-	).Scan(&userID, &username, &expiresAt, &isAdminInt)
+		WHERE s.token = ?`
+	args := []any{token}
+	if kind != "" {
+		query += " AND s.kind = ?"
+		args = append(args, kind)
+	}
+
+	err := s.db.QueryRow(query, args...).Scan(&userID, &username, &expiresAt, &isAdminInt)
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, "", false, errors.New("session not found")
+		return 0, "", false, errors.New(notFoundMsg)
 	}
 	if err != nil {
 		return 0, "", false, err
@@ -169,9 +242,15 @@ func (s *Store) ValidateSession(token string) (int64, string, bool, error) {
 		return 0, "", false, err
 	}
 	if time.Now().After(exp) {
-		return 0, "", false, errors.New("session expired")
+		return 0, "", false, errors.New(notFoundMsg)
 	}
 	return userID, username, isAdminInt == 1, nil
+}
+
+// ValidateSession checks that the token exists and has not expired.
+// On success it returns the user's ID, login username, and admin flag.
+func (s *Store) ValidateSession(token string) (int64, string, bool, error) {
+	return s.validateToken(token, "", "session not found")
 }
 
 // DeleteUserSessions removes all sessions for a user (session rotation on login).
@@ -205,45 +284,13 @@ func (s *Store) GetUserInfo(userID int64) (username string, isAdmin bool, err er
 // CreateAPIRefreshToken generates a random token stored in the sessions table
 // with kind='api', used as a long-lived refresh token for the JSON API.
 func (s *Store) CreateAPIRefreshToken(userID int64) (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	token := hex.EncodeToString(b)
-	expires := time.Now().Add(30 * 24 * time.Hour).UTC().Format(time.RFC3339)
-	_, err := s.db.Exec(
-		"INSERT INTO sessions (token, user_id, expires_at, kind) VALUES (?, ?, ?, 'api')",
-		token, userID, expires,
-	)
-	return token, err
+	return s.createToken(userID, "api")
 }
 
 // ValidateAPIRefreshToken checks that the token exists, has kind='api', and has
 // not expired. Returns the user's ID, login username, and admin flag on success.
 func (s *Store) ValidateAPIRefreshToken(token string) (int64, string, bool, error) {
-	var userID int64
-	var isAdminInt int
-	var username, expiresAt string
-	err := s.db.QueryRow(`
-		SELECT s.user_id, u.username, s.expires_at, u.is_admin
-		FROM sessions s
-		JOIN users u ON u.id = s.user_id
-		WHERE s.token = ? AND s.kind = 'api'`, token,
-	).Scan(&userID, &username, &expiresAt, &isAdminInt)
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, "", false, errors.New("invalid or expired refresh token")
-	}
-	if err != nil {
-		return 0, "", false, err
-	}
-	exp, err := time.Parse(time.RFC3339, expiresAt)
-	if err != nil {
-		return 0, "", false, err
-	}
-	if time.Now().After(exp) {
-		return 0, "", false, errors.New("invalid or expired refresh token")
-	}
-	return userID, username, isAdminInt == 1, nil
+	return s.validateToken(token, "api", "invalid or expired refresh token")
 }
 
 // DeleteAPIRefreshToken removes a single API refresh token (API logout).

@@ -47,6 +47,10 @@ func (h *Handler) HandleAPILogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Each login issues a new refresh token. Unlike browser sessions, API
+	// refresh tokens are not rotated on login — clients are responsible for
+	// revoking old tokens via POST /api/v1/auth/logout. This matches standard
+	// OAuth2 refresh-token semantics for multi-device clients.
 	refreshToken, err := h.Store.CreateAPIRefreshToken(userID)
 	if err != nil {
 		slog.Error("HandleAPILogin: CreateAPIRefreshToken", "error", err)

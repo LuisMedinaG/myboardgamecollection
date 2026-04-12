@@ -1,12 +1,14 @@
 package handler
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
 
 	"myboardgamecollection/internal/httpx"
+	"myboardgamecollection/internal/store"
 	"myboardgamecollection/internal/viewmodel"
 )
 
@@ -26,6 +28,13 @@ func (h *Handler) HandleSignupPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleSignup(w http.ResponseWriter, r *http.Request) {
+	// Apply the same rate limit as login to prevent username enumeration via
+	// repeated signup attempts.
+	if h.LoginLimiter != nil && !h.LoginLimiter.Allow(httpx.ClientIP(r)) {
+		http.Error(w, "too many requests", http.StatusTooManyRequests)
+		return
+	}
+
 	username := strings.TrimSpace(r.FormValue("username"))
 	password := r.FormValue("password")
 	password2 := r.FormValue("password2")
@@ -33,26 +42,27 @@ func (h *Handler) HandleSignup(w http.ResponseWriter, r *http.Request) {
 	email := strings.TrimSpace(r.FormValue("email"))
 
 	if !usernameRE.MatchString(username) {
-		h.recordLoginFailure(r)
 		renderAuthError(w, r, h, "signup", "Create Account", "Invalid username (1–60 characters, letters, numbers, dots, hyphens, underscores).")
 		return
 	}
 	if len(password) < 8 {
-		h.recordLoginFailure(r)
 		renderAuthError(w, r, h, "signup", "Create Account", "Password must be at least 8 characters.")
 		return
 	}
 	if password != password2 {
-		h.recordLoginFailure(r)
 		renderAuthError(w, r, h, "signup", "Create Account", "Passwords do not match.")
 		return
 	}
 
 	userID, err := h.Store.RegisterUser(username, password, bggUsername, email)
 	if err != nil {
-		slog.Error("RegisterUser", "username", username, "error", err)
 		h.recordLoginFailure(r)
-		renderAuthError(w, r, h, "signup", "Create Account", err.Error())
+		if errors.Is(err, store.ErrDuplicate) {
+			renderAuthError(w, r, h, "signup", "Create Account", "Username already taken.")
+			return
+		}
+		slog.Error("RegisterUser", "username", username, "error", err)
+		renderAuthError(w, r, h, "signup", "Create Account", "Could not create account. Please try again.")
 		return
 	}
 

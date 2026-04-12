@@ -32,7 +32,7 @@ func GenerateAccessToken(userID int64, username string, isAdmin bool, secret str
 // Returns an error if the token is invalid, expired, or uses an unexpected algorithm.
 func ParseAccessToken(tokenStr, secret string) (*JWTClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &JWTClaims{}, func(t *jwt.Token) (any, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+		if t.Method != jwt.SigningMethodHS256 {
 			return nil, jwt.ErrSignatureInvalid
 		}
 		return []byte(secret), nil
