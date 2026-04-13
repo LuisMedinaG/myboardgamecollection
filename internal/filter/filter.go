@@ -132,6 +132,137 @@ func ValidWeightOptions(games []model.Game) []viewmodel.WeightOption {
 	return opts
 }
 
+// RatingCondition returns a SQL condition for the given BGG average rating filter.
+// Values: "good" = ≥6.0, "great" = ≥7.0, "excellent" = ≥8.0.
+func RatingCondition(rating, prefix string) string {
+	switch rating {
+	case "good":
+		return prefix + "rating >= 6.0"
+	case "great":
+		return prefix + "rating >= 7.0"
+	case "excellent":
+		return prefix + "rating >= 8.0"
+	default:
+		return ""
+	}
+}
+
+// LanguageCondition returns a SQL condition for the given language dependence filter.
+// BGG scale: 1=No necessary in-game text, 2=Some text, 3=Moderate, 4=Extensive, 5=Unplayable.
+func LanguageCondition(lang, prefix string) string {
+	switch lang {
+	case "free":
+		return prefix + "language_dependence = 1"
+	case "low":
+		return prefix + "language_dependence = 2"
+	case "moderate":
+		return prefix + "language_dependence = 3"
+	case "high":
+		return prefix + "language_dependence >= 4"
+	default:
+		return ""
+	}
+}
+
+// RecommendedPlayersCondition returns a SQL condition that matches games where
+// the given player count appears in the recommended_players column.
+// The stored value is a comma-separated list of plain numbers (e.g. "1,2,3").
+// A sentinel-comma wrapping technique is used to avoid substring false-positives.
+// Only digit characters are accepted; any other input returns "".
+func RecommendedPlayersCondition(count, prefix string) string {
+	if count == "" {
+		return ""
+	}
+	for _, ch := range count {
+		if ch < '0' || ch > '9' {
+			return ""
+		}
+	}
+	// ',1,2,3,' LIKE '%,2,%' — wrapping both sides with commas prevents
+	// matching "2" inside "12" or "22".
+	return "',' || " + prefix + "recommended_players || ',' LIKE '%," + count + ",%'"
+}
+
+// ValidRatingOptions returns rating filter options that match at least one game.
+func ValidRatingOptions(games []model.Game) []viewmodel.RatingOption {
+	type def struct {
+		value string
+		label string
+		match func(model.Game) bool
+	}
+	all := []def{
+		{"good", "Good (6+)", func(g model.Game) bool { return g.Rating >= 6.0 }},
+		{"great", "Great (7+)", func(g model.Game) bool { return g.Rating >= 7.0 }},
+		{"excellent", "Excellent (8+)", func(g model.Game) bool { return g.Rating >= 8.0 }},
+	}
+	var opts []viewmodel.RatingOption
+	for _, o := range all {
+		for _, g := range games {
+			if o.match(g) {
+				opts = append(opts, viewmodel.RatingOption{Value: o.value, Label: o.label})
+				break
+			}
+		}
+	}
+	return opts
+}
+
+// ValidLanguageOptions returns language dependence filter options that match at least one game.
+func ValidLanguageOptions(games []model.Game) []viewmodel.LanguageOption {
+	type def struct {
+		value string
+		label string
+		match func(model.Game) bool
+	}
+	all := []def{
+		{"free", "Language-free", func(g model.Game) bool { return g.LanguageDependence == 1 }},
+		{"low", "Low dependence", func(g model.Game) bool { return g.LanguageDependence == 2 }},
+		{"moderate", "Moderate dependence", func(g model.Game) bool { return g.LanguageDependence == 3 }},
+		{"high", "High dependence", func(g model.Game) bool { return g.LanguageDependence >= 4 }},
+	}
+	var opts []viewmodel.LanguageOption
+	for _, o := range all {
+		for _, g := range games {
+			if o.match(g) {
+				opts = append(opts, viewmodel.LanguageOption{Value: o.value, Label: o.label})
+				break
+			}
+		}
+	}
+	return opts
+}
+
+// ValidRecPlayersOptions returns recommended-player-count options that match at least one game.
+func ValidRecPlayersOptions(games []model.Game) []viewmodel.RecPlayersOption {
+	type def struct {
+		value string
+		label string
+	}
+	all := []def{
+		{"1", "Solo (1P)"},
+		{"2", "2 Players"},
+		{"3", "3 Players"},
+		{"4", "4 Players"},
+		{"5", "5 Players"},
+	}
+	var opts []viewmodel.RecPlayersOption
+	for _, o := range all {
+		for _, g := range games {
+			if containsCount(g.RecommendedPlayers, o.value) {
+				opts = append(opts, viewmodel.RecPlayersOption{Value: o.value, Label: o.label})
+				break
+			}
+		}
+	}
+	return opts
+}
+
+// containsCount checks whether the comma-separated counts string contains the
+// exact token n (e.g. "2" in "1,2,3" → true, "2" in "1,12,3" → false).
+func containsCount(counts, n string) bool {
+	return strings.Contains(","+counts+",", ","+n+",")
+}
+
 // ExtractField collects unique comma-separated values from a game field, sorted.
 func ExtractField(games []model.Game, field func(model.Game) string) []string {
 	seen := make(map[string]bool)

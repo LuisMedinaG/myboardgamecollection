@@ -2,7 +2,10 @@ package bgg
 
 import (
 	"context"
+	"encoding/xml"
 	"fmt"
+	"html"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -17,7 +20,8 @@ import (
 
 // Client wraps the BoardGameGeek API client.
 type Client struct {
-	bgg *gobgg.BGG
+	bgg        *gobgg.BGG
+	httpClient *http.Client // used for our own /xmlapi2/thing calls
 }
 
 // bggRPS is the maximum requests-per-second this process will send to BGG. BGG
@@ -29,8 +33,11 @@ const bggRPS = 2
 // New creates a new BGG client with the given auth token.
 func New(token string) *Client {
 	token = strings.TrimSpace(token)
-	httpClient := newHTTPClient(&authTransport{base: http.DefaultTransport, token: token})
-	return &Client{bgg: gobgg.NewBGGClient(gobgg.SetAuthToken(token), gobgg.SetClient(httpClient))}
+	hc := newHTTPClient(&authTransport{base: http.DefaultTransport, token: token})
+	return &Client{
+		bgg:        gobgg.NewBGGClient(gobgg.SetAuthToken(token), gobgg.SetClient(hc)),
+		httpClient: hc,
+	}
 }
 
 // NewWithCookies creates a new BGG client using a raw cookie string
@@ -41,16 +48,19 @@ func NewWithCookies(raw string) *Client {
 		raw = raw[1 : len(raw)-1]
 	}
 	cookies := parseCookieString(raw)
-	httpClient := newHTTPClient(&authTransport{base: http.DefaultTransport, cookies: cookies})
-	return &Client{bgg: gobgg.NewBGGClient(gobgg.SetCookies("", cookies), gobgg.SetClient(httpClient))}
+	hc := newHTTPClient(&authTransport{base: http.DefaultTransport, cookies: cookies})
+	return &Client{
+		bgg:        gobgg.NewBGGClient(gobgg.SetCookies("", cookies), gobgg.SetClient(hc)),
+		httpClient: hc,
+	}
 }
 
 // newHTTPClient wraps an authTransport in a throttling/429-aware transport and
 // returns an http.Client configured for BGG.
 func newHTTPClient(auth *authTransport) *http.Client {
 	return &http.Client{Transport: &throttledTransport{
-		base:    auth,
-		tick:    time.NewTicker(time.Second / bggRPS),
+		base:     auth,
+		tick:     time.NewTicker(time.Second / bggRPS),
 		maxRetry: 3,
 	}}
 }
@@ -152,6 +162,244 @@ func parseCookieString(raw string) []*http.Cookie {
 	return req.Cookies()
 }
 
+// ---------------------------------------------------------------------------
+// BGG /xmlapi2/thing — custom XML parsing
+//
+// gobgg's ThingResult does not expose raw poll data (language_dependence,
+// suggested_numplayers), so we fetch /thing ourselves using our own XML
+// structs. This lets us extract all fields — including polls — in a single
+// request without doubling API calls.
+// ---------------------------------------------------------------------------
+
+const bggThingURL = "https://boardgamegeek.com/xmlapi2/thing"
+
+// bggThingXMLItems is the top-level envelope of /xmlapi2/thing responses.
+type bggThingXMLItems struct {
+	XMLName xml.Name         `xml:"items"`
+	Items   []bggThingXMLItem `xml:"item"`
+}
+
+type bggThingXMLItem struct {
+	ID            int64            `xml:"id,attr"`
+	Thumbnail     string           `xml:"thumbnail"`
+	Image         string           `xml:"image"`
+	Name          []bggNameXML     `xml:"name"`
+	Description   string           `xml:"description"`
+	YearPublished bggSimpleAttr    `xml:"yearpublished"`
+	MinPlayers    bggSimpleAttr    `xml:"minplayers"`
+	MaxPlayers    bggSimpleAttr    `xml:"maxplayers"`
+	PlayingTime   bggSimpleAttr    `xml:"playingtime"`
+	Link          []bggLinkXML     `xml:"link"`
+	Poll          []bggPollXML     `xml:"poll"`
+	Statistics    bggStatisticsXML `xml:"statistics"`
+}
+
+type bggNameXML struct {
+	Type  string `xml:"type,attr"`
+	Value string `xml:"value,attr"`
+}
+
+type bggSimpleAttr struct {
+	Value string `xml:"value,attr"`
+}
+
+type bggLinkXML struct {
+	Type  string `xml:"type,attr"`
+	Value string `xml:"value,attr"`
+}
+
+type bggPollXML struct {
+	Name    string           `xml:"name,attr"`
+	Results []bggPollResults `xml:"results"`
+}
+
+type bggPollResults struct {
+	NumPlayers string          `xml:"numplayers,attr"`
+	Result     []bggPollResult `xml:"result"`
+}
+
+type bggPollResult struct {
+	Value    string `xml:"value,attr"`
+	NumVotes int    `xml:"numvotes,attr"`
+	Level    string `xml:"level,attr"`
+}
+
+type bggStatisticsXML struct {
+	Ratings bggRatingsXML `xml:"ratings"`
+}
+
+type bggRatingsXML struct {
+	Average       bggSimpleAttr `xml:"average"`
+	AverageWeight bggSimpleAttr `xml:"averageweight"`
+}
+
+// fetchThingsParsed fetches /xmlapi2/thing for the given IDs using our own
+// authenticated, throttled httpClient and parses all fields we need —
+// including polls that gobgg's ThingResult does not expose. Retries up to
+// maxAttempts times on empty (queued) BGG responses.
+func (c *Client) fetchThingsParsed(ctx context.Context, ids ...int64) ([]model.Game, error) {
+	const maxAttempts = 4
+	delay := 500 * time.Millisecond
+
+	idStrs := make([]string, len(ids))
+	for i, id := range ids {
+		idStrs[i] = strconv.FormatInt(id, 10)
+	}
+	u := bggThingURL + "?id=" + strings.Join(idStrs, ",") + "&stats=1"
+
+	for attempt := 1; ; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+		if err != nil {
+			return nil, fmt.Errorf("build /thing request: %w", err)
+		}
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("fetching /thing bgg_ids=%v: %w", ids, err)
+		}
+
+		body, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			return nil, fmt.Errorf("reading /thing body: %w", readErr)
+		}
+
+		var result bggThingXMLItems
+		if xmlErr := xml.Unmarshal(body, &result); xmlErr != nil || len(result.Items) == 0 {
+			if attempt >= maxAttempts {
+				if xmlErr != nil {
+					return nil, fmt.Errorf("XML decode /thing bgg_ids=%v after %d attempts: %w", ids, attempt, xmlErr)
+				}
+				return nil, fmt.Errorf("empty /thing response for bgg_ids=%v after %d attempts", ids, attempt)
+			}
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+			delay *= 2
+			continue
+		}
+
+		games := make([]model.Game, len(result.Items))
+		for i, item := range result.Items {
+			games[i] = bggItemToGame(item)
+		}
+		return games, nil
+	}
+}
+
+// bggItemToGame converts a parsed BGG XML item into our Game model.
+func bggItemToGame(item bggThingXMLItem) model.Game {
+	var name string
+	for _, n := range item.Name {
+		if n.Type == "primary" {
+			name = n.Value
+			break
+		}
+	}
+
+	var cats, mechs, types []string
+	for _, l := range item.Link {
+		switch l.Type {
+		case "boardgamecategory":
+			cats = append(cats, l.Value)
+		case "boardgamemechanic":
+			mechs = append(mechs, l.Value)
+		case "boardgamesubdomain":
+			types = append(types, l.Value)
+		}
+	}
+
+	rating, _ := strconv.ParseFloat(item.Statistics.Ratings.Average.Value, 64)
+	weight, _ := strconv.ParseFloat(item.Statistics.Ratings.AverageWeight.Value, 64)
+	yearPublished, _ := strconv.Atoi(item.YearPublished.Value)
+	minPlayers, _ := strconv.Atoi(item.MinPlayers.Value)
+	maxPlayers, _ := strconv.Atoi(item.MaxPlayers.Value)
+	playTime, _ := strconv.Atoi(item.PlayingTime.Value)
+
+	return model.Game{
+		BGGID:              item.ID,
+		Name:               html.UnescapeString(name),
+		Description:        html.UnescapeString(item.Description),
+		YearPublished:      yearPublished,
+		Image:              item.Image,
+		Thumbnail:          item.Thumbnail,
+		MinPlayers:         minPlayers,
+		MaxPlayers:         maxPlayers,
+		PlayTime:           playTime,
+		Categories:         strings.Join(cats, ", "),
+		Mechanics:          strings.Join(mechs, ", "),
+		Types:              strings.Join(types, ", "),
+		Weight:             weight,
+		Rating:             rating,
+		LanguageDependence: parseLanguageDependence(item.Poll),
+		RecommendedPlayers: parseRecommendedPlayers(item.Poll),
+	}
+}
+
+// parseLanguageDependence reads the "language_dependence" poll and returns the
+// winning level (1–5), or 0 when the poll is absent or has no votes.
+// BGG levels: 1=No necessary in-game text, 2=Some text, 3=Moderate,
+// 4=Extensive, 5=Unplayable in another language.
+func parseLanguageDependence(polls []bggPollXML) int {
+	for _, p := range polls {
+		if p.Name != "language_dependence" || len(p.Results) == 0 {
+			continue
+		}
+		bestLevel, bestVotes := 0, -1
+		for _, r := range p.Results[0].Result {
+			level, err := strconv.Atoi(r.Level)
+			if err != nil {
+				continue
+			}
+			if r.NumVotes > bestVotes {
+				bestVotes = r.NumVotes
+				bestLevel = level
+			}
+		}
+		if bestVotes <= 0 {
+			return 0
+		}
+		return bestLevel
+	}
+	return 0
+}
+
+// parseRecommendedPlayers reads the "suggested_numplayers" poll and returns a
+// comma-separated string (no spaces) of player counts where the community
+// recommends playing (Best + Recommended votes > Not Recommended votes).
+// Trailing "+" suffixes (e.g. "5+") are stripped so counts are plain numbers.
+// Returns "" when the poll is absent or no count qualifies.
+func parseRecommendedPlayers(polls []bggPollXML) string {
+	for _, p := range polls {
+		if p.Name != "suggested_numplayers" {
+			continue
+		}
+		var rec []string
+		for _, results := range p.Results {
+			var best, recommended, notRec int
+			for _, r := range results.Result {
+				switch r.Value {
+				case "Best":
+					best = r.NumVotes
+				case "Recommended":
+					recommended = r.NumVotes
+				case "Not Recommended":
+					notRec = r.NumVotes
+				}
+			}
+			if best+recommended > notRec {
+				// Normalize "5+" → "5" so numeric filters work cleanly.
+				count := strings.TrimRight(results.NumPlayers, "+")
+				rec = append(rec, count)
+			}
+		}
+		return strings.Join(rec, ",")
+	}
+	return ""
+}
+
 // ImportCollection syncs a user's BGG collection. When fullRefresh is false
 // (the normal sync path) only games not already in the user's collection are
 // fetched from BGG. When fullRefresh is true every owned item is re-fetched
@@ -181,12 +429,12 @@ func (c *Client) ImportCollection(ctx context.Context, s *store.Store, username 
 		return 0, 0, collectionCount, nil
 	}
 
-	// Batch requests in groups of bggThingBatchSize — gobgg/BGG allows up to
-	// 20 IDs per /thing call, so we cut request count by up to 20x.
+	// Batch requests in groups of bggThingBatchSize to keep URL length
+	// reasonable and match BGG's documented limit.
 	var firstThingErr error
 	thingFailures := 0
 	for _, batch := range chunkIDs(idsToFetch, bggThingBatchSize) {
-		things, fetchErr := c.getThingsWithRetry(ctx, batch...)
+		games, fetchErr := c.fetchThingsParsed(ctx, batch...)
 		if fetchErr != nil {
 			if firstThingErr == nil {
 				firstThingErr = fetchErr
@@ -195,9 +443,8 @@ func (c *Client) ImportCollection(ctx context.Context, s *store.Store, username 
 			slog.Warn("bgg thing fetch failed", "batch_size", len(batch), "error", fetchErr)
 			continue
 		}
-		for _, t := range things {
-			game := thingToGame(t)
-			if owned[t.ID] {
+		for _, game := range games {
+			if owned[game.BGGID] {
 				if updateErr := s.UpdateGame(game, userID); updateErr == nil {
 					updated++
 				}
@@ -216,8 +463,7 @@ func (c *Client) ImportCollection(ctx context.Context, s *store.Store, username 
 	return added, updated, collectionCount, nil
 }
 
-// bggThingBatchSize is the max number of IDs to request per /thing call.
-// gobgg enforces a hard limit of 20.
+// bggThingBatchSize is the max number of IDs per /thing request.
 const bggThingBatchSize = 20
 
 // chunkIDs splits ids into contiguous chunks of at most size.
@@ -234,70 +480,4 @@ func chunkIDs(ids []int64, size int) [][]int64 {
 		out = append(out, ids[i:end])
 	}
 	return out
-}
-
-// getThingsWithRetry calls the BGG thing API for one or more IDs. Rate-limiting
-// and 429 backoff are handled by the throttledTransport, so this function only
-// needs to retry when BGG returns an empty (queued) response.
-func (c *Client) getThingsWithRetry(ctx context.Context, ids ...int64) ([]gobgg.ThingResult, error) {
-	const maxAttempts = 4
-	delay := 500 * time.Millisecond
-
-	for attempt := 1; ; attempt++ {
-		things, err := c.bgg.GetThings(ctx, gobgg.GetThingIDs(ids...))
-		if err == nil && len(things) > 0 {
-			return things, nil
-		}
-		if err != nil && !strings.Contains(strings.ToLower(err.Error()), "eof") {
-			return nil, fmt.Errorf("fetching /thing for bgg_ids=%v: %w", ids, err)
-		}
-
-		if attempt >= maxAttempts {
-			if err != nil {
-				return nil, fmt.Errorf("fetching /thing for bgg_ids=%v after %d attempts: %w", ids, attempt, err)
-			}
-			return nil, fmt.Errorf("empty /thing response for bgg_ids=%v after %d attempts", ids, attempt)
-		}
-
-		select {
-		case <-time.After(delay):
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
-		delay *= 2
-	}
-}
-
-// thingToGame converts a BGG API thing into a Game model.
-func thingToGame(t gobgg.ThingResult) model.Game {
-	playTime, _ := strconv.Atoi(t.PlayTime)
-
-	var cats []string
-	for _, l := range t.Categories() {
-		cats = append(cats, l.Name)
-	}
-	var mechs []string
-	for _, l := range t.Mechanics() {
-		mechs = append(mechs, l.Name)
-	}
-	var types []string
-	for _, l := range t.GetLinkByName("boardgamesubdomain") {
-		types = append(types, l.Name)
-	}
-
-	return model.Game{
-		BGGID:         t.ID,
-		Name:          t.Name,
-		Description:   t.Description,
-		YearPublished: t.YearPublished,
-		Image:         t.Image,
-		Thumbnail:     t.Thumbnail,
-		MinPlayers:    t.MinPlayers,
-		MaxPlayers:    t.MaxPlayers,
-		PlayTime:      playTime,
-		Categories:    strings.Join(cats, ", "),
-		Mechanics:     strings.Join(mechs, ", "),
-		Types:         strings.Join(types, ", "),
-		Weight:        t.AverageWeight,
-	}
 }
