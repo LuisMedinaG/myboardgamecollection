@@ -1,176 +1,76 @@
-# My Board Game Collection — CLAUDE.md
+# My Board Game Collection
 
-Personal app to manage a board game collection — track owned games, store rulebook links,
-upload player aids, and import games from BoardGameGeek (BGG).
+Personal app — track board games, store rulebook links, upload player aids, import from BoardGameGeek (BGG).
+
+## Rules
+
+- **Never `git push`** without the user explicitly saying "push" or "make a PR".
+- **Never read `pico.min.css`** — use `pico-reference.html` (project root) for all Pico patterns.
+- **Commit workflow** — always ask before committing so the user can review the diff first.
+- **Pico CSS is classless** — use semantic HTML (`<article>`, `<dialog>`, `<nav>`, `<hgroup>`, etc.). Don't invent classes for things Pico handles. Read `pico-reference.html` before any UI work.
+- **CSS overrides** go in the matching module under `static/styles/`. New tokens go in `variables.css`.
+- **DB migrations** — `ALTER TABLE … ADD COLUMN … DEFAULT …` in `store.createTables()`. Idempotent. Also update `migrateGamesTableForPerUserUniqueness` DDL + SELECT list.
+- **Multi-tenancy** — every SQL query must include `AND user_id = ?`. Bulk ops use the `ownedIDs()` pattern.
+- **Error handling** — use sentinel errors (`store.ErrDuplicate`, `store.ErrWrongPassword`). Never expose raw DB errors.
+- **BGG client** — `fetchThingsParsed` (custom XML) for game details, gobgg for `GetCollection`. Don't switch these.
 
 ## Stack
 
-- **Language:** Go 1.25 (standard library HTTP server)
-- **Frontend:** Go HTML templates + HTMX — no JS framework
-- **CSS:** Pico CSS (classless framework) + custom overrides
-- **Database:** SQLite (`modernc.org/sqlite`, pure Go)
-- **Auth:** Session-based (username/password, SHA-256 + salt)
-- **Deployment:** Docker + Fly.io (persistent volume at `/data`)
+Go 1.25 · stdlib HTTP server · HTMX (no JS framework) · Pico CSS · SQLite (`modernc.org/sqlite`) · Docker + Fly.io
 
 ## Commands
 
 ```sh
-# Development
-make dev        # go run .
-make run        # build + run
-make build      # outputs ./boardgames binary
-make clean      # remove binary and database
-
-# Testing
-make test       # run all tests
-make test-v     # run tests with verbose output
-make cover      # run tests with coverage report
-make cover-html # generate HTML coverage report
-
-# Utilities
-make bgg-login  # grab BGG auth headers
+make dev          # go run .
+make run          # build + run
+make build        # outputs ./boardgames binary
+make test         # run all tests
+make test-v       # verbose tests
+make cover        # coverage report
+make cover-html   # HTML coverage report
+make bgg-login    # grab BGG auth headers
 ```
 
 ## Project Structure
 
 ```
-main.go              # Server setup, routes, middleware wiring
+main.go                # Server setup, routes, middleware
 internal/
-  handler/           # HTTP handlers — HTMX (auth, games, import, vibes, rules, discover)
-                     #                  API  (api_auth, api_games, api_vibes, api_rules,
-                     #                        api_discover, api_import, api_profile)
-  store/             # SQLite data access layer
-  httpx/             # Middleware (auth, CSRF, rate-limit, security headers, JWT)
-  bgg/               # BGG API client wrapper
-  render/            # Template renderer (pre-parses all templates on startup)
-  model/             # Domain structs
-  viewmodel/         # View-layer data passed to templates
-  filter/            # Game filtering logic
-templates/           # Embedded HTML templates
+  handler/             # HTTP handlers (HTMX: game.go, vibe.go, … | API: api_games.go, …)
+  store/               # SQLite DAL — all queries, migrations, FTS5
+  httpx/               # Middleware (auth, CSRF, rate-limit, security headers, JWT)
+  bgg/                 # BGG API client (auth + throttle transports)
+  render/              # Template renderer (embedded, layout cloning, partials)
+  model/               # Domain structs
+  viewmodel/           # Template data structs
+  filter/              # Game filtering (players, playtime, weight, rating, language, rec_players)
+templates/             # Embedded HTML templates
 static/
-  style.css          # @import barrel — loads all CSS modules in order
-  styles/
-    pico.min.css     # Pico CSS framework — DO NOT read this file
-    variables.css    # :root tokens — palette, radii, shadows
-    layout.css       # top nav, burger, profile dropdown, breakpoints
-    components.css   # shared components (cards, badges, etc.)
-    login.css        # login / signup pages
-    forms.css        # form inputs, filter controls
-    game-list.css    # list rows, grid views, multi-select, view toolbar
-    game-detail.css  # game profile — hero, stats panel, sections
-    import.css       # import flow, CSV preview, BGG username panel
-    rules.css        # rules page, player aids grid, lightbox
-    vibes.css        # vibe grid, discover filters, action cards
+  style.css            # @import barrel for all CSS modules
+  styles/              # pico.min.css, variables.css, layout.css, components.css, …
 ```
 
-## CSS — Pico CSS
+## Key Patterns
 
-We use **Pico CSS** (classless framework). Pico auto-styles semantic HTML elements — avoid
-inventing custom classes for basic layout/typography.
+**Dual interface** — every feature has an HTMX handler (returns HTML/partials) and a REST API handler (`/api/v1/…`, returns JSON). They share the same Store calls.
 
-**`pico-reference.html`** (project root) — canonical HTML patterns for all Pico components.
-**Read this file before building or modifying any UI component.**
+**HTMX detection** — `HX-Request: true` header → return partial; otherwise → full page with layout.
 
-Rules:
-- **Never read `pico.min.css`** — minified, too many tokens, no structural value.
-- Rely on semantic HTML: `<main>`, `<article>`, `<nav>`, `<dialog>`, `<details>`, etc.
-- Use `class="container"` / `class="container-fluid"` for page wrappers.
-- Use `class="grid"` on a parent for equal-width responsive columns.
-- Use `<article>` for cards (with optional `<header>`/`<footer>`).
-- Buttons: default = primary; variants via `class="secondary|contrast"` and/or `class="outline"`.
-- Use `aria-busy="true"` for loading states on any element.
-- Custom overrides go in the appropriate module file under `static/styles/`.
-- New CSS variables go in `variables.css` under the relevant group comment.
+**Auth** — two systems: session cookies (HTMX frontend, 30-day, DB-backed) and JWT (REST API, 15-min access + 30-day refresh). `kind` column in sessions table keeps them isolated.
 
-## Game Model — Key Fields
+**CSRF** — stateless HMAC of session token. Never stored. Forms use `_csrf` hidden field; HTMX sends `X-CSRF-Token`.
 
-| Field | Type | DB column | Source |
-|---|---|---|---|
-| `Weight` | `float64` | `weight` | BGG `averageweight` stat |
-| `Rating` | `float64` | `rating` | BGG `average` rating stat |
-| `LanguageDependence` | `int` | `language_dependence` | BGG `language_dependence` poll — winning level (0=unknown, 1–5) |
-| `RecommendedPlayers` | `string` | `recommended_players` | BGG `suggested_numplayers` poll — comma-separated counts where Best+Rec > Not Rec (e.g. `"2,3,4"`) |
+**Middleware** — `httpx.Chain(handler, A, B, C)` executes A → B → C → handler (reversed internally).
 
-### BGG Import
+**Templates** — embedded via `go:embed`, layout cloned per page, buffered rendering (no partial output on error). Partials registered both standalone and inside full pages for HTMX.
 
-`internal/bgg/bgg.go` uses a **custom XML fetch** (`fetchThingsParsed`) instead of gobgg's
-`GetThings` — required because gobgg's `ThingResult` doesn't expose raw poll data. Both use
-the same authenticated, throttled `http.Client`. gobgg is still used for `GetCollection`.
+## Branching
 
-- **Full Refresh** required to backfill `weight`, `rating`, `language_dependence`,
-  `recommended_players` on existing games. Normal sync only fetches newly added games.
-- Full Refresh is admin-only — UI checkbox on Import page, or `POST /api/v1/import`
-  with `{"full_refresh": true}`.
+`feature/*` → `dev` (direct push OK) → PR → `staging` → PR → `main`
 
-### Filters
+Enforced by GitHub rulesets. Never use admin bypass for normal flow.
 
-All filters flow through `internal/filter/filter.go`, `store.FilterGames`,
-`store.FilterGamesByVibe`, and all HTMX + REST API handlers.
+## Deep Reference
 
-| URL param | Filter function | Values |
-|---|---|---|
-| `players` | `PlayerCondition` | `1`, `2`, `2only`, `3`, `4`, `5plus` |
-| `playtime` | `PlaytimeCondition` | `short`, `medium`, `long` |
-| `weight` | `WeightCondition` | `light`, `medium`, `heavy` |
-| `rating` | `RatingCondition` | `good` (≥6), `great` (≥7), `excellent` (≥8) |
-| `lang` | `LanguageCondition` | `free` (level 1), `low` (2), `moderate` (3), `high` (≥4) |
-| `rec_players` | `RecommendedPlayersCondition` | `1`–`5` — sentinel-comma LIKE match |
-
-`RecommendedPlayersCondition` embeds validated digit-only values directly in SQL. Input
-validation rejects anything non-numeric.
-
-### DB Migration Pattern
-
-New columns: `ALTER TABLE games ADD COLUMN … DEFAULT …` in `store.createTables()`.
-Idempotent — SQLite silently ignores `ADD COLUMN` if it already exists.
-Also update `migrateGamesTableForPerUserUniqueness`: both the `CREATE TABLE games_new` DDL
-and the `INSERT INTO … SELECT` list.
-
-## Test Suite
-
-**88 tests** across `internal/store` and `internal/httpx`.
-
-| Phase | Status | Scope |
-|---|---|---|
-| Phase 1 | ✅ done | Password hashing, sessions, JWT, CSRF, rate limiting, multi-user ownership |
-| Phase 2 | 🔄 in progress | HTTP handlers (httptest + Playwright e2e) |
-| Phase 3 | ⏳ | Store layer (CRUD, filtering, taxonomy) |
-| Phase 4 | ⏳ | External integrations (BGG, file uploads) |
-
-## JWT REST API
-
-Parallel JSON REST API under `/api/v1/` alongside the HTMX app.
-
-- **Auth:** `github.com/golang-jwt/jwt/v5` — access tokens (15 min) + refresh tokens (30 day, stored in sessions table)
-- **Middleware:** `RequireJWT(secret)` in `internal/httpx/` — reads `Authorization: Bearer`, returns 401 JSON on failure
-- **Handlers:** `internal/handler/api_*.go` — auth, games, vibes, import, profile, rules, discovery
-- **Helpers:** `api_helpers.go` — `requireAPIUserID`, `requireAPIID`, `writeAPIJSON`, model→snake_case converters
-- **Responses:** `{ "data": ... }` for success, `{ "error": "..." }` for failures; paginated lists include `total`, `page`, `per_page`
-- **Errors:** Sentinel errors (`store.ErrDuplicate`, `store.ErrWrongPassword`) — never expose raw DB errors
-
-See `agent_docs/` for full route list, env vars, and key patterns.
-
-## Branching Strategy
-
-```
-main       ← production, stable
-staging    ← pre-production / QA gate
-dev        ← integration branch — all feature branches target this
-```
-
-**Promotion flow:** `feature/*` → PR → `dev` → PR → `staging` → PR → `main`
-
-| Branch | Direct push | PR required | Source enforced |
-|--------|------------|-------------|-----------------|
-| `dev` | allowed | no | — |
-| `staging` | blocked | yes | must be `dev` |
-| `main` | blocked | yes | must be `staging` |
-
-Enforced by GitHub rulesets + `.github/workflows/enforce-merge-direction.yml`.
-Admin bypass is always on for emergencies — never use it for normal flow.
-
-## Agent Rules
-
-- **Never `git push`** without the user explicitly asking to push. Commit and stop —
-  report the commit is ready. Only push when the user separately says "push" or "make a PR".
-- **Never read `pico.min.css`** — use `pico-reference.html` instead.
+`agent_docs/ARCHITECTURE-GUIDE.md` — macro architecture, request pipeline, design decisions.
+`agent_docs/ARCHITECTURE-REF.md` — env vars, route table.
