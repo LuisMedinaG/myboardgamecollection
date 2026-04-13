@@ -30,6 +30,41 @@ make cover-html # generate HTML coverage report
 make bgg-login  # grab BGG auth headers
 ```
 
+## Game Model — Key Fields
+
+| Field | Type | DB column | Source |
+|---|---|---|---|
+| `Weight` | `float64` | `weight` | BGG `averageweight` stat |
+| `Rating` | `float64` | `rating` | BGG `average` rating stat |
+| `LanguageDependence` | `int` | `language_dependence` | BGG `language_dependence` poll — winning level (0=unknown, 1–5) |
+| `RecommendedPlayers` | `string` | `recommended_players` | BGG `suggested_numplayers` poll — comma-separated counts where Best+Rec > Not Rec (e.g. `"2,3,4"`) |
+
+### BGG Import
+
+`internal/bgg/bgg.go` uses a **custom XML fetch** (`fetchThingsParsed`) instead of gobgg's `GetThings`. This is required because gobgg's `ThingResult` doesn't expose raw poll data. Both use the same authenticated, throttled `http.Client` so rate limiting is shared. gobgg is still used for `GetCollection`.
+
+- **Full Refresh required** to backfill `weight`, `rating`, `language_dependence`, `recommended_players` on existing games. Normal sync only fetches newly added games.
+- Full Refresh is admin-only — UI checkbox on the Import page, or `POST /api/v1/import` with `{"full_refresh": true}`.
+
+### Filters
+
+All filters are wired through `internal/filter/filter.go`, `store.FilterGames`, `store.FilterGamesByVibe`, and all HTMX + REST API handlers.
+
+| URL param | Filter function | Values |
+|---|---|---|
+| `players` | `PlayerCondition` | `1`, `2`, `2only`, `3`, `4`, `5plus` |
+| `playtime` | `PlaytimeCondition` | `short`, `medium`, `long` |
+| `weight` | `WeightCondition` | `light`, `medium`, `heavy` |
+| `rating` | `RatingCondition` | `good` (≥6), `great` (≥7), `excellent` (≥8) |
+| `lang` | `LanguageCondition` | `free` (level 1), `low` (2), `moderate` (3), `high` (≥4) |
+| `rec_players` | `RecommendedPlayersCondition` | `1`–`5` — sentinel-comma LIKE match |
+
+`RecommendedPlayersCondition` embeds validated digit-only values directly in SQL (same pattern as other filter conditions that embed literals). Input validation rejects anything non-numeric.
+
+### DB Migration Pattern
+
+New columns are added via `ALTER TABLE games ADD COLUMN … DEFAULT …` in `store.createTables()`. These are idempotent (SQLite silently ignores `ADD COLUMN` if it already exists). The legacy table-recreation function `migrateGamesTableForPerUserUniqueness` must also be updated whenever a new column is added (both the `CREATE TABLE games_new` DDL and the `INSERT INTO … SELECT` list).
+
 ## Test Suite
 
 **66 tests** across `internal/store` and `internal/httpx`.
