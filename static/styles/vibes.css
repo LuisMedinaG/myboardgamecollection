@@ -204,6 +204,16 @@
   justify-content: center;
 }
 
+/* Vibe color palette — applied via model.ColorClass */
+.vibe-color-0 { background: #e8f0e7; color: #2d5a27; border-color: #c8dcc6; }
+.vibe-color-1 { background: #e0eeff; color: #1a4fb5; border-color: #b8d4f8; }
+.vibe-color-2 { background: #f3e8ff; color: #6b21a8; border-color: #dbbef8; }
+.vibe-color-3 { background: #fff0e0; color: #b45309; border-color: #f8dab8; }
+.vibe-color-4 { background: #ffe8e8; color: #b91c1c; border-color: #f8b8b8; }
+.vibe-color-5 { background: #e0faf4; color: #0f766e; border-color: #b8f0e4; }
+.vibe-color-6 { background: #fef9c3; color: #854d0e; border-color: #f8ebb8; }
+.vibe-color-7 { background: #fce7f3; color: #be185d; border-color: #f8b8da; }
+
 .vibe-save-bar {
   margin-top: var(--space-md);
   text-align: center;

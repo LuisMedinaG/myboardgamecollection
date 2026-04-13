@@ -4,7 +4,6 @@
 :is(
   .quickref,
   .rules-section,
-  .import-card,
   .bgg-username-panel,
   .game-lang-card,
   .game-stats-panel,
@@ -85,6 +84,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: auto; /* override Pico's button[type=submit] { width: 100% } */
   padding: 0.7rem 1.25rem;
   border: none;
   border-radius: var(--radius-sm);
@@ -94,6 +94,7 @@
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
   transition: background var(--transition), transform 0.1s;
+  box-shadow: none; /* neutralize Pico button box-shadow */
 }
 .btn:active { transform: scale(0.97); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(0.3); pointer-events: none; }
@@ -153,6 +154,11 @@
 .spinner-inline { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; flex-shrink: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Override HTMX's opacity-based indicator hiding — use display:none so hidden indicators take no space */
+.htmx-indicator { display: none; }
+.htmx-request .htmx-indicator { display: flex; }
+.htmx-request.htmx-indicator { display: flex; }
+
 .settings-link { display: block; text-align: center; margin-top: var(--space-lg); font-size: var(--text-sm); color: var(--text-secondary); text-decoration: none; }
 .settings-link:hover { color: var(--accent); text-decoration: underline; }
 
@@ -172,33 +178,3 @@
 .mechanics-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 
 .chevron { font-size: 1.2rem; color: var(--text-secondary); }
-
-/* Vibe helpers */
-.vibe-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-.vibe-btn { display: flex; align-items: center; justify-content: center; min-height: 120px; background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius); padding: var(--space-md); font-size: 1.05rem; font-weight: 700; color: var(--text); text-decoration: none; text-align: center; box-shadow: var(--shadow); transition: transform 0.1s, border-color var(--transition), background var(--transition); }
-.vibe-btn:active { transform: scale(0.96); }
-.vibe-btn:hover { border-color: currentColor; filter: brightness(0.92); }
-
-.vibe-checklist { display: flex; flex-direction: column; gap: var(--space-sm); margin-bottom: var(--space-lg); }
-.vibe-check-item { display: flex; align-items: center; gap: 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem var(--space-md); cursor: pointer; transition: background var(--transition); }
-.vibe-check-item:hover { background: var(--accent-light); }
-.vibe-check-item input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); }
-.vibe-check-label { font-weight: 600; font-size: var(--text-base); }
-
-.vibe-add-form { display: flex; gap: var(--space-sm); margin-bottom: var(--space-lg); }
-.vibe-manage-list { display: flex; flex-direction: column; gap: var(--space-sm); }
-.vibe-manage-item { display: flex; align-items: center; gap: var(--space-sm); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-sm) 0.75rem; }
-.vibe-delete-btn { font-size: 1.4rem; width: 2rem; height: 2rem; display: flex; align-items: center; justify-content: center; }
-.vibe-save-bar { margin-top: var(--space-md); text-align: center; }
-
-/* Tag palette colors */
-.vibe-color-0 { background: #e8f0e7; color: #2d5a27; }
-.vibe-color-1 { background: #e0eeff; color: #1a4fb5; }
-.vibe-color-2 { background: #f3e8ff; color: #6b21a8; }
-.vibe-color-3 { background: #fff0e0; color: #b45309; }
-.vibe-color-4 { background: #ffe8e8; color: #b91c1c; }
-.vibe-color-5 { background: #e0faf4; color: #0f766e; }
-.vibe-color-6 { background: #fef9c3; color: #854d0e; }
-.vibe-color-7 { background: #fce7f3; color: #be185d; }
-
-/* End merged block */

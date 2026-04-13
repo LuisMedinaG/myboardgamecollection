@@ -4,50 +4,46 @@
 .game-hero {
   position: relative;
   width: 100vw;
-  left: 50%;
-  right: 50%;
   margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
   height: var(--profile-hero-height);
   overflow: hidden;
   background: var(--border);
-
-  &-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-
-  &-gradient {
-    position: absolute;
-    inset: 0;
-    background: var(--profile-gradient);
-    pointer-events: none;
-  }
-
-  &-back {
-    position: absolute;
-    top: var(--space-md);
-    left: var(--space-md);
-    width: 36px;
-    height: 36px;
-    background: var(--profile-back-bg);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    text-decoration: none;
-    font-size: var(--text-lg);
-    line-height: 1;
-    transition: background var(--transition);
-
-    &:hover { background: var(--profile-back-bg-hover); }
-  }
 }
+
+.game-hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.game-hero-gradient {
+  position: absolute;
+  inset: 0;
+  background: var(--profile-gradient);
+  pointer-events: none;
+}
+
+.game-hero-back {
+  position: absolute;
+  top: var(--space-md);
+  left: var(--space-md);
+  width: 36px;
+  height: 36px;
+  background: var(--profile-back-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  text-decoration: none;
+  font-size: var(--text-lg);
+  line-height: 1;
+  transition: background var(--transition);
+}
+.game-hero-back:hover { background: var(--profile-back-bg-hover); }
 
 /* 2. Title */
 .game-profile-title {

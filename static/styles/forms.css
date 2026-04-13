@@ -98,6 +98,7 @@
   width: 42px;
   height: 24px;
   flex-shrink: 0;
+  margin: 0; /* override Pico's label margin-bottom */
 
   input {
     opacity: 0;

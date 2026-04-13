@@ -73,6 +73,7 @@
   --pico-border-color: var(--border);
   --pico-border-radius: var(--radius-sm);
   --pico-form-element-border-color: var(--border);
+  --pico-form-element-active-border-color: var(--accent);
   --pico-form-element-background-color: var(--surface);
   --pico-form-element-color: var(--text);
   --pico-card-background-color: var(--surface);
