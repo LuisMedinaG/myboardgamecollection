@@ -137,7 +137,7 @@ func (c *Client) ImportByBGGIDs(ctx context.Context, s *store.Store, ids []int64
 
 	var firstThingErr error
 	for _, batch := range chunkIDs(idsToFetch, bggThingBatchSize) {
-		things, fetchErr := c.getThingsWithRetry(ctx, batch...)
+		games, fetchErr := c.fetchThingsParsed(ctx, batch...)
 		if fetchErr != nil {
 			if firstThingErr == nil {
 				firstThingErr = fetchErr
@@ -148,12 +148,11 @@ func (c *Client) ImportByBGGIDs(ctx context.Context, s *store.Store, ids []int64
 		}
 		// Track which IDs in the batch we actually got back so the rest can
 		// be counted as failures (BGG sometimes silently drops unknown IDs).
-		got := make(map[int64]bool, len(things))
-		for _, t := range things {
-			got[t.ID] = true
-			game := thingToGame(t)
+		got := make(map[int64]bool, len(games))
+		for _, game := range games {
+			got[game.BGGID] = true
 			if _, createErr := s.CreateGame(game, userID); createErr != nil {
-				slog.Warn("create game from csv failed", "bgg_id", t.ID, "error", createErr)
+				slog.Warn("create game from csv failed", "bgg_id", game.BGGID, "error", createErr)
 				failed++
 				continue
 			}
