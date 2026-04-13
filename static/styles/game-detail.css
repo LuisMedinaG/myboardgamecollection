@@ -3,8 +3,11 @@
 /* 1. Hero image */
 .game-hero {
   position: relative;
-  width: calc(100% + 2rem);
-  margin: -1rem -1rem 0;
+  width: 100vw;
+  left: 50%;
+  right: 50%;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
   height: var(--profile-hero-height);
   overflow: hidden;
   background: var(--border);

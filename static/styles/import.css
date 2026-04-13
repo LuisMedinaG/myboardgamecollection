@@ -167,12 +167,18 @@
 }
 
 .csv-file-input {
-  padding: 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
   border: 1px dashed var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg);
   font-size: 0.9rem;
 }
+.csv-file-input input[type="file"] { padding: 0.25rem; }
+.file-input { padding: 0.45rem 0.6rem; }
+#bgg-edit-btn, #bgg-cancel-btn { align-self: center; margin-left: var(--space-sm); }
 
 .csv-preview-btn {
   padding: 0.85rem 1.1rem;
