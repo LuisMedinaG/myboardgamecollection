@@ -19,9 +19,10 @@ func (h *Handler) HandleGames(w http.ResponseWriter, r *http.Request) {
 	category := r.URL.Query().Get("category")
 	players := r.URL.Query().Get("players")
 	playtime := r.URL.Query().Get("playtime")
+	weight := r.URL.Query().Get("weight")
 	page, limit := parsePagination(r)
 
-	games, total, err := h.Store.FilterGames(q, category, players, playtime, page, limit, userID)
+	games, total, err := h.Store.FilterGames(q, category, players, playtime, weight, page, limit, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -51,6 +52,7 @@ func (h *Handler) HandleGames(w http.ResponseWriter, r *http.Request) {
 		Category:   category,
 		Players:    players,
 		Playtime:   playtime,
+		Weight:     weight,
 		Page:       page,
 		TotalPages: totalPages,
 		TotalCount: total,
