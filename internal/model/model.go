@@ -65,6 +65,54 @@ func (g Game) ThumbnailURL() string {
 	return g.Thumbnail
 }
 
+// BestPlayerCount returns the first (most-recommended) player count from
+// RecommendedPlayers, or an empty string when not set.
+func (g Game) BestPlayerCount() string {
+	if g.RecommendedPlayers == "" {
+		return ""
+	}
+	parts := strings.SplitN(g.RecommendedPlayers, ",", 2)
+	return strings.TrimSpace(parts[0])
+}
+
+// LanguageDependenceLabel returns a short label for the BGG language-dependence
+// poll level (1–5). Returns an empty string for level 0 (unknown/not set).
+func (g Game) LanguageDependenceLabel() string {
+	switch g.LanguageDependence {
+	case 1:
+		return "No necessary in-game text"
+	case 2:
+		return "Some necessary text"
+	case 3:
+		return "Moderate in-game text"
+	case 4:
+		return "Extensive use of text"
+	case 5:
+		return "Unplayable in another language"
+	default:
+		return ""
+	}
+}
+
+// LanguageDependenceSub returns a one-line description for the language-dependence
+// level, used as a subtitle beneath LanguageDependenceLabel.
+func (g Game) LanguageDependenceSub() string {
+	switch g.LanguageDependence {
+	case 1:
+		return "Can be played in any language."
+	case 2:
+		return "A few words that can be memorized."
+	case 3:
+		return "Some text needed, but manageable."
+	case 4:
+		return "Difficult to play without proficiency."
+	case 5:
+		return "Reading proficiency required."
+	default:
+		return ""
+	}
+}
+
 // Tagline returns the first sentence of the description as a one-liner.
 func (g Game) Tagline() string {
 	d := strings.TrimSpace(g.Description)

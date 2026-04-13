@@ -1,49 +1,210 @@
 {{ define "content" }}
-<a href="/games" class="back-btn">&#8592; All Games</a>
-{{ if .Game.ThumbnailURL }}
-<div class="game-image-wrap">
-    <img src="{{ .Game.ThumbnailURL }}" class="game-image" alt="{{ .Game.Name }}">
+{{/* ── 1. Hero image — bleeds edge-to-edge ──────────────────────────────── */}}
+<div class="game-hero">
+    {{ if .Game.ThumbnailURL }}
+    <img src="{{ .Game.ThumbnailURL }}" class="game-hero-img" alt="{{ .Game.Name }}">
+    {{ end }}
+    <div class="game-hero-gradient"></div>
+    <a href="/games" class="game-hero-back" aria-label="Back to games">&#8592;</a>
 </div>
-{{ end }}
-<div class="game-header">
-    <h1 class="game-title">{{ .Game.Name }}</h1>
+
+{{/* ── 2. Title ───────────────────────────────────────────────────────────── */}}
+<h1 class="game-profile-title">{{ .Game.Name }}</h1>
+
+{{/* ── 3. Subtitle: Year · BGG Rating · Age ──────────────────────────────── */}}
+<div class="game-profile-subtitle">
     {{ if gt .Game.YearPublished 0 }}
-    <span class="game-year">({{ .Game.YearPublished }})</span>
+    <span>{{ .Game.YearPublished }}</span>
     {{ end }}
-    {{ if .Game.Tagline }}
-    <p class="game-tagline">{{ .Game.Tagline }}</p>
+    {{ if gt .Game.Rating 0.0 }}
+    <span class="subtitle-sep">·</span>
+    <span class="game-rating-badge">BGG {{ printf "%.1f" .Game.Rating }}</span>
     {{ end }}
-    <div class="game-meta">
-        <span class="tag">{{ .Game.PlayersStr }} players</span>
-        <span class="tag">{{ .Game.PlaytimeStr }}</span>
+    <span class="subtitle-sep">·</span>
+    <span>6+</span>
+</div>
+
+{{/* ── 4. Stats panel ─────────────────────────────────────────────────────── */}}
+<div class="game-stats-panel">
+    <div class="game-stat">
+        <span class="game-stat-label">Players</span>
+        <span class="game-stat-value">{{ .Game.PlayersStr }}</span>
+        {{ if .Game.BestPlayerCount }}
+        <span class="game-stat-sub">Best: {{ .Game.BestPlayerCount }}</span>
+        {{ else }}
+        <span class="game-stat-sub"></span>
+        {{ end }}
+    </div>
+    <div class="game-stat">
+        <span class="game-stat-label">Playtime</span>
+        <span class="game-stat-value">{{ .Game.PlayTime }}</span>
+        <span class="game-stat-sub">Minutes</span>
+    </div>
+    <div class="game-stat">
+        <span class="game-stat-label">Weight</span>
+        {{ if gt .Game.Weight 0.0 }}
+        <span class="game-stat-value">{{ printf "%.1f" .Game.Weight }}</span>
+        {{ else }}
+        <span class="game-stat-value">—</span>
+        {{ end }}
+        <span class="game-stat-sub">Complexity</span>
     </div>
 </div>
-{{ if .Game.Types }}
-<div class="game-tags-section">
-    {{ range split .Game.Types ", " }}
-    <span class="tag tag-type">{{ . }}</span>
+
+{{/* ── 5. Description (expandable) ────────────────────────────────────────── */}}
+{{ if .Game.Description }}
+<div class="game-section">
+    <details class="game-desc-expander">
+        <summary>
+            <span class="game-desc-text">{{ .Game.Description }}</span>
+            <span class="game-desc-more">More…</span>
+        </summary>
+    </details>
+</div>
+{{ end }}
+
+{{/* ── 6. Rulebook ────────────────────────────────────────────────────────── */}}
+{{ if .Game.RulesURL }}
+<div class="game-section">
+    <h2 class="game-section-title">Rulebook</h2>
+    <a href="/games/{{ .Game.ID }}/rules" class="game-rulebook-link">
+        <span class="game-rulebook-icon">&#128214;</span>
+        <span class="game-rulebook-text">
+            <span class="game-rulebook-label">View Rulebook</span>
+            <span class="game-rulebook-sub">PDF &middot; Google Drive</span>
+        </span>
+        <span class="game-rulebook-arrow">&#8250;</span>
+    </a>
+</div>
+{{ end }}
+
+{{/* ── 7. Player Aids (inline, read-only with lightbox) ──────────────────── */}}
+{{ if gt (len .Aids) 0 }}
+<div class="game-section">
+    <h2 class="game-section-title">Player Aids</h2>
+    <div class="game-aids-grid">
+        {{ range $i, $a := .Aids }}
+        <div class="game-aid-card" onclick="openDetailLightbox({{ $i }})">
+            <img src="/uploads/{{ $a.Filename }}" alt="{{ $a.Label }}" class="game-aid-img">
+            {{ if $a.Label }}<span class="game-aid-label">{{ $a.Label }}</span>{{ end }}
+        </div>
+        {{ end }}
+    </div>
+    <div class="lightbox-overlay" id="detail-lightbox" onclick="handleDetailLightboxClick(event)">
+        <button class="lightbox-close" onclick="closeDetailLightbox(event)">&times;</button>
+        <button class="lightbox-prev" onclick="prevDetailImage(event)">&#8249;</button>
+        <img class="lightbox-img" id="detail-lightbox-img" src="" alt="">
+        <button class="lightbox-next" onclick="nextDetailImage(event)">&#8250;</button>
+        <div class="lightbox-counter" id="detail-lightbox-counter"></div>
+    </div>
+    <script>
+    (function(){
+        var slides = [{{ range .Aids }}{ src: "/uploads/{{ .Filename }}", alt: "{{ .Label }}" },{{ end }}];
+        var current = 0;
+        var img    = document.getElementById('detail-lightbox-img');
+        var counter = document.getElementById('detail-lightbox-counter');
+        var btnPrev = document.querySelector('#detail-lightbox .lightbox-prev');
+        var btnNext = document.querySelector('#detail-lightbox .lightbox-next');
+        function show(i) {
+            if (!slides.length) return;
+            current = (i + slides.length) % slides.length;
+            img.src = slides[current].src;
+            img.alt = slides[current].alt || '';
+            counter.textContent = (current + 1) + ' / ' + slides.length;
+            var hidden = slides.length <= 1;
+            btnPrev.style.display = hidden ? 'none' : '';
+            btnNext.style.display = hidden ? 'none' : '';
+        }
+        window.openDetailLightbox = function(i) {
+            show(i);
+            document.getElementById('detail-lightbox').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        };
+        window.closeDetailLightbox = function(e) {
+            e && e.stopPropagation();
+            document.getElementById('detail-lightbox').classList.remove('active');
+            document.body.style.overflow = '';
+        };
+        window.handleDetailLightboxClick = function(e) {
+            if (e.target === document.getElementById('detail-lightbox')) closeDetailLightbox(e);
+        };
+        window.prevDetailImage = function(e) { e.stopPropagation(); show(current - 1); };
+        window.nextDetailImage = function(e) { e.stopPropagation(); show(current + 1); };
+        document.addEventListener('keydown', function(e) {
+            var lb = document.getElementById('detail-lightbox');
+            if (!lb || !lb.classList.contains('active')) return;
+            if (e.key === 'Escape') closeDetailLightbox();
+            if (e.key === 'ArrowLeft') show(current - 1);
+            if (e.key === 'ArrowRight') show(current + 1);
+        });
+    })();
+    </script>
+</div>
+{{ end }}
+
+{{/* ── 8. Language Dependence ─────────────────────────────────────────────── */}}
+{{ if gt .Game.LanguageDependence 0 }}
+<div class="game-section">
+    <h2 class="game-section-title">Language Dependence</h2>
+    <div class="game-lang-card">
+        <div class="game-lang-question">
+            <span class="game-lang-icon">&#127467;&#127462;</span>
+            <p class="game-lang-text">How difficult is it to play this game for people who don't speak the language of the game?</p>
+        </div>
+        <div class="game-lang-answer">
+            <span class="game-lang-dot"></span>
+            <div>
+                <div class="game-lang-label">{{ .Game.LanguageDependenceLabel }}</div>
+                <div class="game-lang-sub">{{ .Game.LanguageDependenceSub }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{/* ── 9. Game Details (type, categories, mechanics) ──────────────────────── */}}
+{{ if or .Game.Types .Game.Categories .Game.Mechanics }}
+<div class="game-section">
+    <h2 class="game-section-title">Game Details</h2>
+    {{ if .Game.Types }}
+    <div class="game-detail-row">
+        <span class="game-detail-key">Type</span>
+        <div class="game-detail-tags">
+            {{ range split .Game.Types ", " }}
+            <span class="tag tag-type">{{ . }}</span>
+            {{ end }}
+        </div>
+    </div>
+    {{ end }}
+    {{ if .Game.Categories }}
+    <div class="game-detail-row">
+        <span class="game-detail-key">Categories</span>
+        <div class="game-detail-tags">
+            {{ range split .Game.Categories ", " }}
+            <span class="tag tag-category">{{ . }}</span>
+            {{ end }}
+        </div>
+    </div>
+    {{ end }}
+    {{ if .Game.Mechanics }}
+    <div class="game-detail-row">
+        <span class="game-detail-key">Mechanics</span>
+        <div class="game-detail-tags">
+            {{ range split .Game.Mechanics ", " }}
+            <span class="tag tag-mechanic">{{ . }}</span>
+            {{ end }}
+        </div>
+    </div>
     {{ end }}
 </div>
 {{ end }}
-{{ if .Game.Categories }}
-<div class="game-tags-section">
-    {{ range split .Game.Categories ", " }}
-    <span class="tag tag-category">{{ . }}</span>
-    {{ end }}
-</div>
-{{ end }}
-{{ if .Game.Mechanics }}
-<div class="game-tags-section">
-    {{ range split .Game.Mechanics ", " }}
-    <span class="tag tag-mechanic">{{ . }}</span>
-    {{ end }}
-</div>
-{{ end }}
-<div class="detail-actions">
-    <a href="/games/{{ .Game.ID }}/rules" class="btn btn-rules">
-        <span>&#128214;</span> Rules &amp; Player Aids
+
+{{/* ── 10. Action buttons ──────────────────────────────────────────────────── */}}
+<div class="game-profile-actions">
+    <a href="/games/{{ .Game.ID }}/rules" class="btn btn-secondary btn-block">
+        &#128214; Rules &amp; Player Aids
         {{ if or .Game.RulesURL (gt (len .Aids) 0) }}
-        <span class="badge">
+        <span class="badge badge-muted">
             {{ if and .Game.RulesURL (gt (len .Aids) 0) }}
                 {{ add (len .Aids) 1 }}
             {{ else if .Game.RulesURL }}
@@ -54,20 +215,12 @@
         </span>
         {{ end }}
     </a>
-    <a href="/games/{{ .Game.ID }}/edit" class="btn btn-bgg">
-        Edit Vibes
-    </a>
-    <a href="{{ .Game.BGGURL }}" target="_blank" rel="noopener" class="btn btn-bgg">
-        View on BGG
-    </a>
-</div>
-<div class="game-actions">
+    <a href="/games/{{ .Game.ID }}/edit" class="btn btn-secondary btn-block">Edit Vibes</a>
+    <a href="{{ .Game.BGGURL }}" target="_blank" rel="noopener" class="btn btn-secondary btn-block">View on BGG &#8599;</a>
     <button
-        class="btn btn-danger"
+        class="btn btn-danger btn-block"
         hx-post="/games/{{ .Game.ID }}/delete"
         hx-confirm="Remove this game from your collection?"
-    >
-        Remove from Collection
-    </button>
+    >Remove from Collection</button>
 </div>
 {{ end }}
