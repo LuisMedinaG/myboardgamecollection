@@ -107,6 +107,30 @@ DATABASE_URL=file:./data.db?cache=shared&mode=rwc
 LOG_LEVEL=info
 ```
 
+## Code Style Go
+- Follow Effective Go guidelines
+- Use gofmt for formatting
+- Keep functions short and focused
+- Return errors, don't panic
+
+## Conventions
+- Use short variable names in small scopes
+- Use descriptive names for exported identifiers
+- Prefix interface names with -er when appropriate
+- Use table-driven tests
+
+## Error Handling
+- Always check returned errors
+- Wrap errors with context using fmt.Errorf
+- Use errors.Is and errors.As for error checking
+- Return errors, don't log and continue
+
+## Concurrency
+- Use channels for communication
+- Use sync.WaitGroup for goroutine coordination
+- Be careful with shared state
+- Prefer passing data over sharing memory
+
 ## Code Standards
 
 ### Go Backend
