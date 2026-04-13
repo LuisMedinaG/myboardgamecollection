@@ -31,6 +31,7 @@ type GamesPageData struct {
 	Category   string
 	Players    string
 	Playtime   string
+	Weight     string
 	Page       int
 	TotalPages int
 	TotalCount int
@@ -52,6 +53,9 @@ func (d GamesPageData) PageURL(page int) string {
 	}
 	if d.Playtime != "" {
 		params.Set("playtime", d.Playtime)
+	}
+	if d.Weight != "" {
+		params.Set("weight", d.Weight)
 	}
 	if page > 1 {
 		params.Set("page", strconv.Itoa(page))
@@ -92,8 +96,10 @@ type DiscoverPageData struct {
 	Mechanic   string
 	Players    string
 	Playtime   string
+	Weight     string
 	ValidPlayers   []PlayerOption
 	ValidPlaytimes []PlaytimeOption
+	ValidWeights   []WeightOption
 }
 
 // PlayerOption represents a player count filter that has matching games.
@@ -104,6 +110,12 @@ type PlayerOption struct {
 
 // PlaytimeOption represents a playtime filter that has matching games.
 type PlaytimeOption struct {
+	Value string
+	Label string
+}
+
+// WeightOption represents a weight/complexity filter that has matching games.
+type WeightOption struct {
 	Value string
 	Label string
 }

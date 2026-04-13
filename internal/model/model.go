@@ -20,8 +20,9 @@ type Game struct {
 	Categories    string
 	Mechanics     string
 	Types         string // BGG subdomain (e.g. "Family Games, Strategy Games")
-	RulesURL      string // Google Drive link to rulebook PDF
-	Vibes         []Vibe // populated on demand; nil when not fetched
+	Weight        float64 // BGG average weight (complexity): 1.0=lightest, 5.0=heaviest
+	RulesURL      string  // Google Drive link to rulebook PDF
+	Vibes         []Vibe  // populated on demand; nil when not fetched
 }
 
 // PlayersStr returns a formatted player count string.

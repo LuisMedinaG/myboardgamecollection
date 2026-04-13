@@ -298,5 +298,6 @@ func thingToGame(t gobgg.ThingResult) model.Game {
 		Categories:    strings.Join(cats, ", "),
 		Mechanics:     strings.Join(mechs, ", "),
 		Types:         strings.Join(types, ", "),
+		Weight:        t.AverageWeight,
 	}
 }
