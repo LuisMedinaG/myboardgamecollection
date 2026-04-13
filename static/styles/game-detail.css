@@ -1,0 +1,391 @@
+/* ── Legacy game detail (kept for backward compat) ── */
+.game-image-wrap {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.game-image {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: var(--radius);
+  object-fit: contain;
+}
+
+.game-header { margin-bottom: 1.5rem; }
+
+.game-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.game-year {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+.game-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 0.5rem;
+}
+
+.detail-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.game-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+/* ── New profile page (Overboard-inspired) ── */
+
+/* 1. Hero image */
+.game-hero {
+  position: relative;
+  width: calc(100% + 2rem);
+  margin: -1rem -1rem 0;
+  height: var(--profile-hero-height);
+  overflow: hidden;
+  background: var(--border);
+
+  &-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  &-gradient {
+    position: absolute;
+    inset: 0;
+    background: var(--profile-gradient);
+    pointer-events: none;
+  }
+
+  &-back {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    width: 36px;
+    height: 36px;
+    background: var(--profile-back-bg);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    text-decoration: none;
+    font-size: 1.1rem;
+    line-height: 1;
+    transition: background 0.15s;
+
+    &:hover { background: var(--profile-back-bg-hover); }
+  }
+}
+
+/* 2 + 3. Title & subtitle */
+.game-profile-title {
+  text-align: center;
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-top: 1.25rem;
+  margin-bottom: 0.4rem;
+  line-height: 1.15;
+}
+
+.game-profile-subtitle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.25rem;
+
+  .subtitle-sep { color: var(--border); }
+}
+
+.game-rating-badge {
+  background: var(--profile-rating-bg);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 5px;
+  letter-spacing: 0.02em;
+}
+
+/* 4. Stats panel */
+.game-stats-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 1.75rem;
+  overflow: hidden;
+}
+
+.game-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem 0.5rem;
+  text-align: center;
+
+  & + .game-stat { border-left: 1px solid var(--border); }
+}
+
+.game-stat-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-secondary);
+  margin-bottom: 0.3rem;
+}
+
+.game-stat-value {
+  font-size: 1.55rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.game-stat-sub {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-top: 0.2rem;
+  min-height: 1em;
+}
+
+/* Generic section wrapper */
+.game-section {
+  margin-bottom: 1.75rem;
+}
+
+.game-section-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.85rem;
+  color: var(--text);
+}
+
+/* 5. Description */
+.game-desc-expander > summary {
+  list-style: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  &::-webkit-details-marker { display: none; }
+}
+
+.game-desc-text {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+details:not([open]) .game-desc-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.game-desc-more {
+  display: inline-block;
+  margin-top: 0.3rem;
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+details[open] .game-desc-more { display: none; }
+
+/* 6. Rulebook card */
+.game-rulebook-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  text-decoration: none;
+  color: var(--text);
+  box-shadow: var(--shadow);
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  &:hover { background: var(--accent-light); }
+}
+
+.game-rulebook-icon {
+  font-size: 1.8rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.game-rulebook-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.game-rulebook-label {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.game-rulebook-sub {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 0.1rem;
+}
+
+.game-rulebook-arrow {
+  color: var(--text-secondary);
+  font-size: 1.5rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* 7. Player aids grid (read-only, inline on profile) */
+.game-aids-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.game-aid-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: box-shadow 0.15s;
+  &:hover { box-shadow: var(--shadow); }
+}
+
+.game-aid-img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+}
+
+.game-aid-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: 0.3rem 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 8. Language dependence card */
+.game-lang-card {
+  background: var(--lang-card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem;
+  box-shadow: var(--shadow);
+}
+
+.game-lang-question {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-bottom: 0.9rem;
+}
+
+.game-lang-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.game-lang-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.game-lang-answer {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  background: var(--lang-answer-bg);
+  border: 2px solid var(--lang-answer-border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+}
+
+.game-lang-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2.5px solid var(--lang-dot-color);
+  flex-shrink: 0;
+}
+
+.game-lang-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.game-lang-sub {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-top: 0.1rem;
+}
+
+/* 9. Game details section */
+.game-detail-row {
+  margin-bottom: 0.9rem;
+  &:last-child { margin-bottom: 0; }
+}
+
+.game-detail-key {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin-bottom: 0.45rem;
+}
+
+.game-detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* 10. Profile action buttons */
+.game-profile-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  margin-top: 0.25rem;
+}

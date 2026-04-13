@@ -91,8 +91,52 @@ internal/
   viewmodel/         # View-layer data passed to templates
   filter/            # Game filtering logic
 templates/           # Embedded HTML templates
-static/              # Embedded CSS
+static/              # Embedded CSS + JS
+  style.css          # Entry point — @imports all modules (see below)
+  styles/            # CSS modules (native nesting, one concern per file)
+    variables.css    # :root tokens — palette, radii, shadows, profile vars
+    reset.css        # box-sizing reset, html/body base
+    layout.css       # top nav, burger, profile dropdown, .main-content, breakpoints
+    login.css        # login page
+    forms.css        # form inputs, filter controls, toggle switch
+    buttons.css      # .btn variants, .badge, .page-btn, .view-btn
+    utilities.css    # pagination, spinner, modal, bulk-bar, quickref, empty states
+    tags.css         # .tag, .pill-btn, .vibe-pill, vibe-color-* palette
+    game-list.css    # list rows, grid-sm/md/lg (nested), multi-select, view toolbar
+    game-detail.css  # game profile page — hero, stats panel, sections, lang card, aids
+    import.css       # import flow, CSV preview, BGG username panel
+    rules.css        # rules page, player aids grid, lightbox
+    vibes.css        # vibe grid, discover filters, action cards, vibe management
 ```
+
+## CSS Architecture
+
+`static/style.css` is a thin `@import` barrel — it only lists the module files in cascade order and contains no rules of its own.
+
+**Module conventions:**
+- Each file owns one feature area. Do not mix concerns across files.
+- Use **native CSS nesting** (`&`) for pseudo-classes, modifier classes, and tightly-coupled descendants. No preprocessor.
+- New CSS variables go in `styles/variables.css` under the appropriate group comment.
+- All colour literals used more than once must be a variable.
+
+**Production build** — the Go server serves each `@import` as a separate HTTP request (fine for development). To bundle for production:
+```sh
+cat static/styles/variables.css \
+    static/styles/reset.css \
+    static/styles/layout.css \
+    static/styles/login.css \
+    static/styles/forms.css \
+    static/styles/buttons.css \
+    static/styles/utilities.css \
+    static/styles/tags.css \
+    static/styles/game-list.css \
+    static/styles/game-detail.css \
+    static/styles/import.css \
+    static/styles/rules.css \
+    static/styles/vibes.css \
+    > static/style.bundle.css
+```
+Then swap the `<link>` href in `templates/layout.html` to `style.bundle.css`.
 
 ## Branching Strategy
 
