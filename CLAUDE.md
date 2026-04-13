@@ -70,6 +70,41 @@ static/
 
 Enforced by GitHub rulesets. Never use admin bypass for normal flow.
 
+## Plugins & Skills
+
+### Installed Plugins
+
+- **gopls-lsp** — Go LSP server for intelligent code navigation, hover info, and definitions (installed Apr 3)
+- **claude-mem** — Persistent cross-session memory for observations, timelines, and knowledge bases (installed Apr 13)
+- **frontend-design** — Design guidance for UI/CSS decisions (installed Apr 13)
+- **code-review** — Code review plugin for quality checks (installed Apr 13)
+- **code-simplifier** — Review changed code for reuse, quality, and efficiency (installed Apr 13)
+- **github** — GitHub integration for PRs, issues, and repo operations (installed Apr 13)
+- **playwright** — Browser automation for end-to-end testing (installed Apr 13)
+- **skill-creator** — Create custom skills and automation workflows (installed Apr 13)
+- **claude-md-management** — Manage CLAUDE.md files across projects (installed Apr 13)
+- **ralph-loop** — Run prompts on recurring intervals (`/loop`) (installed Apr 13)
+- **security-guidance** — Security best practices and vulnerability analysis (installed Apr 13)
+- **commit-commands** — Commit-related slash commands (installed Apr 13)
+- **claude-code-setup** — Claude Code environment setup and configuration (installed Apr 13)
+- **greptile** — Token-optimized code search and exploration (installed Apr 13)
+
+### Available Skills
+
+- `/commit` — Create git commits with staged changes and commit message generation
+- `/review-pr` — Review PRs on GitHub with detailed feedback
+- `/loop [interval]` — Run a prompt or command repeatedly on interval (e.g., `/loop 5m /foo`)
+- `/simplify` — Review changed code for reuse, quality, and efficiency
+- `/update-config` — Configure Claude Code settings.json (permissions, env vars, hooks)
+- `/schedule` — Create and manage scheduled remote agents (cron triggers)
+- `/keybindings-help` — Customize keyboard shortcuts
+- `/claude-api` — Build, debug, and optimize Claude API applications
+- `/claude-mem:make-plan` — Create detailed phased implementation plans
+- `/claude-mem:do` — Execute implementation plans using subagents
+- `/claude-mem:smart-explore` — Token-optimized structural code search
+- `/claude-mem:knowledge-agent` — Build AI-powered knowledge bases from observations
+- `/claude-mem:timeline-report` — Generate project development history narratives
+
 ## Deep Reference
 
 `agent_docs/ARCHITECTURE-GUIDE.md` — macro architecture, request pipeline, design decisions.
