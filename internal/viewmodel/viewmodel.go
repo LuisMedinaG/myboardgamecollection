@@ -32,6 +32,9 @@ type GamesPageData struct {
 	Players    string
 	Playtime   string
 	Weight     string
+	Rating     string
+	Lang       string
+	RecPlayers string
 	Page       int
 	TotalPages int
 	TotalCount int
@@ -56,6 +59,15 @@ func (d GamesPageData) PageURL(page int) string {
 	}
 	if d.Weight != "" {
 		params.Set("weight", d.Weight)
+	}
+	if d.Rating != "" {
+		params.Set("rating", d.Rating)
+	}
+	if d.Lang != "" {
+		params.Set("lang", d.Lang)
+	}
+	if d.RecPlayers != "" {
+		params.Set("rec_players", d.RecPlayers)
 	}
 	if page > 1 {
 		params.Set("page", strconv.Itoa(page))
@@ -97,9 +109,15 @@ type DiscoverPageData struct {
 	Players    string
 	Playtime   string
 	Weight     string
+	Rating     string
+	Lang       string
+	RecPlayers string
 	ValidPlayers   []PlayerOption
 	ValidPlaytimes []PlaytimeOption
 	ValidWeights   []WeightOption
+	ValidRatings   []RatingOption
+	ValidLanguages []LanguageOption
+	ValidRecPlayers []RecPlayersOption
 }
 
 // PlayerOption represents a player count filter that has matching games.
@@ -116,6 +134,24 @@ type PlaytimeOption struct {
 
 // WeightOption represents a weight/complexity filter that has matching games.
 type WeightOption struct {
+	Value string
+	Label string
+}
+
+// RatingOption represents a BGG rating filter that has matching games.
+type RatingOption struct {
+	Value string
+	Label string
+}
+
+// LanguageOption represents a language dependence filter that has matching games.
+type LanguageOption struct {
+	Value string
+	Label string
+}
+
+// RecPlayersOption represents a recommended player count filter that has matching games.
+type RecPlayersOption struct {
 	Value string
 	Label string
 }

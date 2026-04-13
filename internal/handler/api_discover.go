@@ -36,9 +36,12 @@ func (h *Handler) HandleAPIDiscover(w http.ResponseWriter, r *http.Request) {
 	mechanic := q.Get("mechanic")
 	players := q.Get("players")
 	playtime := q.Get("playtime")
-	weight := q.Get("weight")
+	weight     := q.Get("weight")
+	rating     := q.Get("rating")
+	lang       := q.Get("lang")
+	recPlayers := q.Get("rec_players")
 
-	games, err := h.Store.FilterGamesByVibe(vibeID, typ, category, mechanic, players, playtime, weight, userID)
+	games, err := h.Store.FilterGamesByVibe(vibeID, typ, category, mechanic, players, playtime, weight, rating, lang, recPlayers, userID)
 	if err != nil {
 		slog.Error("FilterGamesByVibe", "vibeID", vibeID, "error", err)
 		writeAPIError(w, http.StatusInternalServerError, "internal error")

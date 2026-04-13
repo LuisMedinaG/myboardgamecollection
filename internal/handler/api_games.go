@@ -22,10 +22,13 @@ func (h *Handler) HandleAPIListGames(w http.ResponseWriter, r *http.Request) {
 	category := r.URL.Query().Get("category")
 	players := r.URL.Query().Get("players")
 	playtime := r.URL.Query().Get("playtime")
-	weight := r.URL.Query().Get("weight")
+	weight     := r.URL.Query().Get("weight")
+	rating     := r.URL.Query().Get("rating")
+	lang       := r.URL.Query().Get("lang")
+	recPlayers := r.URL.Query().Get("rec_players")
 	page, limit := parsePagination(r)
 
-	games, total, err := h.Store.FilterGames(q, category, players, playtime, weight, page, limit, userID)
+	games, total, err := h.Store.FilterGames(q, category, players, playtime, weight, rating, lang, recPlayers, page, limit, userID)
 	if err != nil {
 		slog.Error("HandleAPIListGames: FilterGames", "error", err)
 		writeAPIError(w, http.StatusInternalServerError, "internal error")

@@ -41,15 +41,18 @@ func (h *Handler) HandleDiscover(w http.ResponseWriter, r *http.Request) {
 	mechanic := r.URL.Query().Get("mechanic")
 	players := r.URL.Query().Get("players")
 	playtime := r.URL.Query().Get("playtime")
-	weight := r.URL.Query().Get("weight")
+	weight     := r.URL.Query().Get("weight")
+	rating     := r.URL.Query().Get("rating")
+	lang       := r.URL.Query().Get("lang")
+	recPlayers := r.URL.Query().Get("rec_players")
 
-	games, err := h.Store.FilterGamesByVibe(vibeID, typ, category, mechanic, players, playtime, weight, userID)
+	games, err := h.Store.FilterGamesByVibe(vibeID, typ, category, mechanic, players, playtime, weight, rating, lang, recPlayers, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	data := buildDiscoverData(vibe, vibeID, games, typ, category, mechanic, players, playtime, weight)
+	data := buildDiscoverData(vibe, vibeID, games, typ, category, mechanic, players, playtime, weight, rating, lang, recPlayers)
 
 	if isHTMX(r) {
 		if err := h.Renderer.Partial(w, "discover_result", data); err != nil {
@@ -79,22 +82,28 @@ func (h *Handler) renderDiscoverGrid(w http.ResponseWriter, r *http.Request, use
 	}
 }
 
-func buildDiscoverData(vibe model.Vibe, vibeID int64, games []model.Game, typ, category, mechanic, players, playtime, weight string) viewmodel.DiscoverPageData {
+func buildDiscoverData(vibe model.Vibe, vibeID int64, games []model.Game, typ, category, mechanic, players, playtime, weight, rating, lang, recPlayers string) viewmodel.DiscoverPageData {
 	return viewmodel.DiscoverPageData{
-		VibeID:         vibeID,
-		VibeName:       vibe.Name,
-		Games:          games,
-		Types:          filter.ExtractField(games, func(g model.Game) string { return g.Types }),
-		Categories:     filter.ExtractField(games, func(g model.Game) string { return g.Categories }),
-		Mechanics:      filter.ExtractField(games, func(g model.Game) string { return g.Mechanics }),
-		Type:           typ,
-		Category:       category,
-		Mechanic:       mechanic,
-		Players:        players,
-		Playtime:       playtime,
-		Weight:         weight,
-		ValidPlayers:   filter.ValidPlayerOptions(games),
-		ValidPlaytimes: filter.ValidPlaytimeOptions(games),
-		ValidWeights:   filter.ValidWeightOptions(games),
+		VibeID:          vibeID,
+		VibeName:        vibe.Name,
+		Games:           games,
+		Types:           filter.ExtractField(games, func(g model.Game) string { return g.Types }),
+		Categories:      filter.ExtractField(games, func(g model.Game) string { return g.Categories }),
+		Mechanics:       filter.ExtractField(games, func(g model.Game) string { return g.Mechanics }),
+		Type:            typ,
+		Category:        category,
+		Mechanic:        mechanic,
+		Players:         players,
+		Playtime:        playtime,
+		Weight:          weight,
+		Rating:          rating,
+		Lang:            lang,
+		RecPlayers:      recPlayers,
+		ValidPlayers:    filter.ValidPlayerOptions(games),
+		ValidPlaytimes:  filter.ValidPlaytimeOptions(games),
+		ValidWeights:    filter.ValidWeightOptions(games),
+		ValidRatings:    filter.ValidRatingOptions(games),
+		ValidLanguages:  filter.ValidLanguageOptions(games),
+		ValidRecPlayers: filter.ValidRecPlayersOptions(games),
 	}
 }
