@@ -7,8 +7,9 @@ upload player aids, and import games from BoardGameGeek (BGG).
 
 - **Language:** Go 1.25 (standard library HTTP server)
 - **Frontend:** Go HTML templates + HTMX — no JS framework
+- **CSS:** Pico CSS (classless framework) + custom overrides
 - **Database:** SQLite (`modernc.org/sqlite`, pure Go)
-- **Auth:** Session-based (username/password, SHA-256 + salt — upgrade to argon2 is planned)
+- **Auth:** Session-based (username/password, SHA-256 + salt)
 - **Deployment:** Docker + Fly.io (persistent volume at `/data`)
 
 ## Commands
@@ -30,51 +31,6 @@ make cover-html # generate HTML coverage report
 make bgg-login  # grab BGG auth headers
 ```
 
-## Game Model — Key Fields
-
-| Field | Type | DB column | Source |
-|---|---|---|---|
-| `Weight` | `float64` | `weight` | BGG `averageweight` stat |
-| `Rating` | `float64` | `rating` | BGG `average` rating stat |
-| `LanguageDependence` | `int` | `language_dependence` | BGG `language_dependence` poll — winning level (0=unknown, 1–5) |
-| `RecommendedPlayers` | `string` | `recommended_players` | BGG `suggested_numplayers` poll — comma-separated counts where Best+Rec > Not Rec (e.g. `"2,3,4"`) |
-
-### BGG Import
-
-`internal/bgg/bgg.go` uses a **custom XML fetch** (`fetchThingsParsed`) instead of gobgg's `GetThings`. This is required because gobgg's `ThingResult` doesn't expose raw poll data. Both use the same authenticated, throttled `http.Client` so rate limiting is shared. gobgg is still used for `GetCollection`.
-
-- **Full Refresh required** to backfill `weight`, `rating`, `language_dependence`, `recommended_players` on existing games. Normal sync only fetches newly added games.
-- Full Refresh is admin-only — UI checkbox on the Import page, or `POST /api/v1/import` with `{"full_refresh": true}`.
-
-### Filters
-
-All filters are wired through `internal/filter/filter.go`, `store.FilterGames`, `store.FilterGamesByVibe`, and all HTMX + REST API handlers.
-
-| URL param | Filter function | Values |
-|---|---|---|
-| `players` | `PlayerCondition` | `1`, `2`, `2only`, `3`, `4`, `5plus` |
-| `playtime` | `PlaytimeCondition` | `short`, `medium`, `long` |
-| `weight` | `WeightCondition` | `light`, `medium`, `heavy` |
-| `rating` | `RatingCondition` | `good` (≥6), `great` (≥7), `excellent` (≥8) |
-| `lang` | `LanguageCondition` | `free` (level 1), `low` (2), `moderate` (3), `high` (≥4) |
-| `rec_players` | `RecommendedPlayersCondition` | `1`–`5` — sentinel-comma LIKE match |
-
-`RecommendedPlayersCondition` embeds validated digit-only values directly in SQL (same pattern as other filter conditions that embed literals). Input validation rejects anything non-numeric.
-
-### DB Migration Pattern
-
-New columns are added via `ALTER TABLE games ADD COLUMN … DEFAULT …` in `store.createTables()`. These are idempotent (SQLite silently ignores `ADD COLUMN` if it already exists). The legacy table-recreation function `migrateGamesTableForPerUserUniqueness` must also be updated whenever a new column is added (both the `CREATE TABLE games_new` DDL and the `INSERT INTO … SELECT` list).
-
-## Test Suite
-
-**66 tests** across `internal/store` and `internal/httpx`.
-
-### Coverage by Phase
-1. ✅ **Phase 1:** Password hashing, sessions, JWT, CSRF, rate limiting, multi-user ownership (100% critical functions)
-2. 🔄 **Phase 2:** HTTP handlers (httptest + Playwright e2e)
-3. ⏳ **Phase 3:** Store layer (CRUD, filtering, taxonomy)
-4. ⏳ **Phase 4:** External integrations (BGG, file uploads)
-
 ## Project Structure
 
 ```
@@ -91,92 +47,130 @@ internal/
   viewmodel/         # View-layer data passed to templates
   filter/            # Game filtering logic
 templates/           # Embedded HTML templates
-static/              # Embedded CSS + JS
-  style.css          # Entry point — @imports all modules (see below)
-  styles/            # CSS modules (native nesting, one concern per file)
-    variables.css    # :root tokens — palette, radii, shadows, profile vars
-    reset.css        # box-sizing reset, html/body base
-    layout.css       # top nav, burger, profile dropdown, .main-content, breakpoints
-    login.css        # login page
-    forms.css        # form inputs, filter controls, toggle switch
-    buttons.css      # .btn variants, .badge, .page-btn, .view-btn
-    utilities.css    # pagination, spinner, modal, bulk-bar, quickref, empty states
-    tags.css         # .tag, .pill-btn, .vibe-pill, vibe-color-* palette
-    game-list.css    # list rows, grid-sm/md/lg (nested), multi-select, view toolbar
-    game-detail.css  # game profile page — hero, stats panel, sections, lang card, aids
+static/
+  style.css          # @import barrel — loads all CSS modules in order
+  styles/
+    pico.min.css     # Pico CSS framework — DO NOT read this file
+    variables.css    # :root tokens — palette, radii, shadows
+    layout.css       # top nav, burger, profile dropdown, breakpoints
+    components.css   # shared components (cards, badges, etc.)
+    login.css        # login / signup pages
+    forms.css        # form inputs, filter controls
+    game-list.css    # list rows, grid views, multi-select, view toolbar
+    game-detail.css  # game profile — hero, stats panel, sections
     import.css       # import flow, CSV preview, BGG username panel
     rules.css        # rules page, player aids grid, lightbox
-    vibes.css        # vibe grid, discover filters, action cards, vibe management
+    vibes.css        # vibe grid, discover filters, action cards
 ```
 
-## CSS Architecture
+## CSS — Pico CSS
 
-`static/style.css` is a thin `@import` barrel — it only lists the module files in cascade order and contains no rules of its own.
+We use **Pico CSS** (classless framework). Pico auto-styles semantic HTML elements — avoid
+inventing custom classes for basic layout/typography.
 
-**Module conventions:**
-- Each file owns one feature area. Do not mix concerns across files.
-- Use **native CSS nesting** (`&`) for pseudo-classes, modifier classes, and tightly-coupled descendants. No preprocessor.
-- New CSS variables go in `styles/variables.css` under the appropriate group comment.
-- All colour literals used more than once must be a variable.
+**`pico-reference.html`** (project root) — canonical HTML patterns for all Pico components.
+**Read this file before building or modifying any UI component.**
 
-**Production build** — the Go server serves each `@import` as a separate HTTP request (fine for development). To bundle for production:
-```sh
-cat static/styles/variables.css \
-    static/styles/reset.css \
-    static/styles/layout.css \
-    static/styles/login.css \
-    static/styles/forms.css \
-    static/styles/buttons.css \
-    static/styles/utilities.css \
-    static/styles/tags.css \
-    static/styles/game-list.css \
-    static/styles/game-detail.css \
-    static/styles/import.css \
-    static/styles/rules.css \
-    static/styles/vibes.css \
-    > static/style.bundle.css
-```
-Then swap the `<link>` href in `templates/layout.html` to `style.bundle.css`.
+Rules:
+- **Never read `pico.min.css`** — minified, too many tokens, no structural value.
+- Rely on semantic HTML: `<main>`, `<article>`, `<nav>`, `<dialog>`, `<details>`, etc.
+- Use `class="container"` / `class="container-fluid"` for page wrappers.
+- Use `class="grid"` on a parent for equal-width responsive columns.
+- Use `<article>` for cards (with optional `<header>`/`<footer>`).
+- Buttons: default = primary; variants via `class="secondary|contrast"` and/or `class="outline"`.
+- Use `aria-busy="true"` for loading states on any element.
+- Custom overrides go in the appropriate module file under `static/styles/`.
+- New CSS variables go in `variables.css` under the relevant group comment.
 
-## Branching Strategy
+## Game Model — Key Fields
 
-```
-main       <- production, stable
-staging    <- pre-production / QA sign-off gate
-dev        <- integration branch — all feature branches target this
-```
+| Field | Type | DB column | Source |
+|---|---|---|---|
+| `Weight` | `float64` | `weight` | BGG `averageweight` stat |
+| `Rating` | `float64` | `rating` | BGG `average` rating stat |
+| `LanguageDependence` | `int` | `language_dependence` | BGG `language_dependence` poll — winning level (0=unknown, 1–5) |
+| `RecommendedPlayers` | `string` | `recommended_players` | BGG `suggested_numplayers` poll — comma-separated counts where Best+Rec > Not Rec (e.g. `"2,3,4"`) |
 
-**Promotion flow:** `feature/*` → PR → `dev` → PR → `staging` → PR → `main`
+### BGG Import
 
-### Branch protection
+`internal/bgg/bgg.go` uses a **custom XML fetch** (`fetchThingsParsed`) instead of gobgg's
+`GetThings` — required because gobgg's `ThingResult` doesn't expose raw poll data. Both use
+the same authenticated, throttled `http.Client`. gobgg is still used for `GetCollection`.
 
-| Branch | Direct push | Force push | Deletion | PR required | Source enforced |
-|--------|------------|------------|----------|-------------|-----------------|
-| `dev` | allowed | blocked | blocked | no | — |
-| `staging` | blocked | blocked | blocked | yes (0 approvals) | must be `dev` |
-| `main` | blocked | blocked | blocked | yes (0 approvals) | must be `staging` |
+- **Full Refresh** required to backfill `weight`, `rating`, `language_dependence`,
+  `recommended_players` on existing games. Normal sync only fetches newly added games.
+- Full Refresh is admin-only — UI checkbox on Import page, or `POST /api/v1/import`
+  with `{"full_refresh": true}`.
 
-- Enforced by two GitHub rulesets ("Protect dev", "Protect main and staging")
-- Source branch restriction enforced by `.github/workflows/enforce-merge-direction.yml` — PRs to `staging`/`main` fail if source is wrong
-- Admin bypass is **always on** — you are never locked out for emergency fixes
-- Never push directly to `main` or `staging` (admin bypass exists for emergencies only)
+### Filters
+
+All filters flow through `internal/filter/filter.go`, `store.FilterGames`,
+`store.FilterGamesByVibe`, and all HTMX + REST API handlers.
+
+| URL param | Filter function | Values |
+|---|---|---|
+| `players` | `PlayerCondition` | `1`, `2`, `2only`, `3`, `4`, `5plus` |
+| `playtime` | `PlaytimeCondition` | `short`, `medium`, `long` |
+| `weight` | `WeightCondition` | `light`, `medium`, `heavy` |
+| `rating` | `RatingCondition` | `good` (≥6), `great` (≥7), `excellent` (≥8) |
+| `lang` | `LanguageCondition` | `free` (level 1), `low` (2), `moderate` (3), `high` (≥4) |
+| `rec_players` | `RecommendedPlayersCondition` | `1`–`5` — sentinel-comma LIKE match |
+
+`RecommendedPlayersCondition` embeds validated digit-only values directly in SQL. Input
+validation rejects anything non-numeric.
+
+### DB Migration Pattern
+
+New columns: `ALTER TABLE games ADD COLUMN … DEFAULT …` in `store.createTables()`.
+Idempotent — SQLite silently ignores `ADD COLUMN` if it already exists.
+Also update `migrateGamesTableForPerUserUniqueness`: both the `CREATE TABLE games_new` DDL
+and the `INSERT INTO … SELECT` list.
+
+## Test Suite
+
+**88 tests** across `internal/store` and `internal/httpx`.
+
+| Phase | Status | Scope |
+|---|---|---|
+| Phase 1 | ✅ done | Password hashing, sessions, JWT, CSRF, rate limiting, multi-user ownership |
+| Phase 2 | 🔄 in progress | HTTP handlers (httptest + Playwright e2e) |
+| Phase 3 | ⏳ | Store layer (CRUD, filtering, taxonomy) |
+| Phase 4 | ⏳ | External integrations (BGG, file uploads) |
 
 ## JWT REST API
 
-A parallel JSON REST API lives under `/api/v1/` alongside the existing HTMX app.
-The HTMX frontend and all existing routes remain untouched.
+Parallel JSON REST API under `/api/v1/` alongside the HTMX app.
 
 - **Auth:** `github.com/golang-jwt/jwt/v5` — access tokens (15 min) + refresh tokens (30 day, stored in sessions table)
 - **Middleware:** `RequireJWT(secret)` in `internal/httpx/` — reads `Authorization: Bearer`, returns 401 JSON on failure
 - **Handlers:** `internal/handler/api_*.go` — auth, games, vibes, import, profile, rules, discovery
 - **Helpers:** `api_helpers.go` — `requireAPIUserID`, `requireAPIID`, `writeAPIJSON`, model→snake_case converters
-- **Responses:** `{ "data": ... }` for success, `{ "error": "..." }` for failures; paginated lists include `total`, `page`, `per_page` at top level
-- **Error handling:** Sentinel errors (`store.ErrDuplicate`, `store.ErrWrongPassword` in `store/errors.go`) — never expose raw DB errors to clients
+- **Responses:** `{ "data": ... }` for success, `{ "error": "..." }` for failures; paginated lists include `total`, `page`, `per_page`
+- **Errors:** Sentinel errors (`store.ErrDuplicate`, `store.ErrWrongPassword`) — never expose raw DB errors
 
-See `agent_docs/` for routes, env vars, and key patterns.
+See `agent_docs/` for full route list, env vars, and key patterns.
 
-Never run `git push` without the user explicitly asking to push.
+## Branching Strategy
 
-**Why:** User was surprised when a push happened as part of a "commit" request — they only wanted a commit, not a push.
+```
+main       ← production, stable
+staging    ← pre-production / QA gate
+dev        ← integration branch — all feature branches target this
+```
 
-**How to apply:** After committing, stop and tell the user the commit is ready. Only push if they separately say "push" or "make a PR" (which requires a push). When in doubt, ask.
+**Promotion flow:** `feature/*` → PR → `dev` → PR → `staging` → PR → `main`
+
+| Branch | Direct push | PR required | Source enforced |
+|--------|------------|-------------|-----------------|
+| `dev` | allowed | no | — |
+| `staging` | blocked | yes | must be `dev` |
+| `main` | blocked | yes | must be `staging` |
+
+Enforced by GitHub rulesets + `.github/workflows/enforce-merge-direction.yml`.
+Admin bypass is always on for emergencies — never use it for normal flow.
+
+## Agent Rules
+
+- **Never `git push`** without the user explicitly asking to push. Commit and stop —
+  report the commit is ready. Only push when the user separately says "push" or "make a PR".
+- **Never read `pico.min.css`** — use `pico-reference.html` instead.
