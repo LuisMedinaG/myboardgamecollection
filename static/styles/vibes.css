@@ -2,8 +2,8 @@
 .action-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  margin-top: 1rem;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
 }
 
 .action-card {
@@ -15,12 +15,11 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1.5rem 1rem;
+  padding: var(--space-lg) var(--space-md);
   text-decoration: none;
   color: var(--text);
   box-shadow: var(--shadow);
   min-height: 130px;
-  -webkit-tap-highlight-color: transparent;
   transition: transform 0.1s;
   &:active { transform: scale(0.97); }
 }
@@ -31,7 +30,7 @@
 }
 
 .action-label {
-  font-size: 1rem;
+  font-size: var(--text-base);
   font-weight: 600;
   text-align: center;
 }
@@ -42,17 +41,17 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: var(--space-sm);
   background: var(--accent);
   color: #fff;
   border: none;
   border-radius: var(--radius);
-  padding: 2rem 1rem;
+  padding: var(--space-xl) var(--space-md);
   text-decoration: none;
   box-shadow: var(--shadow);
   min-height: 140px;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.1s, background 0.15s;
+  transition: transform 0.1s, background var(--transition);
 
   &:active { transform: scale(0.97); }
   &:hover  { background: var(--accent-hover); }
@@ -62,7 +61,7 @@
 }
 
 .action-desc {
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   opacity: 0.85;
   text-align: center;
 }
@@ -82,15 +81,14 @@
   background: var(--surface);
   border: 2px solid var(--border);
   border-radius: var(--radius);
-  padding: 1rem;
+  padding: var(--space-md);
   font-size: 1.05rem;
   font-weight: 700;
   color: var(--text);
   text-decoration: none;
   text-align: center;
   box-shadow: var(--shadow);
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.1s, border-color 0.15s, background 0.15s;
+  transition: transform 0.1s, border-color var(--transition), background var(--transition);
 
   &:active { transform: scale(0.96); }
   &:hover  { border-color: currentColor; filter: brightness(0.92); }
@@ -120,24 +118,25 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text);
   text-decoration: none;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background var(--transition), border-color var(--transition);
   &:hover { border-color: var(--accent); background: var(--accent-light); }
 }
 
 /* Game edit — vibe checklist */
-.edit-vibes-form { margin-top: 1rem; }
+.edit-vibes-form { margin-top: var(--space-md); }
 
 .vibe-checklist {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
 }
 
+/* .vibe-check-item gets -webkit-tap-highlight-color from components.css */
 .vibe-check-item {
   display: flex;
   align-items: center;
@@ -145,9 +144,9 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 0.85rem 1rem;
+  padding: 0.85rem var(--space-md);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background var(--transition);
 
   &:hover { background: var(--accent-light); }
 
@@ -160,37 +159,31 @@
 
 .vibe-check-label {
   font-weight: 600;
-  font-size: 1rem;
+  font-size: var(--text-base);
 }
 
-/* Vibe management page */
+/* Vibe management page — uses .narrow-col from components.css */
 .vibe-add-form {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-  max-width: 400px;
-  margin-left: auto;
-  margin-right: auto;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
   .form-input { flex: 1; }
 }
 
 .vibe-manage-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  max-width: 400px;
-  margin-left: auto;
-  margin-right: auto;
+  gap: var(--space-sm);
 }
 
 .vibe-manage-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-sm);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 0.5rem 0.75rem;
+  padding: var(--space-sm) 0.75rem;
 }
 
 .vibe-edit-input {
@@ -212,11 +205,7 @@
 }
 
 .vibe-save-bar {
-  max-width: 400px;
-  margin-top: 1rem;
-  margin-left: auto;
-  margin-right: auto;
+  margin-top: var(--space-md);
   text-align: center;
-
   .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 }

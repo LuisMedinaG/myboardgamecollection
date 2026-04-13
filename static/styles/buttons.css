@@ -7,7 +7,7 @@
   color: var(--accent);
   font-size: 0.95rem;
   font-weight: 500;
-  padding: 0.5rem 0;
+  padding: var(--space-sm) 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   text-decoration: none;
@@ -25,12 +25,13 @@
   cursor: pointer;
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s, transform 0.1s;
+  transition: background var(--transition), transform 0.1s;
 
   &:active { transform: scale(0.97); }
   &:disabled {
-    opacity: 0.35;
-    cursor: default;
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(0.3);
     pointer-events: none;
   }
 }
@@ -53,17 +54,17 @@
   background: var(--surface);
   color: var(--danger);
   border: 1px solid var(--border);
-  &:hover { background: #fdecea; }
+  &:hover { background: var(--danger-bg); }
 }
 
 .btn-sm {
   padding: 0.4rem 0.9rem;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
 
 .btn-block {
   width: 100%;
-  margin-top: 0.5rem;
+  margin-top: var(--space-sm);
 }
 
 .btn-icon {
@@ -77,12 +78,12 @@
   cursor: pointer;
   font-size: 0.8rem;
   background: transparent;
-  transition: background 0.15s;
+  transition: background var(--transition);
 }
 
 .btn-icon-danger {
   color: var(--danger);
-  &:hover { background: #fdecea; }
+  &:hover { background: var(--danger-bg); }
 }
 
 .btn-icon-muted {
@@ -93,44 +94,13 @@
   }
 }
 
-/* Old game-detail action buttons (kept for backward compat) */
-.btn-rules {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.9rem;
-  background: var(--accent);
-  color: #fff;
-  border-radius: var(--radius);
-  text-decoration: none;
-  font-weight: 600;
-  transition: background 0.15s;
-  &:hover { background: var(--accent-hover); }
-}
-
-.btn-bgg {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.75rem;
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  text-decoration: none;
-  font-weight: 600;
-  transition: background 0.15s;
-  &:hover { background: var(--accent-light); }
-}
-
 .badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255,255,255,0.25);
+  background: var(--white-25);
   color: #fff;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   min-width: 20px;
   height: 20px;
   border-radius: 10px;
@@ -143,7 +113,7 @@
 }
 
 .page-btn {
-  padding: 0.45rem 1rem;
+  padding: 0.45rem var(--space-md);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -151,7 +121,7 @@
   font-size: 0.9rem;
   font-weight: 600;
   text-decoration: none;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background var(--transition), border-color var(--transition);
   &:hover {
     background: var(--accent);
     border-color: var(--accent);
@@ -183,12 +153,4 @@
     border-color: var(--accent);
     color: #fff;
   }
-}
-
-/* Disable overrides consolidated */
-.import-btn:disabled,
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  filter: grayscale(0.3);
 }

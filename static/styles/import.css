@@ -4,12 +4,9 @@
   padding: 3rem 0;
 }
 
+/* .import-card gets surface/border/radius/shadow from components.css */
 .import-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 2rem 1.75rem;
-  box-shadow: var(--shadow);
+  padding: var(--space-xl) 1.75rem;
   width: 100%;
   text-align: center;
 }
@@ -58,8 +55,8 @@
 
 .import-input {
   flex: 1;
-  padding: 0.85rem 1rem;
-  font-size: 1rem;
+  padding: 0.85rem var(--space-md);
+  font-size: var(--text-base);
   border-radius: var(--radius-sm) 0 0 var(--radius-sm);
   border-right: none;
 }
@@ -67,7 +64,7 @@
 .import-btn {
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   padding: 0.85rem 1.1rem;
-  font-size: 1.1rem;
+  font-size: var(--text-lg);
 }
 
 .import-loading {
@@ -80,43 +77,35 @@
   font-size: 0.9rem;
 }
 
+/* status messages get shared padding/radius/margin from components.css */
 .import-success {
   background: var(--accent-light);
   color: var(--accent);
-  padding: 1rem 1.25rem;
-  border-radius: var(--radius);
   font-weight: 500;
-  margin-top: 1rem;
 
   a {
     color: var(--accent);
     font-weight: 600;
-    margin-left: 0.25rem;
+    margin-left: var(--space-xs);
     text-decoration: none;
     &:hover { text-decoration: underline; }
   }
 }
 
 .import-info {
-  background: #f0f0f0;
+  background: var(--info-bg);
   color: var(--text-secondary);
-  padding: 1rem 1.25rem;
-  border-radius: var(--radius);
-  margin-top: 1rem;
 }
 
 .import-error {
-  background: #fdecea;
+  background: var(--danger-bg);
   color: var(--danger);
-  padding: 1rem 1.25rem;
-  border-radius: var(--radius);
-  margin-top: 1rem;
 }
 
 .csv-import-title {
   font-size: 1.15rem;
   font-weight: 700;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-sm);
 }
 
 .import-csv-link-row {
@@ -129,7 +118,7 @@
   color: var(--accent);
   font-weight: 600;
   text-decoration: none;
-  margin-left: 0.25rem;
+  margin-left: var(--space-xs);
   &:hover { text-decoration: underline; }
 }
 
@@ -137,8 +126,8 @@
   text-align: left;
   background: var(--accent-light);
   border-radius: var(--radius-sm);
-  padding: 0.85rem 1rem;
-  margin-bottom: 1rem;
+  padding: 0.85rem var(--space-md);
+  margin-bottom: var(--space-md);
   font-size: 0.9rem;
   color: var(--text);
 
@@ -148,7 +137,7 @@
     color: var(--accent);
   }
   ol {
-    margin: 0.75rem 0 0.5rem 1.25rem;
+    margin: 0.75rem 0 var(--space-sm) 1.25rem;
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
@@ -163,8 +152,8 @@
 }
 
 .csv-required {
-  margin-top: 0.5rem;
-  font-size: 0.85rem;
+  margin-top: var(--space-sm);
+  font-size: var(--text-sm);
   color: var(--text-secondary);
 }
 
@@ -172,7 +161,7 @@
 
 .csv-file-label {
   text-align: left;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-secondary);
 }
@@ -187,7 +176,7 @@
 
 .csv-preview-btn {
   padding: 0.85rem 1.1rem;
-  font-size: 1rem;
+  font-size: var(--text-base);
   border-radius: var(--radius-sm);
 }
 
@@ -196,9 +185,9 @@
   margin-top: 1.25rem;
 
   h3 {
-    font-size: 1rem;
+    font-size: var(--text-base);
     font-weight: 700;
-    margin-bottom: 0.5rem;
+    margin-bottom: var(--space-sm);
   }
 }
 
@@ -206,7 +195,7 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--space-xs);
   font-size: 0.9rem;
   color: var(--text-secondary);
 }
@@ -222,11 +211,11 @@
 .csv-preview-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   text-align: left;
 
   th, td {
-    padding: 0.5rem 0.75rem;
+    padding: var(--space-sm) 0.75rem;
     border-bottom: 1px solid var(--border);
   }
 
@@ -238,30 +227,30 @@
   }
 }
 
-.csv-row-owned   { color: var(--text-secondary); }
-.csv-status-new  { color: var(--accent); font-weight: 600; }
+.csv-row-owned    { color: var(--text-secondary); }
+.csv-status-new   { color: var(--accent); font-weight: 600; }
 .csv-status-owned { color: var(--text-secondary); }
 
 .csv-preview-truncated {
-  padding: 0.5rem 0.75rem;
+  padding: var(--space-sm) 0.75rem;
   font-size: 0.8rem;
   color: var(--text-secondary);
   background: var(--bg);
   border-top: 1px solid var(--border);
 }
 
-.csv-confirm-form { margin-top: 1rem; }
+.csv-confirm-form { margin-top: var(--space-md); }
 
 .import-username-label {
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-md);
   color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
+/* .bgg-username-panel gets surface/border/radius/shadow from components.css */
 .bgg-username-panel {
-  background: #f6f8f4;
-  border: 1px solid #e2e8d8;
-  border-radius: var(--radius);
+  background: var(--surface-tinted);
+  border-color: #e2e8d8;
   padding: 1.25rem;
   margin-bottom: 1.25rem;
 }
@@ -279,7 +268,7 @@
 }
 
 .bgg-username-value {
-  color: var(--primary, #2f5a2a);
+  color: var(--accent);
   font-size: 1.05rem;
   flex: 1;
 }
@@ -293,7 +282,7 @@
 .bgg-username-form {
   label {
     display: block;
-    font-size: 0.85rem;
+    font-size: var(--text-sm);
     color: var(--text-secondary);
     margin-bottom: 0.35rem;
   }
@@ -305,5 +294,5 @@
 
 .bgg-username-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-sm);
 }

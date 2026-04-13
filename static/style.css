@@ -1,8 +1,20 @@
 /* Entry point — imports all modules in cascade order.
-   For production, concatenate with: cat styles/*.css > dist/style.css
-   (or use a build step that respects @import order) */
+   Pico.css provides the reset + semantic baseline.
+   Our variables override Pico's theme tokens.
+   components.css holds shared structural patterns.
+
+   Production bundle:
+   cat styles/pico.min.css \
+       styles/variables.css styles/components.css \
+       styles/layout.css styles/login.css styles/forms.css \
+       styles/buttons.css styles/utilities.css styles/tags.css \
+       styles/game-list.css styles/game-detail.css \
+       styles/import.css styles/rules.css styles/vibes.css \
+       > style.bundle.css
+*/
+@import "styles/pico.min.css";
 @import "styles/variables.css";
-@import "styles/reset.css";
+@import "styles/components.css";
 @import "styles/layout.css";
 @import "styles/login.css";
 @import "styles/forms.css";

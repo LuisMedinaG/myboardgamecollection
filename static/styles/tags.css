@@ -4,10 +4,10 @@
   padding: 0.2rem 0.6rem;
   border-radius: 6px;
   font-weight: 500;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
 
-.tag-type    { background: var(--tag-type-bg);     color: var(--tag-type-color); }
+.tag-type     { background: var(--tag-type-bg);     color: var(--tag-type-color); }
 .tag-category { background: var(--tag-category-bg); color: var(--tag-category-color); }
 .tag-mechanic { background: var(--tag-mechanic-bg); color: var(--tag-mechanic-color); }
 
@@ -24,14 +24,14 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-sm);
 }
 
 .game-categories {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: var(--space-lg);
 }
 
 .game-tagline {
@@ -41,18 +41,13 @@
   margin-top: 0.35rem;
 }
 
-.game-list-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  margin-top: 0.2rem;
-}
-
+/* game-list tag/vibe containers */
+.game-list-tags,
 .game-list-vibes {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem;
-  margin-top: 0.3rem;
+  margin-top: 0.25rem;
 }
 
 .vibe-pill {
@@ -64,6 +59,7 @@
   line-height: 1.5;
 }
 
+/* 8-slot vibe colour palette */
 .vibe-color-0 { background: #e8f0e7; color: #2d5a27; }
 .vibe-color-1 { background: #e0eeff; color: #1a4fb5; }
 .vibe-color-2 { background: #f3e8ff; color: #6b21a8; }
@@ -73,36 +69,33 @@
 .vibe-color-6 { background: #fef9c3; color: #854d0e; }
 .vibe-color-7 { background: #fce7f3; color: #be185d; }
 
-.pill-btn {
+/* pill-btn and pill-category are identical — share the rule */
+.pill-btn,
+.pill-category {
   display: inline-flex;
   align-items: center;
   padding: 0.35rem 0.75rem;
-  background: #e8e0f0;
-  color: #5b3d8f;
+  background: var(--tag-category-bg);
+  color: var(--tag-category-color);
   border-radius: 20px;
   font-size: 0.8rem;
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: background 0.15s;
+  transition: background var(--transition);
   &:hover { background: #d4c8e4; }
 }
 
 .pill-type {
-  background: #dceefb;
-  color: #1a5f8a;
+  background: var(--tag-type-bg);
+  color: var(--tag-type-color);
   &:hover { background: #c5e0f5; }
 }
 
-.pill-category {
-  background: #e8e0f0;
-  color: #5b3d8f;
-}
-
 .pill-mechanic {
-  background: #e0f0e3;
-  color: #2d6a32;
+  background: var(--tag-mechanic-bg);
+  color: var(--tag-mechanic-color);
   &:hover { background: #cfe6d3; }
 }
 
@@ -112,20 +105,20 @@
   display: flex;
   flex-wrap: nowrap;
   gap: 0.4rem;
-  margin-top: 0.25rem;
+  margin-top: var(--space-xs);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 0.25rem;
+  padding-bottom: var(--space-xs);
   &::-webkit-scrollbar { display: none; }
 }
 
-.filter-chip-type     { background: #1a5f8a; }
-.filter-chip-category { background: #5b3d8f; }
-.filter-chip-mechanic { background: #2d6a32; }
+.filter-chip-type     { background: var(--tag-type-color); }
+.filter-chip-category { background: var(--tag-category-color); }
+.filter-chip-mechanic { background: var(--tag-mechanic-color); }
 
 .category-pills {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-md);
 }
