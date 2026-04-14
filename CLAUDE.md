@@ -6,8 +6,11 @@ Personal app — track board games, store rulebook links, upload player aids, im
 
 - **Never `git push`** without the user explicitly saying "push" or "make a PR".
 - **Commit workflow** — always ask before committing so the user can review the diff first.
-- **CSS workflow** — edit `static/input.css` (Tailwind source); never edit `static/style.css` directly (it's generated). Run `make css` to rebuild after changes, or use `make dev` (auto-watches).
-- **Tailwind-first UI** — use Tailwind utility classes in templates. No new CSS files or custom classes unless absolutely unavoidable. Check Tailwind docs for existing utilities before writing CSS.
+- **Go CSS workflow** — edit `static/input.css` (Tailwind source); never edit `static/style.css` directly (it's generated). Run `make css` to rebuild after changes, or use `make dev` (auto-watches).
+- **React CSS workflow** — edit `react-app/src/index.css` (Tailwind v4 source for React). No Tailwind CLI needed — the `@tailwindcss/vite` plugin handles it automatically during `bun dev`/`bun build`.
+- **Tailwind-first UI** — use Tailwind utility classes. No new CSS files or custom classes unless absolutely unavoidable. Check Tailwind docs for existing utilities before writing CSS.
+- **React package manager** — use `bun` (not `npm`) inside `react-app/`. Run `bun dev`, `bun build`, `bun install`.
+- **React API calls** — all data fetching goes through `react-app/src/lib/api.ts` (the centralized API client). Never call `fetch()` directly in components.
 - **DB migrations** — `ALTER TABLE … ADD COLUMN … DEFAULT …` in `store.createTables()`. Idempotent. Also update `migrateGamesTableForPerUserUniqueness` DDL + SELECT list.
 - **Multi-tenancy** — every SQL query must include `AND user_id = ?`. Bulk ops use the `ownedIDs()` pattern.
 - **Error handling** — use sentinel errors (`store.ErrDuplicate`, `store.ErrWrongPassword`). Never expose raw DB errors.
@@ -15,25 +18,35 @@ Personal app — track board games, store rulebook links, upload player aids, im
 
 ## Stack
 
-Go 1.25 · stdlib HTTP server · HTMX (no JS framework) · **Tailwind CSS v4** · SQLite (`modernc.org/sqlite`) · Docker + Fly.io
+**Go backend:** Go 1.25 · stdlib HTTP server · HTMX · Tailwind CSS v4 · SQLite (`modernc.org/sqlite`) · Docker + Fly.io
+
+**React frontend (in progress):** React 19 · React Router v7 · Vite 8 · Tailwind CSS v4 (`@tailwindcss/vite`) · TypeScript · Bun 1.3
 
 ## CSS Architecture (Tailwind v4)
 
-- **Source file**: `static/input.css` — `@import "tailwindcss"`, `@theme {}` tokens, `@layer components` overrides
-- **Output file**: `static/style.css` — compiled by Tailwind CLI, committed to repo, embedded in binary
-- **Theme tokens**: defined in `@theme {}` block in `input.css` (colors, radius, shadows)
-- **No `tailwind.config.js`** — all config is in `input.css` (Tailwind v4 CSS-first config)
-- **No legacy CSS** — `static/styles/` has been fully removed; migration is complete
+### Go backend (`static/`)
 
-Key Tailwind color utilities (defined in `@theme`):
-- `bg-accent` / `text-accent` / `border-accent` — brand green (#2d5a27)
-- `bg-accent-soft` / `text-accent-soft` — light green variant
-- `bg-canvas` / `bg-surface` — page background / card background
-- `text-ink` / `text-muted` — primary / secondary text
-- `border-edge` — default border color
-- `text-danger` / `bg-danger-soft` — error states
+- **Source**: `static/input.css` — `@import "tailwindcss"`, `@theme {}` tokens, `@layer components` overrides
+- **Output**: `static/style.css` — compiled by Tailwind CLI, committed to repo, embedded in binary
+- **No `tailwind.config.js`** — CSS-first config in `input.css`
+- Clean white theme: `surface: #ffffff`, `canvas: #f5f5f5`, `ink: #1a1a1a`
+
+Key tokens: `bg-accent` (green #2d5a27) · `bg-canvas` / `bg-surface` · `text-ink` / `text-muted` · `border-edge` · `text-danger` / `bg-danger-soft`
+
+### React app (`react-app/src/index.css`)
+
+- **No build step** — `@tailwindcss/vite` plugin processes it automatically via Vite
+- **No `tailwind.config.js`** — CSS-first config inline
+- Parchment/warm theme: `parchment: #f5f0e8`, `surface: #fdfbf7`, `ink: #2c2008`
+- Fonts: Lora (headings, serif) + Nunito (body, sans-serif) via Google Fonts
+
+Key tokens: `bg-accent` (green #2d5a27) · `bg-parchment` · `bg-surface` · `text-ink` / `text-muted` · `text-brown` · `text-rating`
+
+Shared component classes (defined in `@layer components`): `.btn`, `.btn-primary`, `.btn-secondary`, `.tag`, `.tag-type`, `.tag-category`, `.tag-mechanic`, `.filter-chip`, `.card`, `.pressable`, `.weight-light/medium/heavy`, `.vibe-pill`
 
 ## Commands
+
+### Go backend
 
 ```sh
 make dev              # run Go app + Tailwind CSS watcher (recommended for dev)
@@ -51,7 +64,19 @@ make tailwind-install # download Tailwind CLI (first-time setup)
 make bgg-login        # grab BGG auth headers
 ```
 
+### React frontend (run from `react-app/`)
+
+```sh
+bun dev               # start Vite dev server at localhost:5173
+bun build             # type-check + production build → dist/
+bun run lint          # ESLint
+bun run preview       # preview production build locally
+bun install           # install dependencies
+```
+
 ## Project Structure
+
+### Go backend
 
 ```
 main.go                # Server setup, routes, middleware
@@ -69,6 +94,34 @@ static/
   input.css            # Tailwind source (edit this)
   style.css            # Compiled CSS output (do not edit — generated by Tailwind)
 ```
+
+### React frontend (`react-app/`)
+
+```
+src/
+  main.tsx             # Entry point — HashRouter + App
+  App.tsx              # Route tree (/, /games/:id, /vibes)
+  index.css            # Tailwind v4 source + theme tokens + component classes
+  types/game.ts        # Game interface + filter types
+  data/games.ts        # Static mock data — TO BE REPLACED by API client
+  lib/api.ts           # (planned) Centralized API client for /api/v1/*
+  hooks/
+    useFilteredGames.ts  # Multi-faceted client-side filtering
+  components/
+    Layout.tsx           # App shell: glass header + bottom tab bar
+    FilterBar.tsx        # Four filter dropdowns + search input
+    ActiveFilters.tsx    # Removable filter chips
+    SearchInput.tsx      # Debounced (300ms) search input
+    GameListItem.tsx     # Tappable row with thumbnail, weight badge, vibe pills
+    GameCard.tsx         # Grid card view
+    TagList.tsx          # Category/mechanic/type tag renderer
+  pages/
+    CollectionPage.tsx   # Games list with filtering, list/grid toggle
+    GameDetailPage.tsx   # Hero image, stats, expandable description, BGG link
+    VibesPage.tsx        # Browse games by mood/vibe
+```
+
+**Migration status (Apr 14):** UI complete with mock data. Auth, API client, and real data integration pending.
 
 ## Key Patterns
 

@@ -1,6 +1,7 @@
-.PHONY: build run dev dev-go css css-watch clean \
+.PHONY: build run dev dev-go dev-all css css-watch clean \
         bgg-login test test-v cover cover-html vet check \
-        tailwind-install
+        tailwind-install \
+        react-dev react-build react-install react-lint
 
 GOCACHE ?= /tmp/go-build-cache
 GOENV = env GOCACHE=$(GOCACHE)
@@ -70,6 +71,36 @@ vet:
 
 # Full verification: CSS + build + tests + vet
 check: css build test vet
+
+# ── Combined ─────────────────────────────────────────────────────────
+
+# Run Go app + Tailwind watcher + React dev server concurrently (Ctrl-C stops all)
+dev-all:
+	@trap 'kill 0' INT TERM; \
+	$(TAILWIND) -i $(CSS_IN) -o $(CSS_OUT) --watch & \
+	$(GO) run . & \
+	cd $(REACT_DIR) && bun dev; \
+	wait
+
+# ── React frontend ────────────────────────────────────────────────────
+
+REACT_DIR = react-app
+
+# Start Vite dev server at localhost:5173
+react-dev:
+	cd $(REACT_DIR) && bun dev
+
+# Type-check + production build → react-app/dist/
+react-build:
+	cd $(REACT_DIR) && bun run build
+
+# Install React dependencies
+react-install:
+	cd $(REACT_DIR) && bun install
+
+# Lint React source
+react-lint:
+	cd $(REACT_DIR) && bun run lint
 
 # ── Maintenance ───────────────────────────────────────────────────────
 

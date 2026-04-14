@@ -10,6 +10,7 @@ export default function GameCard({ game }: Props) {
   return (
     <Link
       to={`/games/${game.id}`}
+      className="pressable"
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -20,16 +21,6 @@ export default function GameCard({ game }: Props) {
         boxShadow: 'var(--shadow-card)',
         textDecoration: 'none',
         color: 'var(--color-ink)',
-        transition: 'box-shadow 0.15s, transform 0.1s',
-        WebkitTapHighlightColor: 'transparent',
-      }}
-      onMouseEnter={e => {
-        e.currentTarget.style.boxShadow = '0 4px 16px rgba(44,32,8,0.15)'
-        e.currentTarget.style.transform = 'scale(1.02)'
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.boxShadow = 'var(--shadow-card)'
-        e.currentTarget.style.transform = ''
       }}
     >
       <div style={{ aspectRatio: '1', overflow: 'hidden' }}>

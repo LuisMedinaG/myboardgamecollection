@@ -36,6 +36,7 @@
     color: var(--color-ink);
     margin: 0;
     -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -45,6 +46,20 @@
 
   a { color: inherit; text-decoration: none; }
   p { margin: 0; }
+
+  a, button {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .pressable {
+    transition: transform 0.12s ease, opacity 0.12s ease;
+    cursor: pointer;
+  }
+  .pressable:active {
+    transform: scale(0.96);
+    opacity: 0.85;
+  }
 }
 
 @layer components {

@@ -10,6 +10,7 @@ export default function GameListItem({ game }: Props) {
   return (
     <Link
       to={`/games/${game.id}`}
+      className="pressable"
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -21,11 +22,7 @@ export default function GameListItem({ game }: Props) {
         textDecoration: 'none',
         color: 'var(--color-ink)',
         boxShadow: 'var(--shadow-card)',
-        transition: 'transform 0.1s',
-        WebkitTapHighlightColor: 'transparent',
       }}
-      onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.005)')}
-      onMouseLeave={e => (e.currentTarget.style.transform = '')}
     >
       <img
         src={game.thumbnail}
