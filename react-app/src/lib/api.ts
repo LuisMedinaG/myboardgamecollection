@@ -75,8 +75,8 @@ async function request<T>(
 }
 
 // ── API response types (Go → snake_case) ──────────────────────────────────────
-interface VibeAPI     { id: number; name: string }
-interface PlayerAidAPI { id: number; game_id: number; filename: string; label: string }
+interface CollectionAPI { id: number; name: string; description: string; game_count?: number }
+interface PlayerAidAPI  { id: number; game_id: number; filename: string; label: string }
 
 interface GameAPI {
   id:                   number
@@ -97,7 +97,7 @@ interface GameAPI {
   language_dependence:  number
   recommended_players:  number[]
   rules_url:            string
-  vibes:                VibeAPI[]
+  vibes:                CollectionAPI[]  // backend still sends "vibes" key for now
   player_aids?:         PlayerAidAPI[]
 }
 
@@ -127,9 +127,11 @@ function mapGame(g: GameAPI): Game {
 }
 
 // ── Public types ───────────────────────────────────────────────────────────────
-export interface Vibe {
-  id: number
-  name: string
+export interface Collection {
+  id:          number
+  name:        string
+  description: string
+  gameCount:   number
 }
 
 export interface PlayerAid {
@@ -165,22 +167,22 @@ export interface GamesListResponse {
 }
 
 export interface DiscoverResponse {
-  data:  Game[]
-  total: number
-  vibe:  Vibe
+  data:       Game[]
+  total:      number
+  collection: Collection
 }
 
 export interface DiscoverParams {
-  vibe_id:      number
-  type?:        string
-  category?:    string
-  mechanic?:    string
-  players?:     string
-  playtime?:    string
-  weight?:      string
-  rating?:      string
-  lang?:        string
-  rec_players?: string
+  collection_id: number
+  type?:         string
+  category?:     string
+  mechanic?:     string
+  players?:      string
+  playtime?:     string
+  weight?:       string
+  rating?:       string
+  lang?:         string
+  rec_players?:  string
 }
 
 // ── API methods ────────────────────────────────────────────────────────────────
@@ -237,36 +239,41 @@ export const api = {
     return request('DELETE', `/games/${id}`)
   },
 
-  async setGameVibes(gameId: number, vibeIds: number[]) {
-    return request<{ data: { game_id: number; vibe_ids: number[] } }>(
-      'POST', `/games/${gameId}/vibes`, { vibe_ids: vibeIds },
+  async setGameCollections(gameId: number, collectionIds: number[]) {
+    return request<{ data: { game_id: number; collection_ids: number[] } }>(
+      'POST', `/games/${gameId}/collections`, { collection_ids: collectionIds },
     )
   },
 
-  async bulkVibes(gameIds: number[], vibeIds: number[]) {
+  async bulkCollections(gameIds: number[], collectionIds: number[]) {
     return request<{ data: { updated: number } }>(
-      'POST', '/games/bulk-vibes', { game_ids: gameIds, vibe_ids: vibeIds },
+      'POST', '/games/bulk-collections', { game_ids: gameIds, collection_ids: collectionIds },
     )
   },
 
-  // Vibes
-  async listVibes(): Promise<Vibe[]> {
-    const r = await request<{ data: VibeAPI[] }>('GET', '/vibes')
-    return r.data
+  // Collections
+  async listCollections(): Promise<Collection[]> {
+    const r = await request<{ data: CollectionAPI[] }>('GET', '/collections')
+    return r.data.map(c => ({
+      id:          c.id,
+      name:        c.name,
+      description: c.description,
+      gameCount:   c.game_count ?? 0,
+    }))
   },
 
-  async createVibe(name: string): Promise<Vibe> {
-    const r = await request<{ data: VibeAPI }>('POST', '/vibes', { name })
-    return r.data
+  async createCollection(name: string, description = ''): Promise<Collection> {
+    const r = await request<{ data: CollectionAPI }>('POST', '/collections', { name, description })
+    return { id: r.data.id, name: r.data.name, description: r.data.description, gameCount: 0 }
   },
 
-  async updateVibe(id: number, name: string): Promise<Vibe> {
-    const r = await request<{ data: VibeAPI }>('PUT', `/vibes/${id}`, { name })
-    return r.data
+  async updateCollection(id: number, name: string, description = ''): Promise<Collection> {
+    const r = await request<{ data: CollectionAPI }>('PUT', `/collections/${id}`, { name, description })
+    return { id: r.data.id, name: r.data.name, description: r.data.description, gameCount: 0 }
   },
 
-  async deleteVibe(id: number) {
-    return request('DELETE', `/vibes/${id}`)
+  async deleteCollection(id: number) {
+    return request('DELETE', `/collections/${id}`)
   },
 
   // Discover
@@ -275,10 +282,19 @@ export const api = {
     for (const [k, v] of Object.entries(params)) {
       if (v !== undefined && v !== '') qs.set(k, String(v))
     }
-    const r = await request<{ data: GameAPI[]; total: number; vibe: VibeAPI }>(
+    const r = await request<{ data: GameAPI[]; total: number; collection: CollectionAPI }>(
       'GET', `/discover?${qs}`,
     )
-    return { data: r.data.map(mapGame), total: r.total, vibe: r.vibe }
+    return {
+      data:  r.data.map(mapGame),
+      total: r.total,
+      collection: {
+        id:          r.collection.id,
+        name:        r.collection.name,
+        description: r.collection.description,
+        gameCount:   r.collection.game_count ?? 0,
+      },
+    }
   },
 
   // Profile
