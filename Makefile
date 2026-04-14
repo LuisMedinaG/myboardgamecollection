@@ -1,50 +1,81 @@
-.PHONY: build run dev clean bgg-login test test-v cover cover-html vet check
+.PHONY: build run dev dev-go css css-watch clean \
+        bgg-login test test-v cover cover-html vet check \
+        tailwind-install
 
 GOCACHE ?= /tmp/go-build-cache
 GOENV = env GOCACHE=$(GOCACHE)
 GO = $(GOENV) go
 
+TAILWIND = ./tailwindcss
+CSS_IN  = static/input.css
+CSS_OUT = static/style.css
+
+# ── CSS ──────────────────────────────────────────────────────────────
+
+# Build CSS once (minified) — run before committing or deploying
+css:
+	$(TAILWIND) -i $(CSS_IN) -o $(CSS_OUT) --minify
+
+# Watch CSS for changes (dev use)
+css-watch:
+	$(TAILWIND) -i $(CSS_IN) -o $(CSS_OUT) --watch
+
+# Download Tailwind CLI binary (macOS Apple Silicon)
+tailwind-install:
+	@echo "Downloading Tailwind CSS CLI v4 (macOS arm64)..."
+	curl -sLo tailwindcss \
+	  https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-macos-arm64
+	chmod +x tailwindcss
+	@echo "Done. Run 'make css' to build the stylesheet."
+
+# ── Go ───────────────────────────────────────────────────────────────
+
 # Build the binary
 build:
 	$(GO) build -o boardgames .
 
-# Build and run
-run: build
+# Build CSS + binary, then run
+run: css build
 	./boardgames
 
-# Development: build and run
+# Development: run Go app + Tailwind watcher concurrently (Ctrl-C stops both)
 dev:
+	@trap 'kill 0' INT TERM; \
+	$(TAILWIND) -i $(CSS_IN) -o $(CSS_OUT) --watch & \
+	$(GO) run .; \
+	wait
+
+# Development: run Go app only (use when CSS is already up-to-date)
+dev-go:
 	$(GO) run .
 
-# Run all tests
+# ── Tests & quality ──────────────────────────────────────────────────
+
 test:
 	$(GO) test ./...
 
-# Run all tests with verbose output
 test-v:
 	$(GO) test ./... -v
 
-# Run tests with coverage report
 cover:
 	$(GO) test ./... -cover
 
-# Run tests and generate HTML coverage report
 cover-html:
 	$(GO) test ./... -coverprofile=/tmp/coverage.out && \
 	$(GO) tool cover -html=/tmp/coverage.out -o /tmp/coverage.html && \
 	echo "Coverage report: /tmp/coverage.html"
 
-# Run static analysis
 vet:
 	$(GO) vet ./...
 
-# Standard verification suite for local and CI usage
-check: build test vet
+# Full verification: CSS + build + tests + vet
+check: css build test vet
 
-# Remove build artifacts and database
+# ── Maintenance ───────────────────────────────────────────────────────
+
 clean:
-	rm -f boardgames games.db
+	rm -f boardgames games.db tailwindcss
 
-# Print BGG Cookie header (reads ADMIN_* from .env if present, else environment). Run from repo root.
+# Print BGG Cookie header (reads ADMIN_* from .env if present, else environment)
 bgg-login:
 	$(GO) run ./cmd/bgg-login

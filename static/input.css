@@ -1,0 +1,64 @@
+/* ── Tailwind CSS v4 ─────────────────────────────────────────────────
+   This is the source file. Compile to static/style.css with:
+     make css          (one-shot, minified)
+     make css-watch    (watch mode)
+   ------------------------------------------------------------------ */
+
+@import "tailwindcss";
+
+/* Scan Go templates and source for Tailwind class usage */
+@source "../templates/**/*.html";
+@source "../internal/**/*.go";
+
+/* ── Theme: brand colors available as Tailwind utilities ─────────── */
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* Brand */
+  --color-accent:      #2d5a27;
+  --color-accent-dark: #234a1f;
+  --color-accent-soft: #e8f0e7;
+
+  /* Neutrals */
+  --color-surface:  #ffffff;
+  --color-canvas:   #f5f5f5;
+  --color-ink:      #1a1a1a;
+  --color-muted:    #666666;
+  --color-edge:     #e0e0e0;
+
+  /* Danger */
+  --color-danger:        #c0392b;
+  --color-danger-dark:   #a93226;
+  --color-danger-soft:   #fdecea;
+  --color-danger-border: #f5c6cb;
+
+  /* Tag palette */
+  --color-tag-type-bg: #dceefb;
+  --color-tag-type:    #1a5f8a;
+  --color-tag-cat-bg:  #e8e0f0;
+  --color-tag-cat:     #5b3d8f;
+  --color-tag-mech-bg: #e0f0e3;
+  --color-tag-mech:    #2d6a32;
+
+  /* Shape */
+  --radius:    12px;
+  --radius-sm: 8px;
+  --shadow:    0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+/* ── Existing styles — removed page-by-page during migration ─────────
+   Once a page is fully converted to Tailwind, its CSS import is
+   removed here. Remove pico.min.css last (after all pages are done).
+   ------------------------------------------------------------------ */
+@import "./styles/pico.min.css";
+@import "./styles/variables.css";
+@import "./styles/components.css";
+@import "./styles/layout.css";
+@import "./styles/login.css";
+@import "./styles/forms.css";
+@import "./styles/game-list.css";
+@import "./styles/game-detail.css";
+@import "./styles/import.css";
+@import "./styles/rules.css";
+@import "./styles/vibes.css";
