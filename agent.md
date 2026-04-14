@@ -7,6 +7,14 @@ description: Full-stack Go/HTMX application for tracking personal board game lib
 
 Personal app for tracking board games, storing rulebook links, uploading player aids, and importing from BoardGameGeek (BGG).
 
+---
+
+**📖 Division of docs:**
+- **[CLAUDE.md](./CLAUDE.md)** — Project rules, architecture overview, branching strategy (concise reference, ~100 lines)
+- **This file** — Agent-specific guidance: code style, conventions, detailed examples, boundaries, execution patterns
+
+This file is optimized for AI agent execution; CLAUDE.md is for human reference.
+
 ## Persona & Role
 
 You are a full-stack agent for a **Go backend** + **HTMX frontend** application. You understand:
@@ -21,65 +29,19 @@ You are a full-stack agent for a **Go backend** + **HTMX frontend** application.
 
 ## Project Knowledge
 
-### Tech Stack
+**See [CLAUDE.md](./CLAUDE.md)** for tech stack details and full directory structure.
 
-- **Backend**: Go 1.25, stdlib `net/http`, `database/sql`, `modernc.org/sqlite`
-- **Frontend**: HTMX 1.9+, Pico CSS (semantic HTML only)
-- **Database**: SQLite with FTS5 full-text search, migrations in code
-- **Deployment**: Docker + Fly.io
-- **Testing**: Go `testing` package, 88 tests (Phase 1 complete)
-- **Auth**: Session cookies (HTMX, 30-day) + JWT (REST API, 15-min access/30-day refresh)
+Key execution context:
+- **Backend**: Go 1.25, stdlib HTTP, SQLite with FTS5, multi-tenant (user_id filtering required)
+- **Frontend**: HTMX + Pico CSS (semantic HTML only, no JS frameworks)
+- **Auth**: Dual system — session cookies (HTMX) + JWT (REST API)
+- **Testing**: 88 tests (Phase 1), Phase 2 in progress (target 200–240 tests)
 
-### Directory Structure
-
-```
-.
-├── main.go                    # Server setup, routes, middleware
-├── Makefile                   # Build, test, run commands
-├── go.mod / go.sum           # Dependencies
-├── internal/
-│   ├── handler/              # HTTP handlers
-│   │   ├── game.go           # Game HTMX handlers
-│   │   ├── api_games.go      # REST API for games
-│   │   ├── vibe.go           # Vibe (mood) handlers
-│   │   ├── import.go         # BGG import
-│   │   └── auth.go           # Login/signup
-│   ├── store/                # SQLite DAL
-│   │   ├── store.go          # Schema, migrations
-│   │   ├── games.go          # Game queries
-│   │   ├── users.go          # User/session queries
-│   │   └── *_test.go         # 44 unit tests (56% coverage)
-│   ├── httpx/                # Middleware
-│   │   ├── auth.go           # Session/JWT auth
-│   │   ├── csrf.go           # CSRF protection
-│   │   ├── ratelimit.go      # Rate limiting
-│   │   └── *_test.go         # 44 tests (47% coverage)
-│   ├── bgg/                  # BGG API client
-│   │   └── bgg.go            # OAuth + throttle transports
-│   ├── render/               # Template renderer
-│   │   └── render.go         # Embedded templates, partials
-│   ├── model/                # Domain models
-│   ├── viewmodel/            # Template view data
-│   └── filter/               # Game filtering logic
-├── templates/                # Embedded HTML templates
-├── static/
-│   ├── style.css             # CSS barrel import
-│   └── styles/               # Pico + custom CSS
-│       ├── pico.min.css      # Pico framework
-│       ├── variables.css     # Design tokens
-│       ├── layout.css        # Grid, spacing
-│       ├── components.css    # Custom components
-│       ├── game-list.css     # Game list styles
-│       ├── forms.css         # Form overrides
-│       └── ...
-├── pico-reference.html       # Pico CSS pattern guide
-├── CLAUDE.md                 # Project rules & structure
-├── agent.md                  # This file
-├── tests/                    # Test fixtures, VCR cassettes
-└── agent_docs/               # Architecture guides
-    ├── ARCHITECTURE-GUIDE.md # Macro design decisions
-    └── ARCHITECTURE-REF.md   # Routes, env vars, DB schema
-```
+Critical directories:
+- `internal/handler/` — HTTP handlers (dual HTMX/REST interface)
+- `internal/store/` — SQLite queries & migrations (idempotent, in-code)
+- `internal/httpx/` — Middleware (auth, CSRF, rate limiting)
+- `templates/` — Embedded HTML (layout cloning, partials)
 
 ## Commands
 
@@ -416,12 +378,15 @@ type: fix|feat|refactor|docs|chore
 
 ## Resources
 
-- **Architecture**: `agent_docs/ARCHITECTURE-GUIDE.md` (request pipeline, design decisions)
-- **Reference**: `agent_docs/ARCHITECTURE-REF.md` (routes, env vars, DB schema)
-- **CSS Patterns**: `pico-reference.html` (Pico component examples)
-- **Design Tokens**: `static/styles/variables.css` (color, spacing, typography)
-- **Testing Roadmap**: Issue #101 (Phase 2 handler tests)
-- **GitHub Project**: https://github.com/lumedina/myboardgamecollection
+**Project Rules & Overview:**
+- **[CLAUDE.md](./CLAUDE.md)** — Rules, branching, architecture overview, commands (start here for project context)
+
+**Deep Dives:**
+- `agent_docs/ARCHITECTURE-GUIDE.md` — Request pipeline, design decisions, patterns
+- `agent_docs/ARCHITECTURE-REF.md` — Routes, env vars, DB schema, testing roadmap
+- `pico-reference.html` — Pico CSS component patterns (always consult before CSS changes)
+- `static/styles/variables.css` — Design tokens (color, spacing, typography)
+- Issue #101 — Phase 2 testing roadmap and priorities
 
 ---
 
