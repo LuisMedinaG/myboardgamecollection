@@ -36,19 +36,21 @@
   flex-direction: column;
   gap: 0.75rem;
   margin-bottom: 0; /* override Pico's form margin */
+  padding: 0; /* override any Pico form padding that would narrow the form vs sibling elements */
 }
 
 .import-toggle-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.6rem 0.75rem;
+  padding: 0.75rem 1rem;
   background: var(--accent-light);
   border-radius: var(--radius-sm);
   font-size: 0.9rem;
   color: var(--text-secondary);
 }
+.import-toggle-row > span { flex: 1; }
+.import-toggle-row > label { flex-shrink: 0; }
 
 .import-input-row {
   display: flex;
@@ -165,20 +167,34 @@
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-secondary);
+  margin-bottom: 0.5rem;
 }
 
 .csv-file-input {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.45rem 0.6rem;
+  display: block;
+  width: 100%;
+  padding: 0;
   border: 1px dashed var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg);
   font-size: 0.9rem;
+  cursor: pointer;
+  overflow: hidden;
+  line-height: 1;
 }
-.csv-file-input input[type="file"] { padding: 0.25rem; }
-.csv-file-input input[type="file"]::file-selector-button { padding: 0.3rem 0.6rem; font-size: 0.85rem; }
+.csv-file-input::file-selector-button {
+  padding: 0.65rem 1rem;
+  margin: 0;
+  margin-right: 0.75rem;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  vertical-align: middle;
+}
 .file-input { padding: 0.45rem 0.6rem; }
 #bgg-edit-btn, #bgg-cancel-btn { align-self: center; margin-left: var(--space-sm); }
 
