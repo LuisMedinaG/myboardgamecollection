@@ -76,18 +76,25 @@ Enforced by GitHub rulesets. Never use admin bypass for normal flow.
 
 - **gopls-lsp** — Go LSP server for intelligent code navigation, hover info, and definitions (installed Apr 3)
 - **claude-mem** — Persistent cross-session memory for observations, timelines, and knowledge bases (installed Apr 13)
-- **frontend-design** — Design guidance for UI/CSS decisions (installed Apr 13)
 - **code-review** — Code review plugin for quality checks (installed Apr 13)
 - **code-simplifier** — Review changed code for reuse, quality, and efficiency (installed Apr 13)
-- **github** — GitHub integration for PRs, issues, and repo operations (installed Apr 13)
-- **playwright** — Browser automation for end-to-end testing (installed Apr 13)
-- **skill-creator** — Create custom skills and automation workflows (installed Apr 13)
-- **claude-md-management** — Manage CLAUDE.md files across projects (installed Apr 13)
+- **github** — Provides `/review-pr` and related skills (installed Apr 13; MCP endpoint is down — `github-official` covers that layer)
+- **playwright** — Browser automation for end-to-end testing (installed Apr 13; dormant until Phase 3)
 - **ralph-loop** — Run prompts on recurring intervals (`/loop`) (installed Apr 13)
 - **security-guidance** — Security best practices and vulnerability analysis (installed Apr 13)
 - **commit-commands** — Commit-related slash commands (installed Apr 13)
-- **claude-code-setup** — Claude Code environment setup and configuration (installed Apr 13)
-- **greptile** — Token-optimized code search and exploration (installed Apr 13)
+
+### MCP Servers
+
+- **sqlite** — Direct query/inspect of `games.db`; natural language DB ops during development (added Apr 13)
+- **github-official** — Official GitHub MCP: repos, PRs, issues, Actions, code search (added Apr 13)
+- **brave-search** — Web search in-context for BGG API docs, Go patterns, etc. (added Apr 13)
+- **fetch** — Fetch and convert web content to markdown for LLM use; complements brave-search (added Apr 13)
+
+### CLI Tools
+
+- **ccusage** (`ccusage`) — Token/cost dashboard for Claude Code sessions (installed Apr 13)
+- **claude-flow** (`claude-flow`) — Multi-agent autonomous coding orchestration (installed Apr 13)
 
 ### Available Skills
 
