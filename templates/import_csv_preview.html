@@ -1,39 +1,39 @@
 {{ define "import_csv_preview" }}
 {{ if .ErrMsg }}
-    <div class="import-error">{{ .ErrMsg }}</div>
+    <div class="bg-danger-soft text-danger border border-danger-border rounded-lg px-4 py-3 mt-4 text-sm">{{ .ErrMsg }}</div>
 {{ else }}
-    <div class="csv-preview-summary">
-        <h3>Preview</h3>
-        <ul class="csv-preview-counts">
-            <li><strong>{{ .TotalParsed }}</strong> game{{ if ne .TotalParsed 1 }}s{{ end }} parsed</li>
-            <li><strong>{{ .NewCount }}</strong> new (will be imported)</li>
-            <li><strong>{{ .OwnedCount }}</strong> already in your collection (will be skipped)</li>
+    <div class="text-left mt-5">
+        <h3 class="text-base font-bold mb-2">Preview</h3>
+        <ul class="flex flex-col gap-1 text-sm text-muted mb-3">
+            <li><strong class="text-ink">{{ .TotalParsed }}</strong> game{{ if ne .TotalParsed 1 }}s{{ end }} parsed</li>
+            <li><strong class="text-ink">{{ .NewCount }}</strong> new (will be imported)</li>
+            <li><strong class="text-ink">{{ .OwnedCount }}</strong> already in your collection (will be skipped)</li>
             {{ if gt .SkippedRows 0 }}
-            <li><strong>{{ .SkippedRows }}</strong> row{{ if ne .SkippedRows 1 }}s{{ end }} skipped (missing or invalid BGG ID)</li>
+            <li><strong class="text-ink">{{ .SkippedRows }}</strong> row{{ if ne .SkippedRows 1 }}s{{ end }} skipped (missing or invalid BGG ID)</li>
             {{ end }}
         </ul>
     </div>
 
     {{ if gt (len .Rows) 0 }}
-    <div class="csv-preview-table-wrap">
-        <table class="csv-preview-table">
+    <div class="mt-2 max-h-[320px] overflow-y-auto border border-edge rounded-lg">
+        <table class="w-full border-collapse text-sm text-left">
             <thead>
                 <tr>
-                    <th>Name</th>
-                    <th>BGG ID</th>
-                    <th>Status</th>
+                    <th class="sticky top-0 bg-surface font-semibold px-3 py-2 border-b border-edge">Name</th>
+                    <th class="sticky top-0 bg-surface font-semibold px-3 py-2 border-b border-edge">BGG ID</th>
+                    <th class="sticky top-0 bg-surface font-semibold px-3 py-2 border-b border-edge">Status</th>
                 </tr>
             </thead>
             <tbody>
                 {{ range .Rows }}
-                <tr class="{{ if .AlreadyOwned }}csv-row-owned{{ else }}csv-row-new{{ end }}">
-                    <td>{{ .Name }}</td>
-                    <td>{{ .BGGID }}</td>
-                    <td>
+                <tr class="{{ if .AlreadyOwned }}text-muted{{ end }}">
+                    <td class="px-3 py-2 border-b border-edge">{{ .Name }}</td>
+                    <td class="px-3 py-2 border-b border-edge">{{ .BGGID }}</td>
+                    <td class="px-3 py-2 border-b border-edge">
                         {{ if .AlreadyOwned }}
-                            <span class="csv-status-owned">Already owned</span>
+                            <span class="text-muted">Already owned</span>
                         {{ else }}
-                            <span class="csv-status-new">New</span>
+                            <span class="text-accent font-semibold">New</span>
                         {{ end }}
                     </td>
                 </tr>
@@ -41,7 +41,7 @@
             </tbody>
         </table>
         {{ if lt (len .Rows) .TotalParsed }}
-        <p class="csv-preview-truncated">
+        <p class="px-3 py-2 text-xs text-muted bg-canvas border-t border-edge">
             Showing first {{ len .Rows }} of {{ .TotalParsed }} games. All {{ .NewCount }} new games will be imported on confirm.
         </p>
         {{ end }}
@@ -49,20 +49,16 @@
     {{ end }}
 
     {{ if gt .NewCount 0 }}
-    <form
-        hx-post="/import/csv"
-        hx-target="#csv-result"
-        hx-indicator="#csv-import-spinner"
-        hx-disabled-elt="this button"
-        class="import-form csv-confirm-form"
-    >
+    <form hx-post="/import/csv" hx-target="#csv-result"
+          hx-indicator="#csv-import-spinner" hx-disabled-elt="this button"
+          class="flex flex-col gap-3 mt-4">
         <input type="hidden" name="bgg_ids" value="{{ .ImportIDsCSV }}">
-        <button type="submit" class="btn btn-primary import-btn">
+        <button type="submit" class="btn btn-primary">
             Import {{ .NewCount }} game{{ if ne .NewCount 1 }}s{{ end }}
         </button>
     </form>
     {{ else }}
-    <div class="import-info">Nothing new to import — every game in this CSV is already in your collection.</div>
+    <div class="bg-info-bg text-muted rounded-lg px-4 py-3 mt-4 text-sm">Nothing new to import — every game in this CSV is already in your collection.</div>
     {{ end }}
 {{ end }}
 {{ end }}

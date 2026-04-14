@@ -5,10 +5,12 @@ Personal app — track board games, store rulebook links, upload player aids, im
 ## Rules
 
 - **Never `git push`** without the user explicitly saying "push" or "make a PR".
-- **Never read `pico.min.css`** — use `pico-reference.html` (project root) for all Pico patterns.
 - **Commit workflow** — always ask before committing so the user can review the diff first.
-- **Pico CSS is classless** — use semantic HTML (`<article>`, `<dialog>`, `<nav>`, `<hgroup>`, etc.). Don't invent classes for things Pico handles. Read `pico-reference.html` before any UI work.
-- **CSS overrides** go in the matching module under `static/styles/`. New tokens go in `variables.css`.
+- **Go CSS workflow** — edit `static/input.css` (Tailwind source); never edit `static/style.css` directly (it's generated). Run `make css` to rebuild after changes, or use `make dev` (auto-watches).
+- **React CSS workflow** — edit `react-app/src/index.css` (Tailwind v4 source for React). No Tailwind CLI needed — the `@tailwindcss/vite` plugin handles it automatically during `bun dev`/`bun build`.
+- **Tailwind-first UI** — use Tailwind utility classes. No new CSS files or custom classes unless absolutely unavoidable. Check Tailwind docs for existing utilities before writing CSS.
+- **React package manager** — use `bun` (not `npm`) inside `react-app/`. Run `bun dev`, `bun build`, `bun install`.
+- **React API calls** — all data fetching goes through `react-app/src/lib/api.ts` (the centralized API client). Never call `fetch()` directly in components.
 - **DB migrations** — `ALTER TABLE … ADD COLUMN … DEFAULT …` in `store.createTables()`. Idempotent. Also update `migrateGamesTableForPerUserUniqueness` DDL + SELECT list.
 - **Multi-tenancy** — every SQL query must include `AND user_id = ?`. Bulk ops use the `ownedIDs()` pattern.
 - **Error handling** — use sentinel errors (`store.ErrDuplicate`, `store.ErrWrongPassword`). Never expose raw DB errors.
@@ -16,22 +18,65 @@ Personal app — track board games, store rulebook links, upload player aids, im
 
 ## Stack
 
-Go 1.25 · stdlib HTTP server · HTMX (no JS framework) · Pico CSS · SQLite (`modernc.org/sqlite`) · Docker + Fly.io
+**Go backend:** Go 1.25 · stdlib HTTP server · HTMX · Tailwind CSS v4 · SQLite (`modernc.org/sqlite`) · Docker + Fly.io
+
+**React frontend (in progress):** React 19 · React Router v7 · Vite 8 · Tailwind CSS v4 (`@tailwindcss/vite`) · TypeScript · Bun 1.3
+
+## CSS Architecture (Tailwind v4)
+
+### Go backend (`static/`)
+
+- **Source**: `static/input.css` — `@import "tailwindcss"`, `@theme {}` tokens, `@layer components` overrides
+- **Output**: `static/style.css` — compiled by Tailwind CLI, committed to repo, embedded in binary
+- **No `tailwind.config.js`** — CSS-first config in `input.css`
+- Clean white theme: `surface: #ffffff`, `canvas: #f5f5f5`, `ink: #1a1a1a`
+
+Key tokens: `bg-accent` (green #2d5a27) · `bg-canvas` / `bg-surface` · `text-ink` / `text-muted` · `border-edge` · `text-danger` / `bg-danger-soft`
+
+### React app (`react-app/src/index.css`)
+
+- **No build step** — `@tailwindcss/vite` plugin processes it automatically via Vite
+- **No `tailwind.config.js`** — CSS-first config inline
+- Parchment/warm theme: `parchment: #f5f0e8`, `surface: #fdfbf7`, `ink: #2c2008`
+- Fonts: Lora (headings, serif) + Nunito (body, sans-serif) via Google Fonts
+
+Key tokens: `bg-accent` (green #2d5a27) · `bg-parchment` · `bg-surface` · `text-ink` / `text-muted` · `text-brown` · `text-rating`
+
+Shared component classes (defined in `@layer components`): `.btn`, `.btn-primary`, `.btn-secondary`, `.tag`, `.tag-type`, `.tag-category`, `.tag-mechanic`, `.filter-chip`, `.card`, `.pressable`, `.weight-light/medium/heavy`, `.vibe-pill`
 
 ## Commands
 
+### Go backend
+
 ```sh
-make dev          # go run .
-make run          # build + run
-make build        # outputs ./boardgames binary
-make test         # run all tests
-make test-v       # verbose tests
-make cover        # coverage report
-make cover-html   # HTML coverage report
-make bgg-login    # grab BGG auth headers
+make dev              # run Go app + Tailwind CSS watcher (recommended for dev)
+make dev-go           # run Go app only (CSS must be pre-built)
+make css              # build CSS once (minified) — run before committing
+make css-watch        # watch CSS changes only
+make run              # build CSS + Go binary, then run
+make build            # build Go binary only
+make test             # run all tests
+make test-v           # verbose tests
+make cover            # coverage report
+make cover-html       # HTML coverage report
+make check            # css + build + test + vet
+make tailwind-install # download Tailwind CLI (first-time setup)
+make bgg-login        # grab BGG auth headers
+```
+
+### React frontend (run from `react-app/`)
+
+```sh
+bun dev               # start Vite dev server at localhost:5173
+bun build             # type-check + production build → dist/
+bun run lint          # ESLint
+bun run preview       # preview production build locally
+bun install           # install dependencies
 ```
 
 ## Project Structure
+
+### Go backend
 
 ```
 main.go                # Server setup, routes, middleware
@@ -46,9 +91,37 @@ internal/
   filter/              # Game filtering (players, playtime, weight, rating, language, rec_players)
 templates/             # Embedded HTML templates
 static/
-  style.css            # @import barrel for all CSS modules
-  styles/              # pico.min.css, variables.css, layout.css, components.css, …
+  input.css            # Tailwind source (edit this)
+  style.css            # Compiled CSS output (do not edit — generated by Tailwind)
 ```
+
+### React frontend (`react-app/`)
+
+```
+src/
+  main.tsx             # Entry point — HashRouter + App
+  App.tsx              # Route tree (/, /games/:id, /vibes)
+  index.css            # Tailwind v4 source + theme tokens + component classes
+  types/game.ts        # Game interface + filter types
+  data/games.ts        # Static mock data — TO BE REPLACED by API client
+  lib/api.ts           # (planned) Centralized API client for /api/v1/*
+  hooks/
+    useFilteredGames.ts  # Multi-faceted client-side filtering
+  components/
+    Layout.tsx           # App shell: glass header + bottom tab bar
+    FilterBar.tsx        # Four filter dropdowns + search input
+    ActiveFilters.tsx    # Removable filter chips
+    SearchInput.tsx      # Debounced (300ms) search input
+    GameListItem.tsx     # Tappable row with thumbnail, weight badge, vibe pills
+    GameCard.tsx         # Grid card view
+    TagList.tsx          # Category/mechanic/type tag renderer
+  pages/
+    CollectionPage.tsx   # Games list with filtering, list/grid toggle
+    GameDetailPage.tsx   # Hero image, stats, expandable description, BGG link
+    VibesPage.tsx        # Browse games by mood/vibe
+```
+
+**Migration status (Apr 14):** UI complete with mock data. Auth, API client, and real data integration pending.
 
 ## Key Patterns
 

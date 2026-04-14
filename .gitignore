@@ -2,6 +2,9 @@
 boardgames
 myboardgamecollection
 
+# Tailwind CSS standalone CLI binary (run `make tailwind-install` to fetch)
+tailwindcss
+
 # Database
 *.db
 *.db-wal

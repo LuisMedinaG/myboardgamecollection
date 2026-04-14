@@ -1,50 +1,55 @@
 {{ define "content" }}
-<a href="/" class="back-btn">&#8592; Home</a>
-<div class="filters" id="game-filters" hx-get="/games" hx-target="#games-result" hx-trigger="change" hx-push-url="true" hx-swap="innerHTML" hx-include="this">
+<a href="/" class="inline-flex items-center gap-1 text-accent text-sm font-medium py-2 hover:underline" style="-webkit-tap-highlight-color:transparent">&#8592; Home</a>
+
+<div class="flex flex-wrap gap-2 my-4" id="game-filters"
+     hx-get="/games" hx-target="#games-result" hx-trigger="change"
+     hx-push-url="true" hx-swap="innerHTML" hx-include="this">
     <input type="hidden" name="limit" id="grid-limit" value="20">
-    <input type="search" name="q" value="{{ .Q }}" placeholder="Search games…" class="filter-search"
+    <input type="search" name="q" value="{{ .Q }}" placeholder="Search games…"
+           class="flex-[2] min-w-[180px]"
            hx-trigger="input changed delay:300ms, search"
-           hx-get="/games" hx-target="#games-result" hx-push-url="true" hx-swap="innerHTML" hx-include="#game-filters">
-    <select name="category" class="filter-select">
+           hx-get="/games" hx-target="#games-result"
+           hx-push-url="true" hx-swap="innerHTML" hx-include="#game-filters">
+    <select name="category" class="flex-1 min-w-[120px]">
         <option value="">All Categories</option>
         {{ range .Categories }}
         <option value="{{ . }}" {{ if eq . $.Category }}selected{{ end }}>{{ . }}</option>
         {{ end }}
     </select>
-    <select name="players" class="filter-select">
+    <select name="players" class="flex-1 min-w-[120px]">
         <option value="">Any Players</option>
-        <option value="1" {{ if eq .Players "1" }}selected{{ end }}>1 player</option>
+        <option value="1"     {{ if eq .Players "1"     }}selected{{ end }}>1 player</option>
         <option value="2only" {{ if eq .Players "2only" }}selected{{ end }}>Only 2</option>
-        <option value="3" {{ if eq .Players "3" }}selected{{ end }}>Up to 3</option>
-        <option value="4" {{ if eq .Players "4" }}selected{{ end }}>Up to 4</option>
+        <option value="3"     {{ if eq .Players "3"     }}selected{{ end }}>Up to 3</option>
+        <option value="4"     {{ if eq .Players "4"     }}selected{{ end }}>Up to 4</option>
         <option value="5plus" {{ if eq .Players "5plus" }}selected{{ end }}>5+</option>
     </select>
-    <select name="playtime" class="filter-select">
+    <select name="playtime" class="flex-1 min-w-[120px]">
         <option value="">Any Duration</option>
-        <option value="short" {{ if eq .Playtime "short" }}selected{{ end }}>&lt; 30 min</option>
+        <option value="short"  {{ if eq .Playtime "short"  }}selected{{ end }}>&lt; 30 min</option>
         <option value="medium" {{ if eq .Playtime "medium" }}selected{{ end }}>30–60 min</option>
-        <option value="long" {{ if eq .Playtime "long" }}selected{{ end }}>&gt; 60 min</option>
+        <option value="long"   {{ if eq .Playtime "long"   }}selected{{ end }}>&gt; 60 min</option>
     </select>
-    <select name="weight" class="filter-select">
+    <select name="weight" class="flex-1 min-w-[120px]">
         <option value="">Any Complexity</option>
         <option value="light"  {{ if eq .Weight "light"  }}selected{{ end }}>Light (&lt; 2)</option>
         <option value="medium" {{ if eq .Weight "medium" }}selected{{ end }}>Medium (2–3)</option>
         <option value="heavy"  {{ if eq .Weight "heavy"  }}selected{{ end }}>Heavy (3+)</option>
     </select>
-    <select name="rating" class="filter-select">
+    <select name="rating" class="flex-1 min-w-[120px]">
         <option value="">Any Rating</option>
         <option value="good"      {{ if eq .Rating "good"      }}selected{{ end }}>Good (6+)</option>
         <option value="great"     {{ if eq .Rating "great"     }}selected{{ end }}>Great (7+)</option>
         <option value="excellent" {{ if eq .Rating "excellent" }}selected{{ end }}>Excellent (8+)</option>
     </select>
-    <select name="lang" class="filter-select">
+    <select name="lang" class="flex-1 min-w-[120px]">
         <option value="">Any Language</option>
         <option value="free"     {{ if eq .Lang "free"     }}selected{{ end }}>Language-free</option>
         <option value="low"      {{ if eq .Lang "low"      }}selected{{ end }}>Low dependence</option>
-        <option value="moderate" {{ if eq .Lang "moderate" }}selected{{ end }}>Moderate dependence</option>
+        <option value="moderate" {{ if eq .Lang "moderate" }}selected{{ end }}>Moderate</option>
         <option value="high"     {{ if eq .Lang "high"     }}selected{{ end }}>High dependence</option>
     </select>
-    <select name="rec_players" class="filter-select">
+    <select name="rec_players" class="flex-1 min-w-[120px]">
         <option value="">Any Rec. Players</option>
         <option value="1" {{ if eq .RecPlayers "1" }}selected{{ end }}>Solo (1P)</option>
         <option value="2" {{ if eq .RecPlayers "2" }}selected{{ end }}>2 players</option>
@@ -53,142 +58,132 @@
         <option value="5" {{ if eq .RecPlayers "5" }}selected{{ end }}>5 players</option>
     </select>
 </div>
-<div class="active-filters" id="active-filters"></div>
 
-{{ if .AllVibes }}
-<button type="button" class="btn btn-secondary btn-sm" id="select-mode-toggle">Select</button>
-{{ end }}
+<div class="flex flex-wrap gap-2 mb-3 empty:hidden" id="active-filters"></div>
 
-<div class="view-toolbar" id="view-toolbar">
-  <button class="view-btn" data-view="list" title="List view">
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-      <rect x="2" y="3" width="2" height="2" rx="0.5" fill="currentColor"/>
-      <rect x="6" y="3" width="10" height="2" rx="1" fill="currentColor"/>
-      <rect x="2" y="8" width="2" height="2" rx="0.5" fill="currentColor"/>
-      <rect x="6" y="8" width="10" height="2" rx="1" fill="currentColor"/>
-      <rect x="2" y="13" width="2" height="2" rx="0.5" fill="currentColor"/>
-      <rect x="6" y="13" width="10" height="2" rx="1" fill="currentColor"/>
-    </svg>
-  </button>
-  <button class="view-btn" data-view="grid" title="Grid view">
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-      <rect x="2" y="2" width="6" height="6" rx="1" fill="currentColor"/>
-      <rect x="10" y="2" width="6" height="6" rx="1" fill="currentColor"/>
-      <rect x="2" y="10" width="6" height="6" rx="1" fill="currentColor"/>
-      <rect x="10" y="10" width="6" height="6" rx="1" fill="currentColor"/>
-    </svg>
-  </button>
-  <div class="view-size-btns" id="view-size-btns">
-    <button class="view-btn" data-view="grid-sm" title="Small grid">
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-        <rect x="1" y="1" width="4" height="4" rx="0.5" fill="currentColor"/>
-        <rect x="7" y="1" width="4" height="4" rx="0.5" fill="currentColor"/>
-        <rect x="13" y="1" width="4" height="4" rx="0.5" fill="currentColor"/>
-        <rect x="1" y="7" width="4" height="4" rx="0.5" fill="currentColor"/>
-        <rect x="7" y="7" width="4" height="4" rx="0.5" fill="currentColor"/>
-        <rect x="13" y="7" width="4" height="4" rx="0.5" fill="currentColor"/>
-        <rect x="1" y="13" width="4" height="4" rx="0.5" fill="currentColor"/>
-        <rect x="7" y="13" width="4" height="4" rx="0.5" fill="currentColor"/>
-        <rect x="13" y="13" width="4" height="4" rx="0.5" fill="currentColor"/>
-      </svg>
+<div class="flex items-center gap-1 my-2">
+    {{ if .AllVibes }}
+    <button type="button" class="btn btn-secondary btn-sm" id="select-mode-toggle">Select</button>
+    <span class="w-px h-6 bg-edge mx-1"></span>
+    {{ end }}
+    <button class="view-btn" data-view="list" title="List view">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <rect x="2" y="3" width="2" height="2" rx="0.5" fill="currentColor"/>
+            <rect x="6" y="3" width="10" height="2" rx="1" fill="currentColor"/>
+            <rect x="2" y="8" width="2" height="2" rx="0.5" fill="currentColor"/>
+            <rect x="6" y="8" width="10" height="2" rx="1" fill="currentColor"/>
+            <rect x="2" y="13" width="2" height="2" rx="0.5" fill="currentColor"/>
+            <rect x="6" y="13" width="10" height="2" rx="1" fill="currentColor"/>
+        </svg>
     </button>
-    <button class="view-btn" data-view="grid-md" title="Medium grid">
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-        <rect x="1" y="1" width="7" height="7" rx="1" fill="currentColor"/>
-        <rect x="10" y="1" width="7" height="7" rx="1" fill="currentColor"/>
-        <rect x="1" y="10" width="7" height="7" rx="1" fill="currentColor"/>
-        <rect x="10" y="10" width="7" height="7" rx="1" fill="currentColor"/>
-      </svg>
+    <button class="view-btn" data-view="grid" title="Grid view">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <rect x="2" y="2" width="6" height="6" rx="1" fill="currentColor"/>
+            <rect x="10" y="2" width="6" height="6" rx="1" fill="currentColor"/>
+            <rect x="2" y="10" width="6" height="6" rx="1" fill="currentColor"/>
+            <rect x="10" y="10" width="6" height="6" rx="1" fill="currentColor"/>
+        </svg>
     </button>
-    <button class="view-btn" data-view="grid-lg" title="Large grid">
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-        <rect x="1" y="1" width="7" height="16" rx="1.5" fill="currentColor"/>
-        <rect x="10" y="1" width="7" height="16" rx="1.5" fill="currentColor"/>
-      </svg>
-    </button>
-  </div>
+    <div class="hidden flex gap-1 ml-1 pl-2 border-l border-edge" id="view-size-btns">
+        <button class="view-btn" data-view="grid-sm" title="Small grid">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                <rect x="1" y="1" width="4" height="4" rx="0.5" fill="currentColor"/>
+                <rect x="7" y="1" width="4" height="4" rx="0.5" fill="currentColor"/>
+                <rect x="13" y="1" width="4" height="4" rx="0.5" fill="currentColor"/>
+                <rect x="1" y="7" width="4" height="4" rx="0.5" fill="currentColor"/>
+                <rect x="7" y="7" width="4" height="4" rx="0.5" fill="currentColor"/>
+                <rect x="13" y="7" width="4" height="4" rx="0.5" fill="currentColor"/>
+                <rect x="1" y="13" width="4" height="4" rx="0.5" fill="currentColor"/>
+                <rect x="7" y="13" width="4" height="4" rx="0.5" fill="currentColor"/>
+                <rect x="13" y="13" width="4" height="4" rx="0.5" fill="currentColor"/>
+            </svg>
+        </button>
+        <button class="view-btn" data-view="grid-md" title="Medium grid">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                <rect x="1" y="1" width="7" height="7" rx="1" fill="currentColor"/>
+                <rect x="10" y="1" width="7" height="7" rx="1" fill="currentColor"/>
+                <rect x="1" y="10" width="7" height="7" rx="1" fill="currentColor"/>
+                <rect x="10" y="10" width="7" height="7" rx="1" fill="currentColor"/>
+            </svg>
+        </button>
+        <button class="view-btn" data-view="grid-lg" title="Large grid">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                <rect x="1" y="1" width="7" height="16" rx="1.5" fill="currentColor"/>
+                <rect x="10" y="1" width="7" height="16" rx="1.5" fill="currentColor"/>
+            </svg>
+        </button>
+    </div>
 </div>
 
 <div id="games-result">
     {{ template "games_result" . }}
 </div>
 
-<!-- Floating bar shown when games are selected -->
-<div class="bulk-bar" id="bulk-bar" style="display:none;">
-    <span id="bulk-count">0 selected</span>
+<!-- Floating bulk bar -->
+<div class="fixed bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-surface border border-edge rounded-xl shadow-modal px-5 py-3 z-[100]" id="bulk-bar" style="display:none;">
+    <span id="bulk-count" class="text-sm font-semibold">0 selected</span>
     <button type="button" class="btn btn-primary btn-sm" id="bulk-assign-btn">Assign Vibes</button>
 </div>
 
 <!-- Vibe assignment modal -->
-<div class="modal-overlay" id="vibe-modal" style="display:none;">
-    <div class="modal-card">
-        <div class="modal-header">
-            <h3 class="modal-title">Assign Vibes</h3>
-            <button type="button" class="chip-remove" id="modal-close">&times;</button>
+<div class="fixed inset-0 bg-black/40 flex items-end justify-center z-[200]" id="vibe-modal" style="display:none;">
+    <div class="bg-surface rounded-t-xl px-6 py-6 w-full max-w-[600px] max-h-[80vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold">Assign Vibes</h3>
+            <button type="button" class="chip-remove text-ink bg-edge/60 hover:bg-edge text-xl w-8 h-8" id="modal-close">&times;</button>
         </div>
         <form id="bulk-vibe-form" method="POST" action="/games/bulk-vibes">
-            <div class="vibe-checklist">
+            <div class="flex flex-col gap-2 mb-4">
                 {{ range .AllVibes }}
-                <label class="vibe-check-item">
-                    <input type="checkbox" name="vibes" value="{{ .ID }}">
-                    <span class="vibe-check-label">{{ .Name }}</span>
+                <label class="flex items-center gap-3 bg-surface border border-edge rounded-lg px-4 py-3 cursor-pointer transition-colors hover:bg-accent-soft" style="-webkit-tap-highlight-color:transparent">
+                    <input type="checkbox" name="vibes" value="{{ .ID }}" class="w-5 h-5 accent-accent">
+                    <span class="font-semibold">{{ .Name }}</span>
                 </label>
                 {{ end }}
             </div>
-            <button type="submit" class="btn btn-primary btn-block" id="modal-submit" disabled>Assign to&nbsp;<span id="modal-count">0</span>&nbsp;games</button>
+            <button type="submit" class="btn btn-primary btn-block" id="modal-submit" disabled>
+                Assign to&nbsp;<span id="modal-count">0</span>&nbsp;games
+            </button>
         </form>
     </div>
 </div>
 
 <script>
 (function() {
-    var labels = {category: 'Category', players: 'Players', playtime: 'Duration', weight: 'Complexity', rating: 'Rating', lang: 'Language', rec_players: 'Rec. Players'};
+    var labels = {category:'Category',players:'Players',playtime:'Duration',weight:'Complexity',rating:'Rating',lang:'Language',rec_players:'Rec. Players'};
     function updateChips() {
         var container = document.getElementById('active-filters');
-        var selects = document.querySelectorAll('#game-filters select');
         container.innerHTML = '';
-        selects.forEach(function(sel) {
-            if (sel.value) {
-                var chip = document.createElement('span');
-                chip.className = 'filter-chip';
-                var text = sel.options[sel.selectedIndex].text;
-                chip.appendChild(document.createTextNode(labels[sel.name] + ': '));
-
-                var strong = document.createElement('strong');
-                strong.textContent = text;
-                chip.appendChild(strong);
-                chip.appendChild(document.createTextNode(' '));
-
-                var button = document.createElement('button');
-                button.className = 'chip-remove';
-                button.setAttribute('data-name', sel.name);
-                button.setAttribute('type', 'button');
-                button.textContent = '\u00D7';
-                chip.appendChild(button);
-
-                container.appendChild(chip);
-            }
+        document.querySelectorAll('#game-filters select').forEach(function(sel) {
+            if (!sel.value) return;
+            var chip = document.createElement('span');
+            chip.className = 'filter-chip';
+            chip.appendChild(document.createTextNode(labels[sel.name] + ': '));
+            var strong = document.createElement('strong');
+            strong.textContent = sel.options[sel.selectedIndex].text;
+            chip.appendChild(strong);
+            chip.appendChild(document.createTextNode(' '));
+            var btn = document.createElement('button');
+            btn.className = 'chip-remove'; btn.setAttribute('data-name', sel.name);
+            btn.setAttribute('type','button'); btn.textContent = '\u00D7';
+            chip.appendChild(btn);
+            container.appendChild(chip);
         });
     }
     document.getElementById('active-filters').addEventListener('click', function(e) {
         var btn = e.target.closest('.chip-remove');
         if (!btn) return;
-        var name = btn.getAttribute('data-name');
-        var sel = document.querySelector('#game-filters select[name="' + name + '"]');
-        sel.value = '';
-        sel.dispatchEvent(new Event('change', {bubbles: true}));
+        var sel = document.querySelector('#game-filters select[name="' + btn.getAttribute('data-name') + '"]');
+        sel.value = ''; sel.dispatchEvent(new Event('change', {bubbles:true}));
     });
-    document.getElementById('game-filters').addEventListener('change', function() {
-        setTimeout(updateChips, 0);
-    });
+    document.getElementById('game-filters').addEventListener('change', function() { setTimeout(updateChips, 0); });
     updateChips();
 
-    // Multi-select mode
+    // Multi-select
     var toggle = document.getElementById('select-mode-toggle');
     var bulkBar = document.getElementById('bulk-bar');
     var modal = document.getElementById('vibe-modal');
     var selectMode = false;
-
     if (toggle) {
         toggle.addEventListener('click', function() {
             selectMode = !selectMode;
@@ -196,35 +191,19 @@
             applySelectMode();
         });
     }
-
     function applySelectMode() {
         var gameList = document.querySelector('.game-list');
-        if (gameList) {
-            if (selectMode) {
-                gameList.classList.add('select-mode');
-            } else {
-                gameList.classList.remove('select-mode');
-            }
-        }
-        var links = document.querySelectorAll('.game-list-link');
-        links.forEach(function(el) {
-            if (selectMode) {
-                el.setAttribute('data-href', el.getAttribute('href'));
-                el.removeAttribute('href');
-            } else {
-                var href = el.getAttribute('data-href');
-                if (href) el.setAttribute('href', href);
-            }
+        if (gameList) gameList.classList.toggle('select-mode', selectMode);
+        document.querySelectorAll('.game-list-link').forEach(function(el) {
+            if (selectMode) { el.setAttribute('data-href', el.getAttribute('href')); el.removeAttribute('href'); }
+            else { var h = el.getAttribute('data-href'); if (h) el.setAttribute('href', h); }
         });
         if (!selectMode) {
             document.querySelectorAll('.game-select-check input').forEach(function(cb) { cb.checked = false; });
-            bulkBar.style.display = 'none';
-            modal.style.display = 'none';
+            bulkBar.style.display = 'none'; modal.style.display = 'none';
         }
         updateBulkCount();
     }
-
-    // Click on game row toggles checkbox in select mode
     document.addEventListener('click', function(e) {
         if (!selectMode) return;
         var link = e.target.closest('.game-list-link');
@@ -233,146 +212,78 @@
         var wrap = link.closest('.game-list-item-wrap');
         if (!wrap) return;
         var cb = wrap.querySelector('.game-select-check input');
-        if (cb) {
-            cb.checked = !cb.checked;
-            updateBulkCount();
-        }
+        if (cb) { cb.checked = !cb.checked; updateBulkCount(); }
     });
-
-    function getSelectedCount() {
-        return document.querySelectorAll('.game-select-check input:checked').length;
-    }
-
+    function getSelectedCount() { return document.querySelectorAll('.game-select-check input:checked').length; }
     function updateBulkCount() {
         var count = getSelectedCount();
-        var countEl = document.getElementById('bulk-count');
-        var modalCount = document.getElementById('modal-count');
-        countEl.textContent = count + ' selected';
-        modalCount.textContent = count;
+        document.getElementById('bulk-count').textContent = count + ' selected';
+        document.getElementById('modal-count').textContent = count;
         bulkBar.style.display = (selectMode && count > 0) ? '' : 'none';
     }
-
-    // Checkbox change events
-    document.addEventListener('change', function(e) {
-        if (e.target.closest('.game-select-check')) updateBulkCount();
-    });
-
-    // Open modal
-    document.getElementById('bulk-assign-btn').addEventListener('click', function() {
-        modal.style.display = '';
-    });
-
-    // Close modal
-    document.getElementById('modal-close').addEventListener('click', function() {
-        modal.style.display = 'none';
-    });
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) modal.style.display = 'none';
-    });
-
-    // Enable submit only when vibes are checked
-    var vibeChecks = document.querySelectorAll('#bulk-vibe-form .vibe-check-item input');
+    document.addEventListener('change', function(e) { if (e.target.closest('.game-select-check')) updateBulkCount(); });
+    document.getElementById('bulk-assign-btn').addEventListener('click', function() { modal.style.display = ''; });
+    document.getElementById('modal-close').addEventListener('click', function() { modal.style.display = 'none'; });
+    modal.addEventListener('click', function(e) { if (e.target === modal) modal.style.display = 'none'; });
+    var vibeChecks = document.querySelectorAll('#bulk-vibe-form input[type=checkbox]');
     var submitBtn = document.getElementById('modal-submit');
     vibeChecks.forEach(function(cb) {
         cb.addEventListener('change', function() {
-            var any = Array.prototype.some.call(vibeChecks, function(c) { return c.checked; });
-            submitBtn.disabled = !any;
+            submitBtn.disabled = !Array.prototype.some.call(vibeChecks, function(c) { return c.checked; });
         });
     });
 
-    // Re-apply select mode after HTMX swaps new content
-    document.body.addEventListener('htmx:afterSwap', function(e) {
-        if (e.detail.target.id === 'games-result') {
-            applySelectMode();
-            applyView(currentView);
-        }
-    });
-
-    // ── View management ──────────────────────────────────────────
+    // View management
     var currentView = localStorage.getItem('gamesView') || 'list';
     var lastGridView = localStorage.getItem('gamesGridView') || 'grid-md';
-
-    // Grid geometry: minWidth and extra panel height below the square image
-    var gridCfg = {
-        'grid-sm': { minW: 75,  gap: 4, extraH: 0  },
-        'grid-md': { minW: 115, gap: 6, extraH: 52 },
-        'grid-lg': { minW: 160, gap: 8, extraH: 68 }
-    };
-
+    var gridCfg = {'grid-sm':{minW:75,gap:4,extraH:0},'grid-md':{minW:115,gap:6,extraH:52},'grid-lg':{minW:160,gap:8,extraH:68}};
     function calcLimit(view) {
         if (view === 'list') return 20;
-        var c = gridCfg[view];
-        if (!c) return 20;
-
+        var c = gridCfg[view]; if (!c) return 20;
         var resultEl = document.getElementById('games-result');
         var contentW = resultEl ? resultEl.offsetWidth : (window.innerWidth - 32);
-        // Use getBoundingClientRect to know how far down the grid starts
         var topOffset = resultEl ? resultEl.getBoundingClientRect().top : 220;
         var availH = window.innerHeight - topOffset - 16;
-
         var cols = Math.max(1, Math.floor((contentW + c.gap) / (c.minW + c.gap)));
         var itemW = Math.floor((contentW - (cols - 1) * c.gap) / cols);
         var itemH = itemW + c.extraH;
-        var rows  = Math.max(4, Math.ceil(availH / (itemH + c.gap)) * 2);
-
+        var rows = Math.max(4, Math.ceil(availH / (itemH + c.gap)) * 2);
         return cols * rows;
     }
-
-    function setLimit(view) {
-        var limitInput = document.getElementById('grid-limit');
-        if (limitInput) limitInput.value = calcLimit(view);
-    }
-
+    function setLimit(view) { var li = document.getElementById('grid-limit'); if (li) li.value = calcLimit(view); }
     function applyView(view) {
         currentView = view;
         var gameList = document.querySelector('.game-list');
-        if (gameList) {
-            gameList.classList.remove('grid-sm', 'grid-md', 'grid-lg');
-            if (view !== 'list') gameList.classList.add(view);
-        }
+        if (gameList) { gameList.classList.remove('grid-sm','grid-md','grid-lg'); if (view !== 'list') gameList.classList.add(view); }
         var isGrid = (view !== 'list');
-        // Update button active states
-        document.querySelectorAll('#view-toolbar .view-btn').forEach(function(btn) {
+        document.querySelectorAll('[data-view]').forEach(function(btn) {
             var v = btn.dataset.view;
-            if (v === 'grid') {
-                btn.classList.toggle('active', isGrid);
-            } else {
-                btn.classList.toggle('active', v === view);
-            }
+            btn.classList.toggle('active', v === 'grid' ? isGrid : v === view);
         });
-        // Show size sub-buttons only when in a grid mode
         var sizeBtns = document.getElementById('view-size-btns');
-        if (sizeBtns) sizeBtns.classList.toggle('visible', isGrid);
+        if (sizeBtns) { sizeBtns.classList.toggle('hidden', !isGrid); sizeBtns.classList.toggle('flex', isGrid); }
     }
-
-    document.getElementById('view-toolbar').addEventListener('click', function(e) {
-        var btn = e.target.closest('.view-btn');
-        if (!btn) return;
-        var view = btn.dataset.view;
-        if (view === 'grid') view = lastGridView;
-        if (view === currentView) return;
-        localStorage.setItem('gamesView', view);
-        if (view !== 'list') localStorage.setItem('gamesGridView', view);
-        applyView(view);
-        // Update limit and reload results for new page size
-        setLimit(view);
-        document.getElementById('game-filters').dispatchEvent(new Event('change', {bubbles: false}));
+    document.body.addEventListener('htmx:afterSwap', function(e) {
+        if (e.detail.target.id === 'games-result') { applySelectMode(); applyView(currentView); }
     });
-
-    // Apply view CSS immediately (no flash)
+    document.querySelectorAll('[data-view]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var view = btn.dataset.view;
+            if (view === 'grid') view = lastGridView;
+            if (view === currentView) return;
+            localStorage.setItem('gamesView', view);
+            if (view !== 'list') localStorage.setItem('gamesGridView', view);
+            applyView(view); setLimit(view);
+            document.getElementById('game-filters').dispatchEvent(new Event('change', {bubbles:false}));
+        });
+    });
     applyView(currentView);
-
-    // On initial load, wait for layout so offsetWidth is accurate, then
-    // trigger an HTMX reload if the grid needs a different limit than what
-    // the server rendered (defaults to 20 when no ?limit is in the URL).
     if (currentView !== 'list') {
         requestAnimationFrame(function() {
-            var neededLimit = calcLimit(currentView);
+            var needed = calcLimit(currentView);
             setLimit(currentView);
             var urlLimit = parseInt(new URLSearchParams(window.location.search).get('limit') || '20', 10);
-            if (neededLimit !== urlLimit) {
-                document.getElementById('game-filters').dispatchEvent(new Event('change', {bubbles: false}));
-            }
+            if (needed !== urlLimit) document.getElementById('game-filters').dispatchEvent(new Event('change', {bubbles:false}));
         });
     }
 })();
