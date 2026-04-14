@@ -1,17 +1,18 @@
 {{ define "rules_content" }}
 <!-- Rulebook PDF Section -->
-<div class="rules-section">
-    <div class="section-header">
-        <h3 class="section-title">Rulebook</h3>
+<div class="mb-6">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="text-base font-bold">Rulebook</h3>
         {{ if .EmbedURL }}
-        <button class="btn-icon btn-icon-muted" onclick="this.closest('.rules-section').querySelector('.rules-url-form').classList.toggle('hidden')" title="Edit link">&#9998;</button>
+        <button class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-transparent border-none cursor-pointer text-muted hover:bg-edge hover:text-ink transition-colors"
+                onclick="document.getElementById('rules-url-form').classList.toggle('hidden')" title="Edit link">&#9998;</button>
         {{ end }}
     </div>
     {{ if .EmbedURL }}
-    <div class="pdf-viewer">
+    <div class="mb-3">
         <iframe
             src="{{ .EmbedURL }}"
-            class="pdf-iframe"
+            class="w-full h-[480px] rounded-lg border border-edge"
             allow="autoplay"
         ></iframe>
     </div>
@@ -20,40 +21,39 @@
     </a>
     {{ end }}
     <form
+        id="rules-url-form"
         hx-post="/games/{{ .Game.ID }}/rules/url"
         hx-target="#rules-content"
         hx-swap="innerHTML"
-        class="rules-url-form{{ if .EmbedURL }} hidden{{ end }}"
+        class="flex flex-col gap-3 mt-3{{ if .EmbedURL }} hidden{{ end }}"
     >
-        <label class="form-label">
-            {{ if .Game.RulesURL }}
-            Update Google Drive Link
-            {{ else }}
-            Add Google Drive Link to Rulebook PDF
-            {{ end }}
+        <label class="flex flex-col gap-1.5 text-sm font-medium">
+            {{ if .Game.RulesURL }}Update Google Drive Link{{ else }}Add Google Drive Link to Rulebook PDF{{ end }}
             <input
                 type="url"
                 name="rules_url"
                 value="{{ .Game.RulesURL }}"
                 placeholder="https://drive.google.com/file/d/.../view"
-                class="form-input"
             >
         </label>
-        <div class="rules-url-actions">
+        <div class="flex gap-2">
             <button type="submit" class="btn btn-primary btn-sm">
                 {{ if .Game.RulesURL }}Update{{ else }}Save{{ end }}
             </button>
             {{ if .EmbedURL }}
-            <button type="button" class="btn btn-secondary btn-sm" onclick="this.closest('.rules-url-form').classList.add('hidden')">Cancel</button>
+            <button type="button" class="btn btn-secondary btn-sm"
+                    onclick="document.getElementById('rules-url-form').classList.add('hidden')">Cancel</button>
             {{ end }}
         </div>
     </form>
 </div>
+
 <!-- Player Aids Section -->
-<div class="rules-section">
-    <div class="section-header">
-        <h3 class="section-title">Player Aids</h3>
-        <button class="btn-icon btn-icon-muted" onclick="document.getElementById('upload-aid-form').classList.toggle('hidden')" title="Add player aid">&#43;</button>
+<div class="mb-6">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="text-base font-bold">Player Aids</h3>
+        <button class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-transparent border-none cursor-pointer text-muted hover:bg-edge hover:text-ink transition-colors text-xl font-light leading-none"
+                onclick="document.getElementById('upload-aid-form').classList.toggle('hidden')" title="Add player aid">&#43;</button>
     </div>
     <div id="player-aids-list">
         {{ template "player_aids_list" (playerAidsData .Game.ID .PlayerAids) }}
@@ -65,19 +65,22 @@
         hx-swap="innerHTML"
         hx-encoding="multipart/form-data"
         hx-on::after-request="if(event.detail.successful) { this.reset(); this.classList.add('hidden'); }"
-        class="upload-form hidden"
+        class="flex flex-col gap-3 mt-3 hidden"
     >
-        <label class="form-label">
+        <label class="flex flex-col gap-1.5 text-sm font-medium">
             Upload Player Aid Image
-            <input type="file" name="player_aid" accept="image/*" required class="form-input file-input">
+            <input type="file" name="player_aid" accept="image/*" required
+                   class="block w-full border border-dashed border-edge rounded-lg bg-canvas text-sm cursor-pointer overflow-hidden leading-none p-0
+                          file:py-2.5 file:px-4 file:mr-3 file:bg-accent file:text-white file:border-none file:text-sm file:font-semibold file:cursor-pointer">
         </label>
-        <label class="form-label">
+        <label class="flex flex-col gap-1.5 text-sm font-medium">
             Label (optional)
-            <input type="text" name="label" placeholder="e.g. Turn Order Reference" class="form-input">
+            <input type="text" name="label" placeholder="e.g. Turn Order Reference">
         </label>
-        <div class="rules-url-actions">
+        <div class="flex gap-2">
             <button type="submit" class="btn btn-primary btn-sm">Upload</button>
-            <button type="button" class="btn btn-danger btn-sm" onclick="document.getElementById('upload-aid-form').classList.add('hidden')">Close</button>
+            <button type="button" class="btn btn-danger btn-sm"
+                    onclick="document.getElementById('upload-aid-form').classList.add('hidden')">Close</button>
         </div>
     </form>
 </div>

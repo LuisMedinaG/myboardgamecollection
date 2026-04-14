@@ -1,17 +1,17 @@
 {{ define "import_result" }}
 {{ if .ErrMsg }}
-    <div class="import-error">{{ .ErrMsg }}</div>
+    <div class="bg-danger-soft text-danger border border-danger-border rounded-lg px-4 py-3 mt-4 text-sm">{{ .ErrMsg }}</div>
 {{ else if and (eq .CollectionItems 0) (eq .Count 0) (eq .Updated 0) }}
-    <div class="import-info">
+    <div class="bg-info-bg text-muted rounded-lg px-4 py-3 mt-4 text-sm">
         BoardGameGeek returned no owned games for <strong>{{ .Username }}</strong>.
         On BGG, mark games as owned in your collection, make the collection public if required, and ensure <code>BGG_COOKIE</code> (or token) matches this account.
     </div>
 {{ else if and (eq .Count 0) (eq .Updated 0) }}
-    <div class="import-info">Your collection is already up to date!</div>
+    <div class="bg-info-bg text-muted rounded-lg px-4 py-3 mt-4 text-sm">Your collection is already up to date!</div>
 {{ else }}
-    <div class="import-success">
+    <div class="bg-accent-soft text-accent border border-accent/20 rounded-lg px-4 py-3 mt-4 text-sm font-medium">
         {{ if gt .Count 0 }}Added {{ .Count }} new game{{ if ne .Count 1 }}s{{ end }}{{ end }}{{ if and (gt .Count 0) (gt .Updated 0) }}, {{ end }}{{ if gt .Updated 0 }}updated {{ .Updated }} game{{ if ne .Updated 1 }}s{{ end }}{{ end }}!
-        <a href="/games">View your collection &#8594;</a>
+        <a href="/games" class="font-semibold ml-1 hover:underline">View your collection &#8594;</a>
     </div>
 {{ end }}
 {{ end }}

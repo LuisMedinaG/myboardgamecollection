@@ -1,41 +1,39 @@
 {{ define "content" }}
-<div class="login-hero">
-    <article class="login-card">
-        <h1 class="login-title">Create Account</h1>
-        <p class="login-desc">
-            Choose a username and password to get started.
-        </p>
-        <form method="post" action="/signup" class="login-form" id="signup-form">
-            <label>
+<div class="min-h-[calc(100dvh-2rem)] flex items-center justify-center py-8">
+    <article class="w-full max-w-[400px] bg-surface border border-edge rounded-xl shadow-card px-8 py-10 text-center">
+        <h1 class="text-[1.6rem] font-extrabold text-accent mb-3">Create Account</h1>
+        <p class="text-muted text-[0.95rem] mb-7 leading-relaxed">Choose a username and password to get started.</p>
+        <form method="post" action="/signup" class="flex flex-col gap-3 mb-4" id="signup-form">
+            <label class="text-left text-sm font-semibold text-muted flex flex-col gap-1">
                 Username
-                <input type="text" name="username" placeholder="Username" required autofocus autocomplete="username">
+                <input type="text" name="username" placeholder="Username" required autofocus autocomplete="username" class="w-full">
             </label>
-            <label>
-                Password (min 8 characters)
-                <input type="password" name="password" placeholder="Password" required minlength="8" autocomplete="new-password">
+            <label class="text-left text-sm font-semibold text-muted flex flex-col gap-1">
+                Password <span class="text-[0.85em] font-normal">(min 8 characters)</span>
+                <input type="password" name="password" placeholder="Password" required minlength="8" autocomplete="new-password" class="w-full">
             </label>
-            <label>
+            <label class="text-left text-sm font-semibold text-muted flex flex-col gap-1">
                 Retype Password
-                <input type="password" name="password2" placeholder="Retype Password" required minlength="8" autocomplete="new-password">
+                <input type="password" name="password2" placeholder="Retype Password" required minlength="8" autocomplete="new-password" class="w-full">
             </label>
-            <label>
-                BGG Username <span class="form-optional">(optional)</span>
-                <input type="text" name="bgg_username" placeholder="BoardGameGeek username" autocomplete="off">
-                <small class="form-hint">Used for syncing your BGG collection. You can add this later.</small>
+            <label class="text-left text-sm font-semibold text-muted flex flex-col gap-1">
+                BGG Username <span class="text-[0.85em] font-normal">(optional)</span>
+                <input type="text" name="bgg_username" placeholder="BoardGameGeek username" autocomplete="off" class="w-full">
+                <small class="text-muted text-xs font-normal mt-0.5">Used for syncing your BGG collection. You can add this later.</small>
             </label>
-            <label>
-                Email <span class="form-optional">(optional)</span>
-                <input type="email" name="email" placeholder="Email address" autocomplete="email">
-                <small class="form-hint">For account recovery.</small>
+            <label class="text-left text-sm font-semibold text-muted flex flex-col gap-1">
+                Email <span class="text-[0.85em] font-normal">(optional)</span>
+                <input type="email" name="email" placeholder="Email address" autocomplete="email" class="w-full">
+                <small class="text-muted text-xs font-normal mt-0.5">For account recovery.</small>
             </label>
-            <div id="password-error" class="login-error" style="display:none;">Passwords do not match.</div>
-            <button type="submit" class="btn btn-primary login-btn">Create Account</button>
+            <div id="password-error" class="bg-danger-soft text-danger border border-danger-border rounded-lg px-3.5 py-2.5 text-sm text-left" style="display:none;">Passwords do not match.</div>
+            <button type="submit" class="btn btn-primary w-full mt-1">Create Account</button>
         </form>
         {{ if .Error }}
-        <div class="login-error">{{ .Error }}</div>
+        <div class="bg-danger-soft text-danger border border-danger-border rounded-lg px-3.5 py-2.5 text-sm text-left mt-2">{{ .Error }}</div>
         {{ end }}
-        <p class="login-note">
-            Already have an account? <a href="/login">Sign in here</a>.
+        <p class="text-muted text-[0.82rem] mt-5 leading-relaxed">
+            Already have an account? <a href="/login" class="text-accent font-semibold hover:underline">Sign in here</a>.
         </p>
     </article>
 </div>

@@ -1,38 +1,29 @@
-/* ── Tailwind CSS v4 ─────────────────────────────────────────────────
-   This is the source file. Compile to static/style.css with:
-     make css          (one-shot, minified)
-     make css-watch    (watch mode)
-   ------------------------------------------------------------------ */
-
 @import "tailwindcss";
 
-/* Scan Go templates and source for Tailwind class usage */
 @source "../templates/**/*.html";
 @source "../internal/**/*.go";
 
-/* ── Theme: brand colors available as Tailwind utilities ─────────── */
+/* ── Design tokens ────────────────────────────────────────────────── */
 @theme {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
-  /* Brand */
   --color-accent:      #2d5a27;
   --color-accent-dark: #234a1f;
   --color-accent-soft: #e8f0e7;
+  --color-surface:     #ffffff;
+  --color-canvas:      #f5f5f5;
+  --color-ink:         #1a1a1a;
+  --color-muted:       #666666;
+  --color-edge:        #e0e0e0;
+  --color-tinted:      #f6f8f4;
 
-  /* Neutrals */
-  --color-surface:  #ffffff;
-  --color-canvas:   #f5f5f5;
-  --color-ink:      #1a1a1a;
-  --color-muted:    #666666;
-  --color-edge:     #e0e0e0;
-
-  /* Danger */
   --color-danger:        #c0392b;
   --color-danger-dark:   #a93226;
   --color-danger-soft:   #fdecea;
   --color-danger-border: #f5c6cb;
+  --color-info-bg:       #f0f0f0;
+  --color-rating:        #e07000;
 
-  /* Tag palette */
   --color-tag-type-bg: #dceefb;
   --color-tag-type:    #1a5f8a;
   --color-tag-cat-bg:  #e8e0f0;
@@ -40,25 +31,214 @@
   --color-tag-mech-bg: #e0f0e3;
   --color-tag-mech:    #2d6a32;
 
-  /* Shape */
-  --radius:    12px;
-  --radius-sm: 8px;
-  --shadow:    0 2px 8px rgba(0,0,0,0.08);
-  --shadow-lg: 0 4px 20px rgba(0,0,0,0.15);
+  --shadow-card:  0 2px 8px rgba(0,0,0,0.08);
+  --shadow-modal: 0 4px 20px rgba(0,0,0,0.15);
+  --shadow-nav:   0 2px 6px rgba(0,0,0,0.15);
 }
 
-/* ── Existing styles — removed page-by-page during migration ─────────
-   Once a page is fully converted to Tailwind, its CSS import is
-   removed here. Remove pico.min.css last (after all pages are done).
-   ------------------------------------------------------------------ */
-@import "./styles/pico.min.css";
-@import "./styles/variables.css";
-@import "./styles/components.css";
-@import "./styles/layout.css";
-@import "./styles/login.css";
-@import "./styles/forms.css";
-@import "./styles/game-list.css";
-@import "./styles/game-detail.css";
-@import "./styles/import.css";
-@import "./styles/rules.css";
-@import "./styles/vibes.css";
+/* ── Base overrides ───────────────────────────────────────────────── */
+@layer base {
+  a { color: inherit; text-decoration: none; }
+  h1, h2, h3, h4, h5, h6 { margin: 0; }
+  p { margin: 0; }
+
+  /* Styled form fields (not checkbox, radio, file, range) */
+  input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]):not([type=hidden]),
+  textarea {
+    border: 1px solid var(--color-edge);
+    border-radius: 8px;
+    padding: 0.65rem 0.75rem;
+    font-size: 1rem;
+    color: var(--color-ink);
+    background: var(--color-surface);
+    transition: border-color 0.15s;
+    &:focus {
+      outline: none;
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 3px var(--color-accent-soft);
+    }
+  }
+
+  select {
+    border: 1px solid var(--color-edge);
+    border-radius: 8px;
+    padding: 0.6rem 2rem 0.6rem 0.75rem;
+    font-size: 0.9rem;
+    color: var(--color-ink);
+    background-color: var(--color-surface);
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    cursor: pointer;
+    &:focus { outline: none; border-color: var(--color-accent); }
+  }
+}
+
+/* ── Shared components ────────────────────────────────────────────── */
+@layer components {
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 font-semibold cursor-pointer rounded-lg no-underline;
+    @apply transition-all duration-150 active:scale-[0.97];
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-primary   { @apply bg-accent text-white hover:bg-accent-dark px-5 py-2.5 text-[0.95rem]; }
+  .btn-secondary { @apply bg-surface text-ink border border-edge hover:bg-accent-soft px-5 py-2.5 text-[0.95rem]; }
+  .btn-danger    { @apply bg-surface text-danger border border-edge hover:bg-danger-soft px-5 py-2.5 text-[0.95rem]; }
+  .btn-sm        { @apply px-3.5 py-1.5 text-sm; }
+  .btn-block     { @apply w-full mt-2; }
+  .btn-icon {
+    @apply inline-flex items-center justify-center w-7 h-7 rounded-full border-none cursor-pointer bg-transparent transition-colors duration-150 text-[0.8rem];
+    &.danger { @apply text-danger; }
+    &.muted  { @apply text-[#888]; &:hover { @apply bg-edge text-ink; } }
+  }
+
+  /* Tags */
+  .tag          { @apply inline-block px-2.5 py-0.5 rounded-md text-sm font-medium; }
+  .tag-type     { @apply bg-tag-type-bg text-tag-type; }
+  .tag-category { @apply bg-tag-cat-bg text-tag-cat; }
+  .tag-mechanic { @apply bg-tag-mech-bg text-tag-mech; }
+
+  /* Pills */
+  .pill          { @apply inline-flex items-center px-3 py-1 rounded-full text-[0.8rem] font-semibold no-underline whitespace-nowrap flex-shrink-0 transition-colors duration-150; }
+  .pill-type     { @apply bg-tag-type-bg text-tag-type; }
+  .pill-category { @apply bg-tag-cat-bg text-tag-cat hover:bg-[#d4c8e4]; }
+  .pill-mechanic { @apply bg-tag-mech-bg text-tag-mech; }
+
+  /* Vibe pills (small labeled badges in game list) */
+  .vibe-pill { @apply inline-block px-2 py-0.5 rounded text-xs font-medium border; }
+
+  /* Vibe color classes (assigned by model.ColorClass) */
+  .vibe-color-0 { background: #e8f0e7; color: #2d5a27; border-color: #c8dcc6; }
+  .vibe-color-1 { background: #e0eeff; color: #1a4fb5; border-color: #b8d4f8; }
+  .vibe-color-2 { background: #f3e8ff; color: #6b21a8; border-color: #dbbef8; }
+  .vibe-color-3 { background: #fff0e0; color: #b45309; border-color: #f8dab8; }
+  .vibe-color-4 { background: #ffe8e8; color: #b91c1c; border-color: #f8b8b8; }
+  .vibe-color-5 { background: #e0faf4; color: #0f766e; border-color: #b8f0e4; }
+  .vibe-color-6 { background: #fef9c3; color: #854d0e; border-color: #f8ebb8; }
+  .vibe-color-7 { background: #fce7f3; color: #be185d; border-color: #f8b8da; }
+
+  /* Filter chips */
+  .filter-chip { @apply inline-flex items-center gap-1.5 bg-accent text-white px-3 py-1 rounded-full text-[0.8rem] font-medium; }
+  .chip-remove {
+    @apply inline-flex items-center justify-center w-[18px] h-[18px] rounded-full border-none cursor-pointer leading-none p-0 no-underline;
+    background: rgba(255,255,255,0.25);
+    color: #fff;
+    font-size: 0.85rem;
+    &:hover { background: rgba(255,255,255,0.4); }
+  }
+
+  /* HTMX loading indicator */
+  .htmx-indicator { display: none; }
+  .htmx-request .htmx-indicator,
+  .htmx-request.htmx-indicator { display: flex; }
+
+  /* Spinner */
+  .spinner {
+    @apply w-5 h-5 rounded-full flex-shrink-0;
+    border: 2px solid var(--color-edge);
+    border-top-color: var(--color-accent);
+    animation: tw-spin 0.6s linear infinite;
+  }
+
+  /* Full-bleed hero (breaks out of max-w container) */
+  .hero-bleed {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+  }
+
+  /* Lightbox */
+  .lightbox {
+    @apply fixed inset-0 flex items-center justify-center z-[300];
+    background: rgba(0,0,0,0.85);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    &.active { opacity: 1; pointer-events: auto; }
+  }
+
+  /* Toggle switch */
+  .toggle-switch {
+    @apply relative inline-flex items-center w-[42px] h-[24px] flex-shrink-0;
+    input {
+      @apply opacity-0 absolute w-0 h-0;
+      &:checked ~ .toggle-track { background: var(--color-accent); }
+      &:checked ~ .toggle-track::before { transform: translateX(18px) translateY(-50%); }
+    }
+  }
+  .toggle-track {
+    @apply absolute inset-0 rounded-full cursor-pointer transition-colors duration-200;
+    background: var(--color-edge);
+    &::before {
+      content: '';
+      @apply absolute w-[18px] h-[18px] left-[3px] top-1/2 bg-white rounded-full;
+      transform: translateY(-50%);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      transition: transform 0.2s;
+    }
+  }
+
+  /* View toggle buttons (games list) */
+  .view-btn {
+    @apply flex items-center justify-center w-9 h-9 border border-edge rounded-lg bg-surface text-muted cursor-pointer p-0 transition-all duration-100;
+    -webkit-tap-highlight-color: transparent;
+    &:hover { @apply border-accent text-accent; }
+    &.active { @apply bg-accent border-accent text-white; }
+  }
+
+  /* Game list — base layout */
+  .game-list { @apply flex flex-col gap-3; }
+
+  /* Game list grid modes (toggled by JS) */
+  .game-list.grid-sm,
+  .game-list.grid-md,
+  .game-list.grid-lg {
+    display: grid;
+    & .game-list-item-wrap { position: relative; display: block; }
+    & .game-list-item { flex-direction: column; align-items: stretch; padding: 0; gap: 0; overflow: hidden; border-radius: 8px; }
+    & .game-cover { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; border-radius: 0; flex-shrink: unset; }
+    & .game-cover-placeholder { width: 100%; aspect-ratio: 1; border-radius: 0; flex-shrink: unset; }
+    & .chevron { display: none; }
+    & .game-select-check { position: absolute; top: 4px; left: 4px; z-index: 2; padding: 2px; border: none; border-radius: 4px; background: rgba(255,255,255,0.82); backdrop-filter: blur(2px); }
+  }
+  .game-list.grid-sm {
+    grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+    gap: 4px;
+    & .game-list-item { border: none; box-shadow: none; background: var(--color-edge); }
+    & .game-list-info { display: none; }
+  }
+  .game-list.grid-md {
+    grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+    gap: 6px;
+    & .game-list-name, & .game-list-meta { display: none; }
+    & .game-list-info { padding: 0.3rem 0.4rem 0.4rem; }
+    & .game-list-vibes { margin-top: 0; }
+  }
+  .game-list.grid-lg {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+    & .game-list-name { display: none; }
+    & .game-list-info { padding: 0.4rem 0.5rem 0.5rem; }
+    & .game-list-meta { margin-top: 0; font-size: 0.75rem; }
+    & .game-list-vibes { margin-top: 0.3rem; }
+  }
+
+  /* Select mode (bulk vibe assignment) */
+  .game-select-check { display: none; }
+  .select-mode {
+    & .game-select-check { display: flex; }
+    & .game-select-check + .game-list-item { border-radius: 0 12px 12px 0; }
+  }
+
+  /* Vibe selector button (discover page) */
+  .vibe-btn {
+    @apply flex items-center justify-center px-4 py-5 rounded-xl text-base font-bold text-center no-underline transition-transform duration-100 active:scale-[0.97];
+    -webkit-tap-highlight-color: transparent;
+    border: 1px solid transparent;
+  }
+}
+
+@keyframes tw-spin { to { transform: rotate(360deg); } }

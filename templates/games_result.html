@@ -1,50 +1,50 @@
 {{ define "games_result" }}
-<h2 class="step-title">
+<h2 class="text-lg font-bold mb-4">
     {{ if eq .TotalCount 1 }}1 game{{ else }}{{ .TotalCount }} games{{ end }}
 </h2>
 {{ if eq (len .Games) 0 }}
-    <p class="empty-state">No games match these filters.</p>
+    <p class="text-center text-muted py-8">No games match these filters.</p>
 {{ else }}
     <div class="game-list">
         {{ range .Games }}
-        <div class="game-list-item-wrap">
-            <label class="game-select-check">
-                <input type="checkbox" name="game_ids" value="{{ .ID }}" form="bulk-vibe-form">
+        <div class="game-list-item-wrap flex items-stretch">
+            <label class="game-select-check items-center px-3 pl-3 bg-surface border border-edge border-r-0 rounded-l-xl cursor-pointer">
+                <input type="checkbox" name="game_ids" value="{{ .ID }}" form="bulk-vibe-form" class="w-5 h-5 accent-accent cursor-pointer">
             </label>
-            <a href="/games/{{ .ID }}" class="game-list-item game-list-link">
+            <a href="/games/{{ .ID }}" class="game-list-item game-list-link flex flex-1 items-center gap-3 bg-surface border border-edge rounded-xl px-4 py-3 no-underline text-ink shadow-card transition-transform duration-100 active:scale-[0.98]" style="-webkit-tap-highlight-color:transparent">
                 {{ if .Thumbnail }}
-                <img src="{{ .ThumbnailURL }}" class="game-cover" alt="{{ .Name }}">
+                <img src="{{ .ThumbnailURL }}" class="game-cover w-14 h-14 rounded-lg object-cover flex-shrink-0" alt="{{ .Name }}">
                 {{ else }}
-                <div class="game-cover game-cover-placeholder"></div>
+                <div class="game-cover w-14 h-14 rounded-lg bg-edge flex-shrink-0"></div>
                 {{ end }}
-                <div class="game-list-info">
-                    <div class="game-list-name">{{ .Name }}</div>
-                    <div class="game-list-meta">{{ .PlayersStr }} players · {{ .PlaytimeStr }}</div>
+                <div class="game-list-info flex-1 min-w-0">
+                    <div class="game-list-name font-semibold truncate">{{ .Name }}</div>
+                    <div class="game-list-meta text-[0.8rem] text-muted mt-0.5">{{ .PlayersStr }} players · {{ .PlaytimeStr }}</div>
                     {{ if .Vibes }}
-                    <div class="game-list-vibes">
+                    <div class="game-list-vibes flex flex-wrap gap-1 mt-1">
                         {{ range .Vibes }}<span class="vibe-pill {{ .ColorClass }}">{{ .Name }}</span>{{ end }}
                     </div>
                     {{ end }}
                 </div>
-                <span class="chevron">&#8250;</span>
+                <span class="chevron text-xl text-muted">&#8250;</span>
             </a>
         </div>
         {{ end }}
     </div>
     {{ if gt .TotalPages 1 }}
-    <div class="pagination">
+    <div class="flex items-center justify-center gap-4 mt-5 pt-3 border-t border-edge">
         {{ if gt .Page 1 }}
         <a href="{{ .PageURL (add .Page -1) }}"
            hx-get="{{ .PageURL (add .Page -1) }}"
            hx-target="#games-result" hx-swap="innerHTML" hx-push-url="true"
-           class="page-btn">&#8592; Prev</a>
+           class="btn btn-secondary btn-sm">&#8592; Prev</a>
         {{ end }}
-        <span class="page-info">{{ .Page }} / {{ .TotalPages }}</span>
+        <span class="text-sm text-muted min-w-12 text-center">{{ .Page }} / {{ .TotalPages }}</span>
         {{ if lt .Page .TotalPages }}
         <a href="{{ .PageURL (add .Page 1) }}"
            hx-get="{{ .PageURL (add .Page 1) }}"
            hx-target="#games-result" hx-swap="innerHTML" hx-push-url="true"
-           class="page-btn">Next &#8594;</a>
+           class="btn btn-secondary btn-sm">Next &#8594;</a>
         {{ end }}
     </div>
     {{ end }}

@@ -1,32 +1,40 @@
 {{ define "content" }}
-<a href="/" class="back-btn">&#8592; Home</a>
-<header class="header">
-    <h1>Manage Vibes</h1>
-    <p class="subtitle">Add, edit, or remove mood tags</p>
+<a href="/" class="inline-flex items-center gap-1 text-accent text-sm font-medium py-2 hover:underline" style="-webkit-tap-highlight-color:transparent">&#8592; Home</a>
+<header class="py-4 mb-2">
+    <h1 class="text-[1.5rem] font-extrabold">Manage Vibes</h1>
+    <p class="text-muted text-[0.95rem] mt-1">Add, edit, or remove mood tags</p>
 </header>
 
 {{ if .Error }}
-<div class="import-error">{{ .Error }}</div>
+<div class="bg-danger-soft text-danger border border-danger-border rounded-lg px-4 py-3 mb-4 text-sm">{{ .Error }}</div>
 {{ end }}
 
-<form method="POST" action="/vibes" class="vibe-add-form">
-    <input type="text" name="name" placeholder="New vibe name..." class="form-input" required>
+<form method="POST" action="/vibes" class="flex gap-2 mb-5">
+    <input type="text" name="name" placeholder="New vibe name…" required class="flex-1 min-w-0">
     <button type="submit" class="btn btn-primary btn-sm">Add</button>
 </form>
 
 {{ if gt (len .Vibes) 0 }}
-<div class="vibe-manage-list">
+<div class="flex flex-col gap-2" id="vibe-manage-list">
     {{ range .Vibes }}
-    <div class="vibe-manage-item">
-        <input type="text" value="{{ .Name }}" data-id="{{ .ID }}" data-original="{{ .Name }}" class="form-input vibe-edit-input" required>
-        <form method="POST" action="/vibes/{{ .ID }}/delete" class="vibe-delete-inline" onsubmit="return confirm('Delete this vibe? Games tagged with it will be untagged.')">
-                    <button type="submit" class="btn-icon btn-icon-danger vibe-delete-btn" title="Delete">&times;</button>
+    <div class="flex items-center gap-2 bg-surface border border-edge rounded-lg px-3 py-2">
+        <input type="text" value="{{ .Name }}"
+               data-id="{{ .ID }}" data-original="{{ .Name }}"
+               class="vibe-edit-input flex-1 min-w-0 border-none bg-transparent p-0 text-sm font-medium focus:outline-none focus:ring-0"
+               required>
+        <form method="POST" action="/vibes/{{ .ID }}/delete" class="flex-shrink-0"
+              onsubmit="return confirm('Delete this vibe? Games tagged with it will be untagged.')">
+            <button type="submit"
+                    class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-transparent border-none cursor-pointer text-danger hover:bg-danger-soft transition-colors text-sm"
+                    title="Delete">&times;</button>
         </form>
     </div>
     {{ end }}
 </div>
-<div class="vibe-save-bar">
-    <button type="button" id="vibe-save-btn" class="btn btn-primary" disabled>Save Changes</button>
+<div class="sticky bottom-4 mt-5 flex justify-center">
+    <button type="button" id="vibe-save-btn"
+            class="btn btn-primary shadow-modal"
+            disabled>Save Changes</button>
 </div>
 
 <script>
@@ -78,6 +86,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 {{ else }}
-<p class="empty-state">No vibes yet.<br>Add one using the form above.</p>
+<p class="text-center text-muted py-8">No vibes yet.<br>Add one using the form above.</p>
 {{ end }}
 {{ end }}

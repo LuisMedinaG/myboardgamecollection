@@ -1,8 +1,8 @@
 {{ define "content" }}
-<a href="/" class="back-btn">&#8592; Home</a>
-<header class="header">
-    <h1>Discover</h1>
-    <p class="subtitle">Find the perfect game for the moment</p>
+<a href="/" class="inline-flex items-center gap-1 text-accent text-sm font-medium py-2 hover:underline" style="-webkit-tap-highlight-color:transparent">&#8592; Home</a>
+<header class="py-4 mb-2">
+    <h1 class="text-[1.5rem] font-extrabold">Discover</h1>
+    <p class="text-muted text-[0.95rem] mt-1">Find the perfect game for the moment</p>
 </header>
 <div id="discover-result">
     {{ template "discover_result" . }}
