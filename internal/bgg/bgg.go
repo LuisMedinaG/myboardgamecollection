@@ -13,10 +13,17 @@ import (
 	"time"
 
 	"myboardgamecollection/internal/model"
-	"myboardgamecollection/internal/store"
 
 	"github.com/fzerorubigd/gobgg"
 )
+
+// GameStore is the subset of the game data layer that the BGG client needs.
+// services/games.Store satisfies this interface.
+type GameStore interface {
+	OwnedBGGIDs(userID int64) (map[int64]bool, error)
+	CreateGame(g model.Game, userID int64) (int64, error)
+	UpdateGame(g model.Game, userID int64) error
+}
 
 // Client wraps the BoardGameGeek API client.
 type Client struct {
@@ -404,7 +411,7 @@ func parseRecommendedPlayers(polls []bggPollXML) string {
 // (the normal sync path) only games not already in the user's collection are
 // fetched from BGG. When fullRefresh is true every owned item is re-fetched
 // and its metadata updated — intended for admins and future paid tiers.
-func (c *Client) ImportCollection(ctx context.Context, s *store.Store, username string, userID int64, fullRefresh bool) (added, updated, collectionCount int, err error) {
+func (c *Client) ImportCollection(ctx context.Context, s GameStore, username string, userID int64, fullRefresh bool) (added, updated, collectionCount int, err error) {
 	items, err := c.bgg.GetCollection(ctx, username, gobgg.SetCollectionTypes(gobgg.CollectionTypeOwn))
 	if err != nil {
 		return 0, 0, 0, fmt.Errorf("fetching collection for %q: %w", username, err)
