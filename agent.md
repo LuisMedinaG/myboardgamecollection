@@ -62,7 +62,7 @@ make bgg-login        # Fetch BGG OAuth headers for .env
 ```sh
 BGG_CLIENT_ID=<oauth-client-id>
 BGG_CLIENT_SECRET=<oauth-client-secret>
-SESSION_SECRET=<32+ char random string>
+SESSION_SECRET=<32+ char random string>  # ⚠️ MISSING from Fly production (see Fly MCP test results)
 JWT_SECRET=<32+ char random string>
 PORT=8080
 DATABASE_URL=file:./data.db?cache=shared&mode=rwc

@@ -90,6 +90,8 @@ Enforced by GitHub rulesets. Never use admin bypass for normal flow.
 - **github-official** — Official GitHub MCP: repos, PRs, issues, Actions, code search (added Apr 13)
 - **brave-search** — Web search in-context for BGG API docs, Go patterns, etc. (added Apr 13)
 - **fetch** — Fetch and convert web content to markdown for LLM use; complements brave-search (added Apr 13)
+- **fly** — Fly.io integration via flyctl; deploy, monitor, scale apps without leaving context (added Apr 13)
+  - ⚠️ **Action needed:** SESSION_SECRET is missing from Fly secrets (currently using insecure default). Set via: `fly secrets set SESSION_SECRET="$(openssl rand -base64 32)" --app myboardgamecollection`
 
 ### CLI Tools
 
