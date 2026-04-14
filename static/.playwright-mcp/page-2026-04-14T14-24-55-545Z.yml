@@ -1,0 +1,80 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - link "🎲 My Collection" [ref=e6] [cursor=pointer]:
+      - /url: "#/"
+      - generic [ref=e7]: 🎲
+      - generic [ref=e8]: My Collection
+  - main [ref=e9]:
+    - generic [ref=e201]:
+      - generic [ref=e202]:
+        - heading "Board Game Collection" [level=1] [ref=e203]
+        - paragraph [ref=e204]: 12 games · find your next play
+      - generic [ref=e205]:
+        - generic [ref=e206]:
+          - generic: 🔍
+          - searchbox "Search games…" [ref=e207]
+        - generic [ref=e208]:
+          - combobox [ref=e209] [cursor=pointer]:
+            - option "All categories" [selected]
+            - option "Abstract Strategy"
+            - option "Adventure"
+            - option "Ancient"
+            - option "Animals"
+            - option "Card Game"
+            - option "City Building"
+            - option "Civilization"
+            - option "Co-operative Play"
+            - option "Deduction"
+            - option "Economic"
+            - option "Exploration"
+            - option "Fantasy"
+            - option "Farming"
+            - option "Medical"
+            - option "Medieval"
+            - option "Nature"
+            - option "Negotiation"
+            - option "Party Game"
+            - option "Science Fiction"
+            - option "Territory Building"
+            - option "Tile Placement"
+            - option "Trains"
+            - option "Word Game"
+          - combobox [ref=e210] [cursor=pointer]:
+            - option "Any players" [selected]
+            - option "Solo (1)"
+            - option "Up to 2"
+            - option "Exactly 2"
+            - option "Up to 3"
+            - option "Up to 4"
+            - option "5+"
+          - combobox [ref=e211] [cursor=pointer]:
+            - option "Any duration"
+            - option "< 30 min" [selected]
+            - option "30–60 min"
+            - option "> 60 min"
+          - combobox [ref=e212] [cursor=pointer]:
+            - option "Any complexity" [selected]
+            - option "Light"
+            - option "Medium"
+            - option "Heavy"
+      - generic [ref=e340]:
+        - generic [ref=e341]: "Duration:"
+        - text: < 30 min
+        - button "Remove Duration filter" [ref=e342] [cursor=pointer]: ×
+      - generic [ref=e213]:
+        - generic [ref=e214]: 1 game
+        - generic [ref=e215]:
+          - button "List view" [ref=e216] [cursor=pointer]: ☰
+          - button "Grid view" [ref=e217] [cursor=pointer]: ⊞
+      - link "Codenames Codenames 2–8 players · 15 min Light Social Party ›" [ref=e319] [cursor=pointer]:
+        - /url: "#/games/11"
+        - img "Codenames" [ref=e320]
+        - generic [ref=e321]:
+          - generic [ref=e322]: Codenames
+          - generic [ref=e323]: 2–8 players · 15 min
+          - generic [ref=e324]:
+            - generic [ref=e325]: Light
+            - generic [ref=e326]: Social
+            - generic [ref=e327]: Party
+        - generic [ref=e328]: ›
+  - contentinfo [ref=e148]: Board game data via BoardGameGeek
