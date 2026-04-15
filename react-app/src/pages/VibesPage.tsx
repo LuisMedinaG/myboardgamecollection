@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { api, ApiError, type Collection } from '../lib/api'
 import type { Game } from '../types/game'
 import GameListItem from '../components/GameListItem'
+import { useCollections } from '../hooks/useCollections'
 
 const PALETTE = [
   { bg: '#dbeafe', text: '#1d4ed8', border: '#93c5fd' },
@@ -23,11 +24,10 @@ function pillColor(idx: number) {
 }
 
 export default function VibesPage() {
-  const [collections, setCollections] = useState<Collection[]>([])
+  const { collections, createCollection, updateCollection, deleteCollection, loading: loadingCollections } = useCollections()
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [games, setGames] = useState<Game[]>([])
   const [discoverTotal, setDiscoverTotal] = useState(0)
-  const [loadingCollections, setLoadingCollections] = useState(true)
   const [loadingGames, setLoadingGames] = useState(false)
 
   const [managing, setManaging] = useState(false)
@@ -39,13 +39,6 @@ export default function VibesPage() {
   const [renameSaving, setRenameSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const newNameRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    api.listCollections()
-      .then(data => setCollections(data))
-      .catch(() => {})
-      .finally(() => setLoadingCollections(false))
-  }, [])
 
   function toggleManage() {
     setManaging(m => !m)
@@ -63,8 +56,7 @@ export default function VibesPage() {
     setCreating(true)
     setCreateError(null)
     try {
-      const col = await api.createCollection(name)
-      setCollections(cs => [...cs, col])
+      await createCollection(name)
       setNewName('')
     } catch (e) {
       setCreateError(e instanceof ApiError ? e.message : 'Failed to create')
@@ -84,9 +76,7 @@ export default function VibesPage() {
     if (!name) return
     setRenameSaving(true)
     try {
-      const col = collections.find(c => c.id === id)
-      const updated = await api.updateCollection(id, name, col?.description ?? '')
-      setCollections(cs => cs.map(c => c.id === id ? { ...c, name: updated.name } : c))
+      await updateCollection(id, name)
       setEditingId(null)
     } catch {
       // keep editing open on failure
@@ -97,8 +87,7 @@ export default function VibesPage() {
 
   async function handleDelete(id: number) {
     try {
-      await api.deleteCollection(id)
-      setCollections(cs => cs.filter(c => c.id !== id))
+      await deleteCollection(id)
       setDeletingId(null)
       if (selectedId === id) { setSelectedId(null); setGames([]) }
     } catch {

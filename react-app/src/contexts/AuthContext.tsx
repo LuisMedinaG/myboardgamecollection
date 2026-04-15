@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, setOnAuthFailure, tokens } from '../lib/api'
 
@@ -14,6 +14,8 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
+
+export { AuthContext }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   // Optimistic: if tokens exist, assume authenticated. Background ping fills in username
@@ -33,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(data => setUser({ username: data.username }))
       .catch(() => setUser(null))
       .finally(() => setLoading(false))
-  }, [])
+  }, [navigate])
 
   async function login(username: string, password: string) {
     await api.login(username, password)
@@ -52,10 +54,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   )
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider')
-  return ctx
 }
