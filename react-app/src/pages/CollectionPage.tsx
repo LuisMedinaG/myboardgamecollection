@@ -42,12 +42,15 @@ export default function CollectionPage() {
   const [games, setGames] = useState<Game[]>([])
   const [total, setTotal] = useState(0)
   const [categories, setCategories] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState('')
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Only show skeleton on the very first load — after that, keep old games visible
+  // during refetches (filter/search changes) to avoid layout flicker.
+  const loading = !loaded
+
   const fetchGames = useCallback((f: FilterState) => {
-    setLoading(true)
     setError('')
     api.listGames({
       q:        f.search  || undefined,
@@ -64,7 +67,7 @@ export default function CollectionPage() {
     }).catch(() => {
       setError('Failed to load games.')
     }).finally(() => {
-      setLoading(false)
+      setLoaded(true)
     })
   }, [])
 

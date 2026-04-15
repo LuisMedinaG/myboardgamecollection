@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api } from '../lib/api'
+import { api, setOnAuthFailure, tokens } from '../lib/api'
 
 interface User {
   username: string
@@ -16,11 +16,19 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  // Optimistic: if tokens exist, assume authenticated. Background ping fills in username
+  // and will redirect to /login via onAuthFailure if the refresh token is expired.
+  const [user, setUser] = useState<User | null>(() =>
+    tokens.getAccess() ? { username: '' } : null,
+  )
+  const [loading, setLoading] = useState(!tokens.getAccess())
   const navigate = useNavigate()
 
   useEffect(() => {
+    setOnAuthFailure(() => {
+      setUser(null)
+      navigate('/login', { replace: true })
+    })
     api.ping()
       .then(data => setUser({ username: data.username }))
       .catch(() => setUser(null))

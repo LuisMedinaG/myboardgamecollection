@@ -30,8 +30,29 @@ export class ApiError extends Error {
   }
 }
 
+// ── Auth failure hook (called when refresh token is also expired) ─────────────
+let onAuthFailureCb: (() => void) | null = null
+export function setOnAuthFailure(cb: () => void) { onAuthFailureCb = cb }
+
 // ── Core fetch with auto-refresh ───────────────────────────────────────────────
 let refreshPromise: Promise<void> | null = null
+
+function ensureRefreshPromise(refreshToken: string): Promise<void> {
+  if (!refreshPromise) {
+    refreshPromise = request<{ data: { access_token: string } }>(
+      'POST', '/auth/refresh', { refresh_token: refreshToken }, false,
+    ).then(r => {
+      tokens.setAccess(r.data.access_token)
+    }).catch(err => {
+      tokens.clear()
+      onAuthFailureCb?.()
+      throw err
+    }).finally(() => {
+      refreshPromise = null
+    })
+  }
+  return refreshPromise
+}
 
 async function request<T>(
   method: string,
@@ -54,16 +75,7 @@ async function request<T>(
     const refresh = tokens.getRefresh()
     if (!refresh) throw new ApiError(401, 'unauthorized')
 
-    if (!refreshPromise) {
-      refreshPromise = request<{ data: { access_token: string } }>(
-        'POST', '/auth/refresh', { refresh_token: refresh }, false,
-      ).then(r => {
-        tokens.setAccess(r.data.access_token)
-      }).finally(() => {
-        refreshPromise = null
-      })
-    }
-    await refreshPromise
+    await ensureRefreshPromise(refresh)
     return request<T>(method, path, body, false)
   }
 
@@ -87,16 +99,7 @@ async function upload<T>(path: string, formData: FormData, retry = true): Promis
     const refresh = tokens.getRefresh()
     if (!refresh) throw new ApiError(401, 'unauthorized')
 
-    if (!refreshPromise) {
-      refreshPromise = request<{ data: { access_token: string } }>(
-        'POST', '/auth/refresh', { refresh_token: refresh }, false,
-      ).then(r => {
-        tokens.setAccess(r.data.access_token)
-      }).finally(() => {
-        refreshPromise = null
-      })
-    }
-    await refreshPromise
+    await ensureRefreshPromise(refresh)
     return upload<T>(path, formData, false)
   }
 
@@ -128,7 +131,7 @@ interface GameAPI {
   weight:               number
   rating:               number
   language_dependence:  number
-  recommended_players:  number[]
+  recommended_players:  string | number[]
   rules_url:            string
   vibes:                CollectionAPI[]  // backend still sends "vibes" key for now
   player_aids?:         PlayerAidAPI[]
@@ -138,6 +141,12 @@ interface GameAPI {
 function splitCsv(v: string | string[] | null | undefined): string[] {
   if (Array.isArray(v)) return v
   if (typeof v === 'string') return v.split(',').map(s => s.trim()).filter(Boolean)
+  return []
+}
+
+function splitCsvNumbers(v: string | number[] | null | undefined): number[] {
+  if (Array.isArray(v)) return v
+  if (typeof v === 'string') return v.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n))
   return []
 }
 
@@ -159,7 +168,7 @@ function mapGame(g: GameAPI): Game {
     weight:             g.weight,
     rating:             g.rating,
     languageDependence: g.language_dependence,
-    recommendedPlayers: g.recommended_players ?? [],
+    recommendedPlayers: splitCsvNumbers(g.recommended_players),
     rulesUrl:           g.rules_url,
     vibes:              (g.vibes ?? []).map(v => v.name),
   }
