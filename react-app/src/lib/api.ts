@@ -74,6 +74,39 @@ async function request<T>(
   return json as T
 }
 
+// Multipart upload with auto-refresh (no Content-Type header — browser sets boundary)
+async function upload<T>(path: string, formData: FormData, retry = true): Promise<T> {
+  const headers: Record<string, string> = {}
+  const token = tokens.getAccess()
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const res = await fetch(BASE + path, { method: 'POST', headers, body: formData })
+
+  // Auto-refresh on 401 — coalesce concurrent requests into one refresh attempt
+  if (res.status === 401 && retry) {
+    const refresh = tokens.getRefresh()
+    if (!refresh) throw new ApiError(401, 'unauthorized')
+
+    if (!refreshPromise) {
+      refreshPromise = request<{ data: { access_token: string } }>(
+        'POST', '/auth/refresh', { refresh_token: refresh }, false,
+      ).then(r => {
+        tokens.setAccess(r.data.access_token)
+      }).finally(() => {
+        refreshPromise = null
+      })
+    }
+    await refreshPromise
+    return upload<T>(path, formData, false)
+  }
+
+  if (res.status === 204) return undefined as T
+
+  const json = await res.json()
+  if (!res.ok) throw new ApiError(res.status, json.error ?? 'request failed')
+  return json as T
+}
+
 // ── API response types (Go → snake_case) ──────────────────────────────────────
 interface CollectionAPI { id: number; name: string; description: string; game_count?: number }
 interface PlayerAidAPI  { id: number; game_id: number; filename: string; label: string }
@@ -170,6 +203,29 @@ export interface DiscoverResponse {
   data:       Game[]
   total:      number
   collection: Collection
+}
+
+export interface SyncResult {
+  added:   number
+  updated: number
+  total:   number
+}
+
+export interface CSVPreviewRow {
+  bgg_id:        number
+  name:          string
+  already_owned: boolean
+}
+
+export interface CSVPreviewResult {
+  rows:          CSVPreviewRow[]
+  total_rows:    number
+  preview_limit: number
+}
+
+export interface CSVImportResult {
+  imported: number
+  failed:   number
 }
 
 export interface DiscoverParams {
@@ -315,5 +371,43 @@ export const api = {
       current_password: currentPassword,
       new_password:     newPassword,
     })
+  },
+
+  // Files
+  async updateRulesUrl(gameId: number, rulesUrl: string) {
+    const r = await request<{ data: { game_id: number; rules_url: string } }>(
+      'PUT', `/games/${gameId}/rules-url`, { rules_url: rulesUrl },
+    )
+    return r.data
+  },
+
+  async uploadPlayerAid(gameId: number, file: File, label: string): Promise<PlayerAid> {
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('label', label)
+    const r = await upload<{ data: PlayerAidAPI }>(`/games/${gameId}/player-aids`, fd)
+    return { id: r.data.id, gameId: r.data.game_id, filename: r.data.filename, label: r.data.label }
+  },
+
+  async deletePlayerAid(gameId: number, aidId: number) {
+    return request('DELETE', `/games/${gameId}/player-aids/${aidId}`)
+  },
+
+  // Import
+  async syncBGG(fullRefresh = false): Promise<SyncResult> {
+    const r = await request<{ data: SyncResult }>('POST', '/import/sync', { full_refresh: fullRefresh })
+    return r.data
+  },
+
+  async csvPreview(file: File): Promise<CSVPreviewResult> {
+    const fd = new FormData()
+    fd.append('csv_file', file)
+    const r = await upload<{ data: CSVPreviewResult }>('/import/csv/preview', fd)
+    return r.data
+  },
+
+  async csvImport(bggIds: number[]): Promise<CSVImportResult> {
+    const r = await request<{ data: CSVImportResult }>('POST', '/import/csv', { bgg_ids: bggIds })
+    return r.data
   },
 }

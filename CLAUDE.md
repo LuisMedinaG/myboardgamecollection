@@ -6,197 +6,147 @@ Personal app — track board games, store rulebook links, upload player aids, im
 
 - **Never `git push`** without the user explicitly saying "push" or "make a PR".
 - **Commit workflow** — always ask before committing so the user can review the diff first.
-- **Go CSS workflow** — edit `static/input.css` (Tailwind source); never edit `static/style.css` directly (it's generated). Run `make css` to rebuild after changes, or use `make dev` (auto-watches).
-- **React CSS workflow** — edit `react-app/src/index.css` (Tailwind v4 source for React). No Tailwind CLI needed — the `@tailwindcss/vite` plugin handles it automatically during `bun dev`/`bun build`.
-- **Tailwind-first UI** — use Tailwind utility classes. No new CSS files or custom classes unless absolutely unavoidable. Check Tailwind docs for existing utilities before writing CSS.
+- **React CSS workflow** — edit `react-app/src/index.css` (Tailwind v4 source). The `@tailwindcss/vite` plugin handles compilation automatically during `bun dev`/`bun build`.
+- **Tailwind-first UI** — use Tailwind utility classes. No new CSS files or custom classes unless unavoidable.
 - **React package manager** — use `bun` (not `npm`) inside `react-app/`. Run `bun dev`, `bun build`, `bun install`.
-- **React API calls** — all data fetching goes through `react-app/src/lib/api.ts` (the centralized API client). Never call `fetch()` directly in components.
-- **DB migrations** — `ALTER TABLE … ADD COLUMN … DEFAULT …` in `store.createTables()`. Idempotent. Also update `migrateGamesTableForPerUserUniqueness` DDL + SELECT list.
-- **Multi-tenancy** — every SQL query must include `AND user_id = ?`. Bulk ops use the `ownedIDs()` pattern.
-- **Error handling** — use sentinel errors (`store.ErrDuplicate`, `store.ErrWrongPassword`). Never expose raw DB errors.
-- **BGG client** — `fetchThingsParsed` (custom XML) for game details, gobgg for `GetCollection`. Don't switch these.
+- **React API calls** — all data fetching goes through `react-app/src/lib/api.ts`. Never call `fetch()` directly in components.
+- **DB migrations** — new column: append to `addCols` in `shared/db/db.go`. New table: append to `createTables()` stmts. Both are idempotent (run on every startup). Use `/add-migration` skill.
+- **Multi-tenancy** — every SQL query must pass `user_id`. No exceptions.
+- **Error handling** — use `apierr.ErrDuplicate`, `apierr.ErrWrongPassword`, `apierr.ErrForeignOwnership`. Never expose raw DB errors.
+- **BGG client** — `bgg.New(token)` for token auth, `bgg.NewWithCookies(cookie)` for cookie fallback. Token takes priority.
 
 ## Stack
 
-**Go backend:** Go 1.25 · stdlib HTTP server · HTMX · Tailwind CSS v4 · SQLite (`modernc.org/sqlite`) · Docker + Fly.io
+**Go backend:** Go 1.25 · stdlib HTTP · REST/JSON API · SQLite (`modernc.org/sqlite`) · Fly.io
 
-**React frontend:** React 19 · React Router v7 · Vite 8 · Tailwind CSS v4 (`@tailwindcss/vite`) · TypeScript · Bun 1.3
-
-## CSS Architecture (Tailwind v4)
-
-### Go backend (`static/`)
-
-- **Source**: `static/input.css` — `@import "tailwindcss"`, `@theme {}` tokens, `@layer components` overrides
-- **Output**: `static/style.css` — compiled by Tailwind CLI, committed to repo, embedded in binary
-- **No `tailwind.config.js`** — CSS-first config in `input.css`
-- Clean white theme: `surface: #ffffff`, `canvas: #f5f5f5`, `ink: #1a1a1a`
-
-Key tokens: `bg-accent` (green #2d5a27) · `bg-canvas` / `bg-surface` · `text-ink` / `text-muted` · `border-edge` · `text-danger` / `bg-danger-soft`
-
-### React app (`react-app/src/index.css`)
-
-- **No build step** — `@tailwindcss/vite` plugin processes it automatically via Vite
-- **No `tailwind.config.js`** — CSS-first config inline
-- Parchment/warm theme: `parchment: #f5f0e8`, `surface: #fdfbf7`, `ink: #2c2008`
-- Fonts: Lora (headings, serif) + Nunito (body, sans-serif) via Google Fonts
-
-Key tokens: `bg-accent` (green #2d5a27) · `bg-parchment` · `bg-surface` · `text-ink` / `text-muted` · `text-brown` · `text-rating`
-
-Shared component classes (defined in `@layer components`): `.btn`, `.btn-primary`, `.btn-secondary`, `.tag`, `.tag-type`, `.tag-category`, `.tag-mechanic`, `.filter-chip`, `.card`, `.pressable`, `.weight-light/medium/heavy`, `.vibe-pill`
-
-## Commands
-
-### Go backend
-
-```sh
-make dev              # run Go app + Tailwind CSS watcher (recommended for dev)
-make dev-go           # run Go app only (CSS must be pre-built)
-make css              # build CSS once (minified) — run before committing
-make css-watch        # watch CSS changes only
-make run              # build CSS + Go binary, then run
-make build            # build Go binary only
-make test             # run all tests
-make test-v           # verbose tests
-make cover            # coverage report
-make cover-html       # HTML coverage report
-make check            # css + build + test + vet
-make tailwind-install # download Tailwind CLI (first-time setup)
-make bgg-login        # grab BGG auth headers
-```
-
-### React frontend (run from `react-app/`)
-
-```sh
-bun dev               # start Vite dev server at localhost:5173
-bun build             # type-check + production build → dist/
-bun run lint          # ESLint
-bun run preview       # preview production build locally
-bun install           # install dependencies
-```
-
-E2E tests require the Go backend running (`make dev-go`) and credentials:
-
-```sh
-TEST_USERNAME=user TEST_PASSWORD=pass bun run test:e2e
-```
+**React frontend:** React 19 · React Router v7 · Vite · Tailwind CSS v4 · TypeScript · Bun
 
 ## Project Structure
 
 ### Go backend
 
 ```
-main.go                # Server setup, routes, middleware
+main.go              # Server setup, routes, middleware wiring
+services/
+  auth/              # Login, logout, JWT refresh, sessions
+  games/             # Game CRUD, filtering, player aids
+  collections/       # Collections (vibes), discovery
+  files/             # Player aid uploads, rules URL
+  importer/          # BGG sync, CSV import
+  profile/           # User profile, BGG username, password change
+shared/
+  db/db.go           # Schema + all migrations (createTables, addCols, FTS5)
+  httpx/httpx.go     # Middleware: RequireJWT, MethodGuard, Chain, CORS, SecurityHeaders
+  apierr/errors.go   # Sentinel errors + IsDuplicate() helper
 internal/
-  handler/             # HTTP handlers (HTMX: game.go, vibe.go, … | API: api_games.go, …)
-  store/               # SQLite DAL — all queries, migrations, FTS5
-  httpx/               # Middleware (auth, CSRF, rate-limit, security headers, JWT)
-  bgg/                 # BGG API client (auth + throttle transports)
-  render/              # Template renderer (embedded, layout cloning, partials)
-  model/               # Domain structs
-  viewmodel/           # Template data structs
-  filter/              # Game filtering (players, playtime, weight, rating, language, rec_players)
-templates/             # Embedded HTML templates
-static/
-  input.css            # Tailwind source (edit this)
-  style.css            # Compiled CSS output (do not edit — generated by Tailwind)
+  bgg/               # BGG API client (token + cookie auth transports)
+  model/             # Domain structs shared across services
 ```
+
+Each `services/<domain>/` has `handler.go` (HTTP) + `store.go` (SQL). Routes are registered in `main.go`.
 
 ### React frontend (`react-app/`)
 
 ```
 src/
-  main.tsx             # Entry point — HashRouter + App
-  App.tsx              # Route tree with AuthProvider + RequireAuth guard
-  index.css            # Tailwind v4 source + theme tokens + component classes
+  lib/api.ts           # Centralized API client (JWT, auto-refresh)
+  contexts/AuthContext.tsx
+  components/          # Layout, FilterBar, GameListItem, GameCard, TagList, …
+  pages/               # LoginPage, CollectionPage, GameDetailPage, VibesPage
   types/game.ts        # Game interface + filter types
-  lib/api.ts           # Centralized API client for /api/v1/* (JWT, auto-refresh)
-  contexts/
-    AuthContext.tsx      # AuthProvider + useAuth hook (JWT session, ping on mount)
-  hooks/
-    useFilteredGames.ts  # Client-side filtering (unused — kept for reference)
-  components/
-    Layout.tsx           # App shell: glass header + bottom tab bar + Sign out button
-    FilterBar.tsx        # Four filter dropdowns + search input
-    ActiveFilters.tsx    # Removable filter chips
-    SearchInput.tsx      # Debounced (300ms) search input
-    GameListItem.tsx     # Tappable row with thumbnail, weight badge, vibe pills
-    GameCard.tsx         # Grid card view
-    TagList.tsx          # Category/mechanic/type tag renderer
-  pages/
-    LoginPage.tsx        # Username/password form, 401 inline error, parchment theme
-    CollectionPage.tsx   # api.listGames() with server-side filtering + loading skeleton
-    GameDetailPage.tsx   # api.getGame() with player aids section + loading/error states
-    VibesPage.tsx        # api.listCollections() pills + api.discover() on selection
+  index.css            # Tailwind v4 source + theme tokens + component classes
 e2e/
-  smoke.spec.ts          # Playwright E2E — seedAuth() via API, TEST_USERNAME/TEST_PASSWORD env vars
+  smoke.spec.ts        # Playwright E2E (TEST_USERNAME/TEST_PASSWORD env vars)
 ```
-
-**Migration status (Apr 14):** Phase 2 complete. Auth, API integration, and Playwright tests all wired to real backend. No mock data remains.
 
 ## Key Patterns
 
-**Dual interface** — every feature has an HTMX handler (returns HTML/partials) and a REST API handler (`/api/v1/…`, returns JSON). They share the same Store calls.
+**Auth** — JWT only (no session cookies). `shared/httpx.RequireJWT(secret)` middleware guards all protected routes. User ID extracted with `requireUserID(w, r)` inside each handler.
 
-**HTMX detection** — `HX-Request: true` header → return partial; otherwise → full page with layout.
-
-**Auth** — two systems: session cookies (HTMX frontend, 30-day, DB-backed) and JWT (REST API, 15-min access + 30-day refresh). `kind` column in sessions table keeps them isolated.
-
-**CSRF** — stateless HMAC of session token. Never stored. Forms use `_csrf` hidden field; HTMX sends `X-CSRF-Token`.
+**Routes** — registered in `main.go` using `protected(method, handler)` or `pub(method, handler)` wrappers.
 
 **Middleware** — `httpx.Chain(handler, A, B, C)` executes A → B → C → handler (reversed internally).
 
-**Templates** — embedded via `go:embed`, layout cloned per page, buffered rendering (no partial output on error). Partials registered both standalone and inside full pages for HTMX.
+**Error flow** — use `apierr.IsDuplicate(err)` to detect constraint violations; use sentinel errors for all others.
+
+## Commands
+
+### Go backend
+
+```sh
+make dev        # go run . (recommended for development)
+make build      # build binary → ./boardgames
+make run        # build + run
+make test       # run all tests
+make test-v     # verbose tests
+make cover      # per-package coverage %
+make cover-html # HTML coverage report
+make check      # build + test + vet
+make dev-all    # Go + React concurrently (trap INT/TERM)
+make bgg-login  # fetch BGG auth headers
+```
+
+### React frontend
+
+```sh
+bun dev               # Vite dev server at localhost:5173
+bun build             # type-check + production build → dist/
+bun run lint          # ESLint
+bun run preview       # preview production build
+bun install           # install dependencies
+```
+
+E2E tests (requires Go backend running):
+
+```sh
+make dev-go  # in one terminal
+TEST_USERNAME=user TEST_PASSWORD=pass bun run test:e2e  # in react-app/
+```
 
 ## Branching
 
 `feature/*` → `dev` (direct push OK) → PR → `staging` → PR → `main`
 
-Enforced by GitHub rulesets. Never use admin bypass for normal flow.
+Enforced by GitHub rulesets. Never use admin bypass.
+
+## Project Skills
+
+Stored in `.claude/skills/` — auto-loaded by Claude Code. Use these for common workflows:
+
+| Skill | Trigger |
+|-------|---------|
+| `/add-feature` | Adding a new API endpoint to a service |
+| `/add-migration` | Adding a new DB table or column |
+| `/ship` | Full test → commit → push → PR workflow |
+| `/run-tests` | Running Go unit tests and/or E2E tests |
 
 ## Plugins & Skills
 
 ### Installed Plugins
 
-- **gopls-lsp** — Go LSP server for intelligent code navigation, hover info, and definitions (installed Apr 3)
-- **claude-mem** — Persistent cross-session memory for observations, timelines, and knowledge bases (installed Apr 13)
-- **code-review** — Code review plugin for quality checks (installed Apr 13)
-- **code-simplifier** — Review changed code for reuse, quality, and efficiency (installed Apr 13)
-- **github** — Provides `/review-pr` and related skills (installed Apr 13; MCP endpoint is down — `github-official` covers that layer)
-- **playwright** — Browser automation for end-to-end testing (installed Apr 13; active — e2e/smoke.spec.ts covers auth + collection + vibes flows)
-- **ralph-loop** — Run prompts on recurring intervals (`/loop`) (installed Apr 13)
-- **security-guidance** — Security best practices and vulnerability analysis (installed Apr 13)
-- **commit-commands** — Commit-related slash commands (installed Apr 13)
+- **gopls-lsp** — Go LSP (code nav, hover, definitions)
+- **claude-mem** — Persistent cross-session memory
+- **code-review** — PR code review
+- **code-simplifier** — Refactor review for changed code
+- **playwright** — E2E browser automation (`e2e/smoke.spec.ts`)
+- **ralph-loop** — `/loop` recurring prompts
+- **security-guidance** — Security analysis
+- **commit-commands** — `/commit`, `/commit-push-pr`
 
 ### MCP Servers
 
-- **sqlite** — Direct query/inspect of `games.db`; natural language DB ops during development (added Apr 13)
-- **github-official** — Official GitHub MCP: repos, PRs, issues, Actions, code search (added Apr 13)
-- **brave-search** — Web search in-context for BGG API docs, Go patterns, etc. (added Apr 13)
-- **fetch** — Fetch and convert web content to markdown for LLM use; complements brave-search (added Apr 13)
-- **fly** — Fly.io integration via flyctl; deploy, monitor, scale apps without leaving context (added Apr 13)
+- **sqlite** — Direct DB queries on `games.db`
+- **github-official** — PRs, issues, Actions, code search
+- **brave-search** — Web search in-context
+- **fetch** — Web content to markdown
+- **fly** — Fly.io deploy/monitor
 
-### CLI Tools
+### Global Skills
 
-- **ccusage** (`ccusage`) — Token/cost dashboard for Claude Code sessions (installed Apr 13)
-- **claude-flow** (`claude-flow`) — Multi-agent autonomous coding orchestration (installed Apr 13)
-
-### Available Skills
-
-- `/commit` — Create git commits with staged changes and commit message generation
-- `/review-pr` — Review PRs on GitHub with detailed feedback
-- `/loop [interval]` — Run a prompt or command repeatedly on interval (e.g., `/loop 5m /foo`)
-- `/simplify` — Review changed code for reuse, quality, and efficiency
-- `/update-config` — Configure Claude Code settings.json (permissions, env vars, hooks)
-- `/schedule` — Create and manage scheduled remote agents (cron triggers)
-- `/keybindings-help` — Customize keyboard shortcuts
-- `/claude-api` — Build, debug, and optimize Claude API applications
-- `/claude-mem:make-plan` — Create detailed phased implementation plans
-- `/claude-mem:do` — Execute implementation plans using subagents
-- `/claude-mem:smart-explore` — Token-optimized structural code search
-- `/claude-mem:knowledge-agent` — Build AI-powered knowledge bases from observations
-- `/claude-mem:timeline-report` — Generate project development history narratives
+`/commit` · `/review-pr` · `/loop` · `/simplify` · `/update-config` · `/schedule` · `/claude-api`
+`/claude-mem:make-plan` · `/claude-mem:do` · `/claude-mem:smart-explore` · `/claude-mem:knowledge-agent`
 
 ## Deep Reference
 
-`agent_docs/ARCHITECTURE-GUIDE.md` — macro architecture, request pipeline, design decisions.
-`agent_docs/ARCHITECTURE-REF.md` — env vars, route table.
+- `agent_docs/ARCHITECTURE-GUIDE.md` — design decisions, request pipeline
+- `agent_docs/ARCHITECTURE-REF.md` — env vars, route table
