@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api, ApiError } from '../lib/api'
+import { api } from '../lib/api'
 
 interface User {
   username: string

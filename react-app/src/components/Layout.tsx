@@ -1,4 +1,5 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 
 const glassStyle: React.CSSProperties = {
   backdropFilter: 'blur(20px) saturate(180%)',
@@ -65,6 +66,7 @@ function TabBar() {
 export default function Layout() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { logout } = useAuth()
   const isDetail = location.pathname.startsWith('/games/')
 
   return (
@@ -131,6 +133,29 @@ export default function Layout() {
               </Link>
             )}
           </div>
+
+          {/* Logout button */}
+          {!isDetail && (
+            <button
+              onClick={() => logout()}
+              className="pressable"
+              aria-label="Sign out"
+              style={{
+                position: 'absolute',
+                right: '1rem',
+                background: 'none',
+                border: 'none',
+                padding: '0.25rem 0.5rem',
+                fontSize: '0.78rem',
+                fontWeight: 500,
+                fontFamily: 'var(--font-sans)',
+                color: 'var(--color-muted)',
+                cursor: 'pointer',
+              }}
+            >
+              Sign out
+            </button>
+          )}
         </div>
       </header>
 

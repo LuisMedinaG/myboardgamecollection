@@ -20,7 +20,7 @@ Personal app — track board games, store rulebook links, upload player aids, im
 
 **Go backend:** Go 1.25 · stdlib HTTP server · HTMX · Tailwind CSS v4 · SQLite (`modernc.org/sqlite`) · Docker + Fly.io
 
-**React frontend (in progress):** React 19 · React Router v7 · Vite 8 · Tailwind CSS v4 (`@tailwindcss/vite`) · TypeScript · Bun 1.3
+**React frontend:** React 19 · React Router v7 · Vite 8 · Tailwind CSS v4 (`@tailwindcss/vite`) · TypeScript · Bun 1.3
 
 ## CSS Architecture (Tailwind v4)
 
@@ -74,6 +74,12 @@ bun run preview       # preview production build locally
 bun install           # install dependencies
 ```
 
+E2E tests require the Go backend running (`make dev-go`) and credentials:
+
+```sh
+TEST_USERNAME=user TEST_PASSWORD=pass bun run test:e2e
+```
+
 ## Project Structure
 
 ### Go backend
@@ -100,15 +106,16 @@ static/
 ```
 src/
   main.tsx             # Entry point — HashRouter + App
-  App.tsx              # Route tree (/, /games/:id, /vibes)
+  App.tsx              # Route tree with AuthProvider + RequireAuth guard
   index.css            # Tailwind v4 source + theme tokens + component classes
   types/game.ts        # Game interface + filter types
-  data/games.ts        # Static mock data — TO BE REPLACED by API client
-  lib/api.ts           # (planned) Centralized API client for /api/v1/*
+  lib/api.ts           # Centralized API client for /api/v1/* (JWT, auto-refresh)
+  contexts/
+    AuthContext.tsx      # AuthProvider + useAuth hook (JWT session, ping on mount)
   hooks/
-    useFilteredGames.ts  # Multi-faceted client-side filtering
+    useFilteredGames.ts  # Client-side filtering (unused — kept for reference)
   components/
-    Layout.tsx           # App shell: glass header + bottom tab bar
+    Layout.tsx           # App shell: glass header + bottom tab bar + Sign out button
     FilterBar.tsx        # Four filter dropdowns + search input
     ActiveFilters.tsx    # Removable filter chips
     SearchInput.tsx      # Debounced (300ms) search input
@@ -116,12 +123,15 @@ src/
     GameCard.tsx         # Grid card view
     TagList.tsx          # Category/mechanic/type tag renderer
   pages/
-    CollectionPage.tsx   # Games list with filtering, list/grid toggle
-    GameDetailPage.tsx   # Hero image, stats, expandable description, BGG link
-    VibesPage.tsx        # Browse games by mood/vibe
+    LoginPage.tsx        # Username/password form, 401 inline error, parchment theme
+    CollectionPage.tsx   # api.listGames() with server-side filtering + loading skeleton
+    GameDetailPage.tsx   # api.getGame() with player aids section + loading/error states
+    VibesPage.tsx        # api.listCollections() pills + api.discover() on selection
+e2e/
+  smoke.spec.ts          # Playwright E2E — seedAuth() via API, TEST_USERNAME/TEST_PASSWORD env vars
 ```
 
-**Migration status (Apr 14):** UI complete with mock data. Auth, API client, and real data integration pending.
+**Migration status (Apr 14):** Phase 2 complete. Auth, API integration, and Playwright tests all wired to real backend. No mock data remains.
 
 ## Key Patterns
 
@@ -152,7 +162,7 @@ Enforced by GitHub rulesets. Never use admin bypass for normal flow.
 - **code-review** — Code review plugin for quality checks (installed Apr 13)
 - **code-simplifier** — Review changed code for reuse, quality, and efficiency (installed Apr 13)
 - **github** — Provides `/review-pr` and related skills (installed Apr 13; MCP endpoint is down — `github-official` covers that layer)
-- **playwright** — Browser automation for end-to-end testing (installed Apr 13; dormant until Phase 3)
+- **playwright** — Browser automation for end-to-end testing (installed Apr 13; active — e2e/smoke.spec.ts covers auth + collection + vibes flows)
 - **ralph-loop** — Run prompts on recurring intervals (`/loop`) (installed Apr 13)
 - **security-guidance** — Security best practices and vulnerability analysis (installed Apr 13)
 - **commit-commands** — Commit-related slash commands (installed Apr 13)
