@@ -127,11 +127,7 @@ export default function VibesPage() {
         </div>
         <button
           onClick={toggleManage}
-          className="pressable mt-1 px-3 py-1.5 rounded-lg text-[0.78rem] font-semibold font-sans border border-edge cursor-pointer"
-          style={{
-            background: managing ? 'var(--color-accent)' : 'var(--color-parchment)',
-            color: managing ? 'white' : 'var(--color-muted)',
-          }}
+          className={`pressable mt-1 px-3 py-1.5 rounded-lg text-[0.78rem] font-semibold font-sans border border-edge cursor-pointer ${managing ? 'bg-accent text-white' : 'bg-parchment text-muted'}`}
         >
           {managing ? 'Done' : 'Edit'}
         </button>
@@ -259,8 +255,7 @@ export default function VibesPage() {
                 onChange={e => { setNewName(e.target.value); setCreateError(null) }}
                 onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
                 placeholder="New vibe name…"
-                className="px-3 py-1.5 rounded-full text-[0.875rem] font-sans bg-parchment text-ink border border-edge focus:outline-none focus:border-accent"
-                style={{ minWidth: '10rem' }}
+                className="px-3 py-1.5 rounded-full text-[0.875rem] font-sans bg-parchment text-ink border border-edge focus:outline-none focus:border-accent min-w-[10rem]"
               />
               <button
                 onClick={handleCreate}

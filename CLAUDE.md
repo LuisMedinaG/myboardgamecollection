@@ -7,7 +7,7 @@ Personal app — track board games, store rulebook links, upload player aids, im
 - **Never `git push`** without the user explicitly saying "push" or "make a PR".
 - **Commit workflow** — always ask before committing so the user can review the diff first.
 - **React CSS workflow** — edit `react-app/src/index.css` (Tailwind v4 source). The `@tailwindcss/vite` plugin handles compilation automatically during `bun dev`/`bun build`.
-- **Tailwind-first UI** — use Tailwind utility classes. No new CSS files or custom classes unless unavoidable.
+- **Tailwind-first UI** — use Tailwind utility classes. No new CSS files or custom classes unless unavoidable. Shared CSS utility classes in `index.css` @layer components: `.section-label` (uppercase section header), `.field-label` (form field label), `.form-input` (standard full-width input), `.alert-error` (inline error message). Use these before reaching for inline styles.
 - **React package manager** — use `bun` (not `npm`) inside `react-app/`. Run `bun dev`, `bun build`, `bun install`.
 - **React API calls** — all data fetching goes through `react-app/src/lib/api.ts`. Never call `fetch()` directly in components.
 - **DB migrations** — new column: append to `addCols` in `shared/db/db.go`. New table: append to `createTables()` stmts. Both are idempotent (run on every startup). Use `/add-migration` skill.

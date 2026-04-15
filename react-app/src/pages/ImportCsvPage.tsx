@@ -99,11 +99,7 @@ export default function ImportCsvPage() {
             onChange={e => { setFile(e.target.files?.[0] ?? null); setPreviewError(null) }}
             className="text-[0.875rem] text-ink"
           />
-          {previewError && (
-            <div className="text-[0.82rem] text-[#b91c1c] bg-[#fee2e2] rounded-lg px-3 py-2">
-              {previewError}
-            </div>
-          )}
+          {previewError && <div className="alert-error">{previewError}</div>}
           <button
             onClick={handlePreview}
             disabled={!file || previewing}
@@ -149,11 +145,7 @@ export default function ImportCsvPage() {
             </table>
           </section>
 
-          {importError && (
-            <div className="text-[0.82rem] text-[#b91c1c] bg-[#fee2e2] rounded-lg px-3 py-2">
-              {importError}
-            </div>
-          )}
+          {importError && <div className="alert-error">{importError}</div>}
 
           <div className="flex gap-3 flex-wrap">
             <button

@@ -61,11 +61,7 @@ export default function ImportPage() {
           <span className="text-[0.78rem] text-muted">(re-fetch all games)</span>
         </label>
 
-        {syncError && (
-          <div className="text-[0.82rem] text-[#b91c1c] bg-[#fee2e2] rounded-lg px-3 py-2">
-            {syncError}
-          </div>
-        )}
+        {syncError && <div className="alert-error">{syncError}</div>}
 
         {syncResult && (
           <div className="bg-[#d1fae5] rounded-lg px-4 py-3 flex gap-6">

@@ -13,14 +13,8 @@ import LoginPage from './pages/LoginPage'
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
   if (loading) return (
-    <div style={{
-      minHeight: '100dvh',
-      background: 'var(--color-parchment)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-    }}>
-      <div style={{ color: 'var(--color-muted)', fontSize: '0.9rem' }}>Loading…</div>
+    <div className="min-h-dvh bg-parchment flex items-center justify-center">
+      <div className="text-sm text-muted">Loading…</div>
     </div>
   )
   if (!user) return <Navigate to="/login" replace />

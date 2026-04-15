@@ -19,128 +19,37 @@ export default function LoginPage() {
       await login(username, password)
       navigate('/', { replace: true })
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        setError('Invalid username or password.')
-      } else {
-        setError('Something went wrong. Try again.')
-      }
+      setError(err instanceof ApiError && err.status === 401
+        ? 'Invalid username or password.'
+        : 'Something went wrong. Try again.')
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <div style={{
-      minHeight: '100dvh',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'var(--color-parchment)',
-      padding: '1.5rem',
-    }}>
-      <div style={{
-        width: '100%',
-        maxWidth: '360px',
-        background: 'var(--color-surface)',
-        border: '1px solid var(--color-edge)',
-        borderRadius: '1.25rem',
-        boxShadow: 'var(--shadow-card)',
-        padding: '2rem 1.75rem',
-      }}>
-        {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🎲</div>
-          <h1 style={{
-            fontFamily: 'var(--font-heading)',
-            fontSize: '1.4rem',
-            fontWeight: 700,
-            color: 'var(--color-ink)',
-            marginBottom: '0.25rem',
-          }}>
-            My Board Game Collection
-          </h1>
-          <p style={{ fontSize: '0.82rem', color: 'var(--color-muted)' }}>Sign in to your account</p>
+    <div className="min-h-dvh flex flex-col items-center justify-center bg-parchment p-6">
+      <div className="w-full max-w-sm card p-8">
+        <div className="text-center mb-7">
+          <div className="text-4xl mb-2">🎲</div>
+          <h1 className="font-heading text-[1.4rem] font-bold text-ink mb-1">My Board Game Collection</h1>
+          <p className="text-xs text-muted">Sign in to your account</p>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            <label htmlFor="username" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Username
-            </label>
-            <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              autoComplete="username"
-              required
-              style={{
-                padding: '0.65rem 0.875rem',
-                border: '1px solid var(--color-edge)',
-                borderRadius: '0.6rem',
-                fontSize: '1rem',
-                fontFamily: 'var(--font-sans)',
-                background: 'var(--color-parchment)',
-                color: 'var(--color-ink)',
-                outline: 'none',
-                width: '100%',
-                boxSizing: 'border-box',
-              }}
-            />
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div>
+            <label htmlFor="username" className="field-label">Username</label>
+            <input id="username" type="text" value={username} onChange={e => setUsername(e.target.value)}
+              autoComplete="username" required className="form-input" />
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            <label htmlFor="password" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              autoComplete="current-password"
-              required
-              style={{
-                padding: '0.65rem 0.875rem',
-                border: '1px solid var(--color-edge)',
-                borderRadius: '0.6rem',
-                fontSize: '1rem',
-                fontFamily: 'var(--font-sans)',
-                background: 'var(--color-parchment)',
-                color: 'var(--color-ink)',
-                outline: 'none',
-                width: '100%',
-                boxSizing: 'border-box',
-              }}
-            />
+          <div>
+            <label htmlFor="password" className="field-label">Password</label>
+            <input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)}
+              autoComplete="current-password" required className="form-input" />
           </div>
-
-          {error && (
-            <div style={{
-              padding: '0.6rem 0.875rem',
-              background: 'var(--color-danger-soft, #fee2e2)',
-              border: '1px solid #fca5a5',
-              borderRadius: '0.5rem',
-              fontSize: '0.85rem',
-              color: 'var(--color-danger, #b91c1c)',
-            }}>
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="btn btn-primary pressable"
-            style={{
-              marginTop: '0.25rem',
-              padding: '0.75rem',
-              fontSize: '1rem',
-              fontWeight: 700,
-              opacity: submitting ? 0.7 : 1,
-            }}
-          >
+          {error && <div className="alert-error">{error}</div>}
+          <button type="submit" disabled={submitting}
+            className="btn btn-primary pressable mt-1 disabled:opacity-70">
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>

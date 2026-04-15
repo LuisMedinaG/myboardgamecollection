@@ -15,10 +15,8 @@ export default function TagList({ label, tags, variant }: Props) {
 
   return (
     <div>
-      <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-muted)', marginBottom: '0.4rem' }}>
-        {label}
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+      <div className="field-label">{label}</div>
+      <div className="flex flex-wrap gap-1.5">
         {tags.map(tag => (
           <span key={tag} className={CLASS_MAP[variant]}>{tag}</span>
         ))}

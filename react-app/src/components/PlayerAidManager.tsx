@@ -6,27 +6,6 @@ interface Props {
   initial: PlayerAid[]
 }
 
-function navBtnStyle(side: 'left' | 'right'): React.CSSProperties {
-  return {
-    position: 'absolute',
-    [side]: '1rem',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    background: 'rgba(255,255,255,0.15)',
-    border: 'none',
-    borderRadius: '50%',
-    width: '2.5rem',
-    height: '2.5rem',
-    color: 'white',
-    fontSize: '1.5rem',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    lineHeight: 1,
-  }
-}
-
 export default function PlayerAidManager({ gameId, initial }: Props) {
   const [aids, setAids] = useState<PlayerAid[]>(initial)
   const [lightbox, setLightbox] = useState<number | null>(null)
@@ -38,8 +17,8 @@ export default function PlayerAidManager({ gameId, initial }: Props) {
     if (lightbox === null) return
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setLightbox(null)
-      else if (e.key === 'ArrowLeft') setLightbox(prev => (prev !== null && prev > 0 ? prev - 1 : prev))
-      else if (e.key === 'ArrowRight') setLightbox(prev => (prev !== null && prev < aids.length - 1 ? prev + 1 : prev))
+      else if (e.key === 'ArrowLeft') setLightbox(p => (p !== null && p > 0 ? p - 1 : p))
+      else if (e.key === 'ArrowRight') setLightbox(p => (p !== null && p < aids.length - 1 ? p + 1 : p))
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -69,96 +48,28 @@ export default function PlayerAidManager({ gameId, initial }: Props) {
       await api.deletePlayerAid(gameId, aid.id)
       setAids(prev => prev.filter(a => a.id !== aid.id))
       setLightbox(null)
-    } catch {
-      // ignore — could add toast
-    }
+    } catch { /* ignore */ }
   }
 
   const cur = lightbox !== null ? aids[lightbox] : null
 
   return (
     <>
-      <div style={{
-        background: 'var(--color-surface)',
-        border: '1px solid var(--color-edge)',
-        borderRadius: '0.875rem',
-        boxShadow: 'var(--shadow-card)',
-        padding: '1rem',
-        marginBottom: '0.75rem',
-      }}>
-        <h2 style={{
-          fontSize: '0.85rem',
-          fontWeight: 700,
-          marginBottom: aids.length > 0 ? '0.75rem' : '0.5rem',
-          color: 'var(--color-muted)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.07em',
-        }}>
-          Player Aids
-        </h2>
+      <div className="card p-4 mb-3">
+        <h2 className="section-label mb-3">Player Aids</h2>
 
         {aids.length > 0 && (
-          <div style={{
-            display: 'flex',
-            gap: '0.75rem',
-            overflowX: 'auto',
-            paddingBottom: '0.5rem',
-            marginBottom: '0.75rem',
-          }}>
+          <div className="flex gap-3 overflow-x-auto pb-2 mb-3">
             {aids.map((aid, i) => (
-              <div key={aid.id} style={{ flexShrink: 0, position: 'relative' }}>
-                <button
-                  onClick={() => setLightbox(i)}
-                  className="pressable"
-                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'block' }}
-                >
-                  <img
-                    src={`/uploads/${aid.filename}`}
-                    alt={aid.label}
-                    style={{
-                      width: '120px',
-                      height: '90px',
-                      objectFit: 'cover',
-                      borderRadius: '0.5rem',
-                      border: '1px solid var(--color-edge)',
-                      display: 'block',
-                    }}
-                  />
-                  <div style={{
-                    fontSize: '0.7rem',
-                    color: 'var(--color-muted)',
-                    marginTop: '0.25rem',
-                    textAlign: 'center',
-                    maxWidth: '120px',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    {aid.label}
-                  </div>
+              <div key={aid.id} className="shrink-0 relative">
+                <button onClick={() => setLightbox(i)}
+                  className="pressable bg-transparent border-none p-0 cursor-pointer block">
+                  <img src={`/uploads/${aid.filename}`} alt={aid.label}
+                    className="w-[120px] h-[90px] object-cover rounded-lg border border-edge block" />
+                  <div className="text-[0.7rem] text-muted mt-1 text-center w-[120px] truncate">{aid.label}</div>
                 </button>
-                <button
-                  onClick={() => handleDelete(aid)}
-                  title="Delete player aid"
-                  style={{
-                    position: 'absolute',
-                    top: '4px',
-                    right: '4px',
-                    background: 'rgba(0,0,0,0.6)',
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: '20px',
-                    height: '20px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    color: 'white',
-                    fontSize: '0.65rem',
-                    lineHeight: 1,
-                    padding: 0,
-                  }}
-                >
+                <button onClick={() => handleDelete(aid)} title="Delete player aid"
+                  className="pressable absolute top-1 right-1 bg-black/60 border-none rounded-full w-5 h-5 flex items-center justify-center cursor-pointer text-white text-[0.65rem]">
                   ✕
                 </button>
               </div>
@@ -166,140 +77,45 @@ export default function PlayerAidManager({ gameId, initial }: Props) {
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <input
-            type="text"
-            placeholder="Label (optional)"
-            value={labelInput}
+        <div className="flex gap-2 items-center flex-wrap">
+          <input type="text" placeholder="Label (optional)" value={labelInput}
             onChange={e => setLabelInput(e.target.value)}
-            style={{
-              flex: 1,
-              minWidth: '120px',
-              padding: '0.45rem 0.75rem',
-              fontSize: '0.85rem',
-              border: '1px solid var(--color-edge)',
-              borderRadius: '0.5rem',
-              background: 'var(--color-bg)',
-              color: 'var(--color-ink)',
-              fontFamily: 'var(--font-sans)',
-            }}
-          />
-          <label
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              padding: '0.45rem 0.875rem',
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              borderRadius: '0.5rem',
-              background: uploading ? 'var(--color-edge)' : 'var(--color-accent)',
-              color: uploading ? 'var(--color-muted)' : 'white',
-              cursor: uploading ? 'not-allowed' : 'pointer',
-              border: 'none',
-              fontFamily: 'var(--font-sans)',
-            }}
-          >
+            className="flex-1 min-w-[120px] px-3 py-[0.45rem] text-[0.85rem] border border-edge rounded-lg bg-parchment text-ink font-sans focus:outline-none focus:border-accent" />
+          <label className={`pressable inline-flex items-center gap-1 px-3.5 py-[0.45rem] text-[0.85rem] font-semibold rounded-lg border-none font-sans cursor-pointer ${uploading ? 'bg-edge text-muted cursor-not-allowed' : 'bg-accent text-white'}`}>
             {uploading ? 'Uploading…' : '+ Upload'}
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/gif,image/webp"
-              onChange={handleUpload}
-              disabled={uploading}
-              hidden
-            />
+            <input type="file" accept="image/png,image/jpeg,image/gif,image/webp"
+              onChange={handleUpload} disabled={uploading} hidden />
           </label>
         </div>
 
-        {uploadErr && (
-          <div style={{ fontSize: '0.8rem', color: '#dc2626', marginTop: '0.35rem' }}>
-            {uploadErr}
-          </div>
-        )}
+        {uploadErr && <div className="text-[0.8rem] text-[#dc2626] mt-1.5">{uploadErr}</div>}
       </div>
 
-      {/* Lightbox */}
       {cur && (
-        <div
-          onClick={() => setLightbox(null)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.88)',
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <img
-            src={`/uploads/${cur.filename}`}
-            alt={cur.label}
+        <div onClick={() => setLightbox(null)}
+          className="fixed inset-0 bg-black/85 z-[1000] flex items-center justify-center">
+          <img src={`/uploads/${cur.filename}`} alt={cur.label}
             onClick={e => e.stopPropagation()}
-            style={{
-              maxWidth: '90vw',
-              maxHeight: '85vh',
-              objectFit: 'contain',
-              borderRadius: '0.5rem',
-            }}
-          />
+            className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg" />
 
           {lightbox! > 0 && (
-            <button
-              onClick={e => { e.stopPropagation(); setLightbox(prev => prev! - 1) }}
-              className="pressable"
-              style={navBtnStyle('left')}
-            >
+            <button onClick={e => { e.stopPropagation(); setLightbox(p => p! - 1) }}
+              className="pressable absolute left-4 top-1/2 -translate-y-1/2 bg-white/15 border-none rounded-full w-10 h-10 text-white text-2xl cursor-pointer flex items-center justify-center">
               ‹
             </button>
           )}
-
           {lightbox! < aids.length - 1 && (
-            <button
-              onClick={e => { e.stopPropagation(); setLightbox(prev => prev! + 1) }}
-              className="pressable"
-              style={navBtnStyle('right')}
-            >
+            <button onClick={e => { e.stopPropagation(); setLightbox(p => p! + 1) }}
+              className="pressable absolute right-4 top-1/2 -translate-y-1/2 bg-white/15 border-none rounded-full w-10 h-10 text-white text-2xl cursor-pointer flex items-center justify-center">
               ›
             </button>
           )}
-
-          <button
-            onClick={() => setLightbox(null)}
-            className="pressable"
-            style={{
-              position: 'absolute',
-              top: '1rem',
-              right: '1rem',
-              background: 'rgba(255,255,255,0.15)',
-              border: 'none',
-              borderRadius: '50%',
-              width: '2rem',
-              height: '2rem',
-              color: 'white',
-              fontSize: '1.1rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
+          <button onClick={() => setLightbox(null)}
+            className="pressable absolute top-4 right-4 bg-white/15 border-none rounded-full w-8 h-8 text-white text-lg cursor-pointer flex items-center justify-center">
             ✕
           </button>
-
           {cur.label && (
-            <div style={{
-              position: 'absolute',
-              bottom: '1rem',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              background: 'rgba(0,0,0,0.5)',
-              color: 'white',
-              fontSize: '0.85rem',
-              padding: '0.25rem 0.75rem',
-              borderRadius: '0.375rem',
-              whiteSpace: 'nowrap',
-            }}>
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-sm px-3 py-1 rounded-md whitespace-nowrap">
               {cur.label}
             </div>
           )}

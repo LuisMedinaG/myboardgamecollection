@@ -33,7 +33,7 @@ export default function ActiveFilters({ filters, onRemove }: Props) {
   if (active.length === 0) return null
 
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', alignItems: 'center' }}>
+    <div className="flex flex-wrap gap-1.5 items-center">
       {active.map(key => {
         const raw = filters[key]
         const display = VALUE_DISPLAY[raw] ?? raw
