@@ -96,27 +96,27 @@ type GameEditData struct {
 
 // DiscoverPageData holds data for the discover page.
 type DiscoverPageData struct {
-	Vibes      []model.Vibe
-	VibeID     int64
-	VibeName   string
-	Games      []model.Game
-	Types      []string
-	Categories []string
-	Mechanics  []string
-	Type       string
-	Category   string
-	Mechanic   string
-	Players    string
-	Playtime   string
-	Weight     string
-	Rating     string
-	Lang       string
-	RecPlayers string
-	ValidPlayers   []PlayerOption
-	ValidPlaytimes []PlaytimeOption
-	ValidWeights   []WeightOption
-	ValidRatings   []RatingOption
-	ValidLanguages []LanguageOption
+	Vibes           []model.Vibe
+	VibeID          int64
+	VibeName        string
+	Games           []model.Game
+	Types           []string
+	Categories      []string
+	Mechanics       []string
+	Type            string
+	Category        string
+	Mechanic        string
+	Players         string
+	Playtime        string
+	Weight          string
+	Rating          string
+	Lang            string
+	RecPlayers      string
+	ValidPlayers    []PlayerOption
+	ValidPlaytimes  []PlaytimeOption
+	ValidWeights    []WeightOption
+	ValidRatings    []RatingOption
+	ValidLanguages  []LanguageOption
 	ValidRecPlayers []RecPlayersOption
 }
 
@@ -152,6 +152,12 @@ type LanguageOption struct {
 
 // RecPlayersOption represents a recommended player count filter that has matching games.
 type RecPlayersOption struct {
+	Value string
+	Label string
+}
+
+// FilterOption represents a generic filter option.
+type FilterOption struct {
 	Value string
 	Label string
 }
@@ -212,8 +218,8 @@ type ImportCSVPreviewData struct {
 	Rows         []CSVPreviewRow
 	NewCount     int
 	OwnedCount   int
-	SkippedRows  int // rows in the file that had no usable BGG ID
-	TotalParsed  int // unique BGG IDs successfully parsed from the file
+	SkippedRows  int    // rows in the file that had no usable BGG ID
+	TotalParsed  int    // unique BGG IDs successfully parsed from the file
 	ImportIDsCSV string // comma-separated list of BGG IDs to send back on confirm
 	ErrMsg       string
 }

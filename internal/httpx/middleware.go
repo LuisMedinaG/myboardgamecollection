@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -209,4 +210,39 @@ func WriteJSONError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	fmt.Fprintf(w, `{"error":%q}`, msg)
+}
+
+// --- ID parsing middleware ---
+
+const (
+	ctxID contextKey = "id"
+)
+
+// ExtractID parses the {id} path parameter and stores it in context.
+// Returns 400 error if parsing fails.
+func ExtractID() Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			idStr := r.PathValue("id")
+			if idStr == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			id, err := strconv.ParseInt(idStr, 10, 64)
+			if err != nil {
+				http.Error(w, "invalid id", http.StatusBadRequest)
+				return
+			}
+
+			ctx := context.WithValue(r.Context(), ctxID, id)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// IDFromContext retrieves the parsed ID from context.
+func IDFromContext(ctx context.Context) (int64, bool) {
+	v, ok := ctx.Value(ctxID).(int64)
+	return v, ok
 }

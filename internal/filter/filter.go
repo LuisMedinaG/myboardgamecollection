@@ -1,6 +1,8 @@
 package filter
 
 import (
+	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -8,259 +10,352 @@ import (
 	"myboardgamecollection/internal/viewmodel"
 )
 
-// PlayerCondition returns a SQL condition for the given player filter value.
-// The prefix is prepended to column names (e.g. "g." for aliased queries, or "" for unaliased).
+// FilterDef defines a filter with its SQL condition builder and validation.
+type FilterDef struct {
+	Name        string
+	Column      string
+	Condition   func(value string, prefix string) string
+	ValidValues map[string]string // value -> label
+}
+
+// Filters contains all available game filters.
+var Filters = map[string]FilterDef{
+	"players": {
+		Name:   "players",
+		Column: "min_players",
+		Condition: func(value, prefix string) string {
+			switch value {
+			case "1":
+				return prefix + "min_players <= 1"
+			case "2":
+				return prefix + "min_players <= 2"
+			case "2only":
+				return prefix + "min_players = 2 AND " + prefix + "max_players = 2"
+			case "3":
+				return prefix + "min_players <= 3"
+			case "4":
+				return prefix + "min_players <= 4"
+			case "5plus":
+				return prefix + "max_players >= 5"
+			default:
+				return ""
+			}
+		},
+		ValidValues: map[string]string{
+			"1":     "Solo",
+			"2":     "Up to 2",
+			"3":     "Up to 3",
+			"4":     "Up to 4",
+			"5plus": "5+",
+		},
+	},
+	"playtime": {
+		Name:   "playtime",
+		Column: "play_time",
+		Condition: func(value, prefix string) string {
+			switch value {
+			case "short":
+				return prefix + "play_time < 30"
+			case "medium":
+				return prefix + "play_time >= 30 AND " + prefix + "play_time <= 60"
+			case "long":
+				return prefix + "play_time > 60"
+			default:
+				return ""
+			}
+		},
+		ValidValues: map[string]string{
+			"short":  "< 30 min",
+			"medium": "30–60 min",
+			"long":   "> 60 min",
+		},
+	},
+	"weight": {
+		Name:   "weight",
+		Column: "weight",
+		Condition: func(value, prefix string) string {
+			switch value {
+			case "light":
+				return prefix + "weight > 0 AND " + prefix + "weight < 2.0"
+			case "medium":
+				return prefix + "weight >= 2.0 AND " + prefix + "weight < 3.0"
+			case "heavy":
+				return prefix + "weight >= 3.0"
+			default:
+				return ""
+			}
+		},
+		ValidValues: map[string]string{
+			"light":  "Light (< 2)",
+			"medium": "Medium (2–3)",
+			"heavy":  "Heavy (3+)",
+		},
+	},
+	"rating": {
+		Name:   "rating",
+		Column: "rating",
+		Condition: func(value, prefix string) string {
+			switch value {
+			case "good":
+				return prefix + "rating >= 6.0"
+			case "great":
+				return prefix + "rating >= 7.0"
+			case "excellent":
+				return prefix + "rating >= 8.0"
+			default:
+				return ""
+			}
+		},
+		ValidValues: map[string]string{
+			"good":      "Good (6+)",
+			"great":     "Great (7+)",
+			"excellent": "Excellent (8+)",
+		},
+	},
+	"lang": {
+		Name:   "language_dependence",
+		Column: "language_dependence",
+		Condition: func(value, prefix string) string {
+			switch value {
+			case "free":
+				return prefix + "language_dependence = 1"
+			case "low":
+				return prefix + "language_dependence = 2"
+			case "moderate":
+				return prefix + "language_dependence = 3"
+			case "high":
+				return prefix + "language_dependence >= 4"
+			default:
+				return ""
+			}
+		},
+		ValidValues: map[string]string{
+			"free":     "Language-free",
+			"low":      "Low dependence",
+			"moderate": "Moderate dependence",
+			"high":     "High dependence",
+		},
+	},
+	"rec_players": {
+		Name:   "recommended_players",
+		Column: "recommended_players",
+		Condition: func(value, prefix string) string {
+			if value == "" {
+				return ""
+			}
+			for _, ch := range value {
+				if ch < '0' || ch > '9' {
+					return ""
+				}
+			}
+			return fmt.Sprintf("',' || %srecommended_players || ',' LIKE '%%,%s,%%'", prefix, value)
+		},
+		ValidValues: map[string]string{
+			"1": "Solo (1P)",
+			"2": "2 Players",
+			"3": "3 Players",
+			"4": "4 Players",
+			"5": "5 Players",
+		},
+	},
+}
+
+// QueryBuilder builds SQL WHERE clauses from filter parameters.
+type QueryBuilder struct {
+	filters map[string]FilterDef
+}
+
+// NewQueryBuilder creates a new query builder.
+func NewQueryBuilder() *QueryBuilder {
+	return &QueryBuilder{filters: Filters}
+}
+
+// BuildWhereClause builds a WHERE clause and args from URL parameters.
+func (qb *QueryBuilder) BuildWhereClause(params url.Values, prefix string) (string, []any) {
+	var conditions []string
+	var args []any
+
+	for name, def := range qb.filters {
+		if values, exists := params[name]; exists && len(values) > 0 {
+			value := values[0]
+			if condition := def.Condition(value, prefix); condition != "" {
+				conditions = append(conditions, condition)
+			}
+		}
+	}
+
+	if len(conditions) == 0 {
+		return "", nil
+	}
+
+	return "WHERE " + strings.Join(conditions, " AND "), args
+}
+
+// GetValidOptions returns valid filter options that match at least one game.
+func (qb *QueryBuilder) GetValidOptions(games []model.Game, filterName string) []viewmodel.FilterOption {
+	def, exists := qb.filters[filterName]
+	if !exists {
+		return nil
+	}
+
+	var options []viewmodel.FilterOption
+	for value, label := range def.ValidValues {
+		for _, game := range games {
+			if qb.matchesFilter(game, filterName, value) {
+				options = append(options, viewmodel.FilterOption{Value: value, Label: label})
+				break
+			}
+		}
+	}
+	return options
+}
+
+// matchesFilter checks if a game matches a specific filter value.
+func (qb *QueryBuilder) matchesFilter(game model.Game, filterName, value string) bool {
+	switch filterName {
+	case "players":
+		switch value {
+		case "1":
+			return game.MinPlayers <= 1
+		case "2":
+			return game.MinPlayers <= 2
+		case "2only":
+			return game.MinPlayers == 2 && game.MaxPlayers == 2
+		case "3":
+			return game.MinPlayers <= 3
+		case "4":
+			return game.MinPlayers <= 4
+		case "5plus":
+			return game.MaxPlayers >= 5
+		}
+	case "playtime":
+		switch value {
+		case "short":
+			return game.PlayTime < 30
+		case "medium":
+			return game.PlayTime >= 30 && game.PlayTime <= 60
+		case "long":
+			return game.PlayTime > 60
+		}
+	case "weight":
+		switch value {
+		case "light":
+			return game.Weight > 0 && game.Weight < 2.0
+		case "medium":
+			return game.Weight >= 2.0 && game.Weight < 3.0
+		case "heavy":
+			return game.Weight >= 3.0
+		}
+	case "rating":
+		switch value {
+		case "good":
+			return game.Rating >= 6.0
+		case "great":
+			return game.Rating >= 7.0
+		case "excellent":
+			return game.Rating >= 8.0
+		}
+	case "lang":
+		switch value {
+		case "free":
+			return game.LanguageDependence == 1
+		case "low":
+			return game.LanguageDependence == 2
+		case "moderate":
+			return game.LanguageDependence == 3
+		case "high":
+			return game.LanguageDependence >= 4
+		}
+	case "rec_players":
+		return strings.Contains(","+game.RecommendedPlayers+",", ","+value+",")
+	}
+	return false
+}
+
+// Legacy functions for backward compatibility
 func PlayerCondition(players, prefix string) string {
-	switch players {
-	case "1":
-		return prefix + "min_players <= 1"
-	case "2":
-		return prefix + "min_players <= 2"
-	case "2only":
-		return prefix + "min_players = 2 AND " + prefix + "max_players = 2"
-	case "3":
-		return prefix + "min_players <= 3"
-	case "4":
-		return prefix + "min_players <= 4"
-	case "5plus":
-		return prefix + "max_players >= 5"
-	default:
-		return ""
-	}
+	return Filters["players"].Condition(players, prefix)
 }
 
-// PlaytimeCondition returns a SQL condition for the given playtime filter value.
 func PlaytimeCondition(playtime, prefix string) string {
-	switch playtime {
-	case "short":
-		return prefix + "play_time < 30"
-	case "medium":
-		return prefix + "play_time >= 30 AND " + prefix + "play_time <= 60"
-	case "long":
-		return prefix + "play_time > 60"
-	default:
-		return ""
-	}
+	return Filters["playtime"].Condition(playtime, prefix)
 }
 
-// ValidPlayerOptions returns player filter options that match at least one game.
-func ValidPlayerOptions(games []model.Game) []viewmodel.PlayerOption {
-	type def struct {
-		value string
-		label string
-		match func(model.Game) bool
-	}
-	all := []def{
-		{"1", "Solo", func(g model.Game) bool { return g.MinPlayers <= 1 }},
-		{"2", "Up to 2", func(g model.Game) bool { return g.MinPlayers <= 2 }},
-		{"3", "Up to 3", func(g model.Game) bool { return g.MinPlayers <= 3 }},
-		{"4", "Up to 4", func(g model.Game) bool { return g.MinPlayers <= 4 }},
-		{"5plus", "5+", func(g model.Game) bool { return g.MaxPlayers >= 5 }},
-	}
-	var opts []viewmodel.PlayerOption
-	for _, o := range all {
-		for _, g := range games {
-			if o.match(g) {
-				opts = append(opts, viewmodel.PlayerOption{Value: o.value, Label: o.label})
-				break
-			}
-		}
-	}
-	return opts
-}
-
-// ValidPlaytimeOptions returns playtime filter options that match at least one game.
-func ValidPlaytimeOptions(games []model.Game) []viewmodel.PlaytimeOption {
-	type def struct {
-		value string
-		label string
-		match func(model.Game) bool
-	}
-	all := []def{
-		{"short", "< 30 min", func(g model.Game) bool { return g.PlayTime < 30 }},
-		{"medium", "30–60 min", func(g model.Game) bool { return g.PlayTime >= 30 && g.PlayTime <= 60 }},
-		{"long", "> 60 min", func(g model.Game) bool { return g.PlayTime > 60 }},
-	}
-	var opts []viewmodel.PlaytimeOption
-	for _, o := range all {
-		for _, g := range games {
-			if o.match(g) {
-				opts = append(opts, viewmodel.PlaytimeOption{Value: o.value, Label: o.label})
-				break
-			}
-		}
-	}
-	return opts
-}
-
-// WeightCondition returns a SQL condition for the given weight filter value.
-// BGG weight scale: 1.0–2.0 = Light, 2.0–3.0 = Medium, 3.0–5.0 = Heavy.
 func WeightCondition(weight, prefix string) string {
-	switch weight {
-	case "light":
-		return prefix + "weight > 0 AND " + prefix + "weight < 2.0"
-	case "medium":
-		return prefix + "weight >= 2.0 AND " + prefix + "weight < 3.0"
-	case "heavy":
-		return prefix + "weight >= 3.0"
-	default:
-		return ""
-	}
+	return Filters["weight"].Condition(weight, prefix)
 }
 
-// ValidWeightOptions returns weight filter options that match at least one game.
-func ValidWeightOptions(games []model.Game) []viewmodel.WeightOption {
-	type def struct {
-		value string
-		label string
-		match func(model.Game) bool
-	}
-	all := []def{
-		{"light", "Light (< 2)", func(g model.Game) bool { return g.Weight > 0 && g.Weight < 2.0 }},
-		{"medium", "Medium (2–3)", func(g model.Game) bool { return g.Weight >= 2.0 && g.Weight < 3.0 }},
-		{"heavy", "Heavy (3+)", func(g model.Game) bool { return g.Weight >= 3.0 }},
-	}
-	var opts []viewmodel.WeightOption
-	for _, o := range all {
-		for _, g := range games {
-			if o.match(g) {
-				opts = append(opts, viewmodel.WeightOption{Value: o.value, Label: o.label})
-				break
-			}
-		}
-	}
-	return opts
-}
-
-// RatingCondition returns a SQL condition for the given BGG average rating filter.
-// Values: "good" = ≥6.0, "great" = ≥7.0, "excellent" = ≥8.0.
 func RatingCondition(rating, prefix string) string {
-	switch rating {
-	case "good":
-		return prefix + "rating >= 6.0"
-	case "great":
-		return prefix + "rating >= 7.0"
-	case "excellent":
-		return prefix + "rating >= 8.0"
-	default:
-		return ""
-	}
+	return Filters["rating"].Condition(rating, prefix)
 }
 
-// LanguageCondition returns a SQL condition for the given language dependence filter.
-// BGG scale: 1=No necessary in-game text, 2=Some text, 3=Moderate, 4=Extensive, 5=Unplayable.
 func LanguageCondition(lang, prefix string) string {
-	switch lang {
-	case "free":
-		return prefix + "language_dependence = 1"
-	case "low":
-		return prefix + "language_dependence = 2"
-	case "moderate":
-		return prefix + "language_dependence = 3"
-	case "high":
-		return prefix + "language_dependence >= 4"
-	default:
-		return ""
-	}
+	return Filters["lang"].Condition(lang, prefix)
 }
 
-// RecommendedPlayersCondition returns a SQL condition that matches games where
-// the given player count appears in the recommended_players column.
-// The stored value is a comma-separated list of plain numbers (e.g. "1,2,3").
-// A sentinel-comma wrapping technique is used to avoid substring false-positives.
-// Only digit characters are accepted; any other input returns "".
 func RecommendedPlayersCondition(count, prefix string) string {
-	if count == "" {
-		return ""
-	}
-	for _, ch := range count {
-		if ch < '0' || ch > '9' {
-			return ""
-		}
-	}
-	// ',1,2,3,' LIKE '%,2,%' — wrapping both sides with commas prevents
-	// matching "2" inside "12" or "22".
-	return "',' || " + prefix + "recommended_players || ',' LIKE '%," + count + ",%'"
+	return Filters["rec_players"].Condition(count, prefix)
 }
 
-// ValidRatingOptions returns rating filter options that match at least one game.
+// Valid*Options functions for backward compatibility
+func ValidPlayerOptions(games []model.Game) []viewmodel.PlayerOption {
+	qb := NewQueryBuilder()
+	opts := qb.GetValidOptions(games, "players")
+	result := make([]viewmodel.PlayerOption, len(opts))
+	for i, opt := range opts {
+		result[i] = viewmodel.PlayerOption{Value: opt.Value, Label: opt.Label}
+	}
+	return result
+}
+
+func ValidPlaytimeOptions(games []model.Game) []viewmodel.PlaytimeOption {
+	qb := NewQueryBuilder()
+	opts := qb.GetValidOptions(games, "playtime")
+	result := make([]viewmodel.PlaytimeOption, len(opts))
+	for i, opt := range opts {
+		result[i] = viewmodel.PlaytimeOption{Value: opt.Value, Label: opt.Label}
+	}
+	return result
+}
+
+func ValidWeightOptions(games []model.Game) []viewmodel.WeightOption {
+	qb := NewQueryBuilder()
+	opts := qb.GetValidOptions(games, "weight")
+	result := make([]viewmodel.WeightOption, len(opts))
+	for i, opt := range opts {
+		result[i] = viewmodel.WeightOption{Value: opt.Value, Label: opt.Label}
+	}
+	return result
+}
+
 func ValidRatingOptions(games []model.Game) []viewmodel.RatingOption {
-	type def struct {
-		value string
-		label string
-		match func(model.Game) bool
+	qb := NewQueryBuilder()
+	opts := qb.GetValidOptions(games, "rating")
+	result := make([]viewmodel.RatingOption, len(opts))
+	for i, opt := range opts {
+		result[i] = viewmodel.RatingOption{Value: opt.Value, Label: opt.Label}
 	}
-	all := []def{
-		{"good", "Good (6+)", func(g model.Game) bool { return g.Rating >= 6.0 }},
-		{"great", "Great (7+)", func(g model.Game) bool { return g.Rating >= 7.0 }},
-		{"excellent", "Excellent (8+)", func(g model.Game) bool { return g.Rating >= 8.0 }},
-	}
-	var opts []viewmodel.RatingOption
-	for _, o := range all {
-		for _, g := range games {
-			if o.match(g) {
-				opts = append(opts, viewmodel.RatingOption{Value: o.value, Label: o.label})
-				break
-			}
-		}
-	}
-	return opts
+	return result
 }
 
-// ValidLanguageOptions returns language dependence filter options that match at least one game.
 func ValidLanguageOptions(games []model.Game) []viewmodel.LanguageOption {
-	type def struct {
-		value string
-		label string
-		match func(model.Game) bool
+	qb := NewQueryBuilder()
+	opts := qb.GetValidOptions(games, "lang")
+	result := make([]viewmodel.LanguageOption, len(opts))
+	for i, opt := range opts {
+		result[i] = viewmodel.LanguageOption{Value: opt.Value, Label: opt.Label}
 	}
-	all := []def{
-		{"free", "Language-free", func(g model.Game) bool { return g.LanguageDependence == 1 }},
-		{"low", "Low dependence", func(g model.Game) bool { return g.LanguageDependence == 2 }},
-		{"moderate", "Moderate dependence", func(g model.Game) bool { return g.LanguageDependence == 3 }},
-		{"high", "High dependence", func(g model.Game) bool { return g.LanguageDependence >= 4 }},
-	}
-	var opts []viewmodel.LanguageOption
-	for _, o := range all {
-		for _, g := range games {
-			if o.match(g) {
-				opts = append(opts, viewmodel.LanguageOption{Value: o.value, Label: o.label})
-				break
-			}
-		}
-	}
-	return opts
+	return result
 }
 
-// ValidRecPlayersOptions returns recommended-player-count options that match at least one game.
 func ValidRecPlayersOptions(games []model.Game) []viewmodel.RecPlayersOption {
-	type def struct {
-		value string
-		label string
+	qb := NewQueryBuilder()
+	opts := qb.GetValidOptions(games, "rec_players")
+	result := make([]viewmodel.RecPlayersOption, len(opts))
+	for i, opt := range opts {
+		result[i] = viewmodel.RecPlayersOption{Value: opt.Value, Label: opt.Label}
 	}
-	all := []def{
-		{"1", "Solo (1P)"},
-		{"2", "2 Players"},
-		{"3", "3 Players"},
-		{"4", "4 Players"},
-		{"5", "5 Players"},
-	}
-	var opts []viewmodel.RecPlayersOption
-	for _, o := range all {
-		for _, g := range games {
-			if containsCount(g.RecommendedPlayers, o.value) {
-				opts = append(opts, viewmodel.RecPlayersOption{Value: o.value, Label: o.label})
-				break
-			}
-		}
-	}
-	return opts
-}
-
-// containsCount checks whether the comma-separated counts string contains the
-// exact token n (e.g. "2" in "1,2,3" → true, "2" in "1,12,3" → false).
-func containsCount(counts, n string) bool {
-	return strings.Contains(","+counts+",", ","+n+",")
+	return result
 }
 
 // ExtractField collects unique comma-separated values from a game field, sorted.
