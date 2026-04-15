@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { api, type Collection } from '../lib/api'
+import { useState, useEffect, useRef } from 'react'
+import { api, ApiError, type Collection } from '../lib/api'
 import type { Game } from '../types/game'
 import GameListItem from '../components/GameListItem'
 
@@ -30,12 +30,81 @@ export default function VibesPage() {
   const [loadingCollections, setLoadingCollections] = useState(true)
   const [loadingGames, setLoadingGames] = useState(false)
 
+  const [managing, setManaging] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editingName, setEditingName] = useState('')
+  const [renameSaving, setRenameSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
+  const newNameRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     api.listCollections()
       .then(data => setCollections(data))
       .catch(() => {})
       .finally(() => setLoadingCollections(false))
   }, [])
+
+  function toggleManage() {
+    setManaging(m => !m)
+    setSelectedId(null)
+    setGames([])
+    setNewName('')
+    setCreateError(null)
+    setEditingId(null)
+    setDeletingId(null)
+  }
+
+  async function handleCreate() {
+    const name = newName.trim()
+    if (!name) return
+    setCreating(true)
+    setCreateError(null)
+    try {
+      const col = await api.createCollection(name)
+      setCollections(cs => [...cs, col])
+      setNewName('')
+    } catch (e) {
+      setCreateError(e instanceof ApiError ? e.message : 'Failed to create')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  function startEdit(col: Collection) {
+    setEditingId(col.id)
+    setEditingName(col.name)
+    setDeletingId(null)
+  }
+
+  async function saveRename(id: number) {
+    const name = editingName.trim()
+    if (!name) return
+    setRenameSaving(true)
+    try {
+      const col = collections.find(c => c.id === id)
+      const updated = await api.updateCollection(id, name, col?.description ?? '')
+      setCollections(cs => cs.map(c => c.id === id ? { ...c, name: updated.name } : c))
+      setEditingId(null)
+    } catch {
+      // keep editing open on failure
+    } finally {
+      setRenameSaving(false)
+    }
+  }
+
+  async function handleDelete(id: number) {
+    try {
+      await api.deleteCollection(id)
+      setCollections(cs => cs.filter(c => c.id !== id))
+      setDeletingId(null)
+      if (selectedId === id) { setSelectedId(null); setGames([]) }
+    } catch {
+      setDeletingId(null)
+    }
+  }
 
   function selectCollection(id: number) {
     if (id === selectedId) {
@@ -60,95 +129,184 @@ export default function VibesPage() {
   const selectedName = collections.find(c => c.id === selectedId)?.name ?? ''
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+    <div className="flex flex-col gap-4">
       {/* Page header */}
-      <div style={{ paddingTop: '0.25rem' }}>
-        <h1 style={{
-          fontFamily: 'var(--font-heading)',
-          fontSize: '1.6rem',
-          fontWeight: 700,
-          color: 'var(--color-ink)',
-          marginBottom: '0.1rem',
-        }}>
-          Browse by Vibe
-        </h1>
-        <p style={{ fontSize: '0.82rem', color: 'var(--color-muted)' }}>
-          Pick a mood and find your next game
-        </p>
+      <div className="pt-1 flex items-start justify-between">
+        <div>
+          <h1 className="font-heading text-[1.6rem] font-bold text-ink mb-0.5">Browse by Vibe</h1>
+          <p className="text-[0.82rem] text-muted">Pick a mood and find your next game</p>
+        </div>
+        <button
+          onClick={toggleManage}
+          className="pressable mt-1 px-3 py-1.5 rounded-lg text-[0.78rem] font-semibold font-sans border border-edge cursor-pointer"
+          style={{
+            background: managing ? 'var(--color-accent)' : 'var(--color-parchment)',
+            color: managing ? 'white' : 'var(--color-muted)',
+          }}
+        >
+          {managing ? 'Done' : 'Edit'}
+        </button>
       </div>
 
       {/* Collection pills */}
       {loadingCollections ? (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <div className="flex flex-wrap gap-2">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} style={{ height: '36px', width: `${70 + (i * 17) % 50}px`, background: 'var(--color-edge)', borderRadius: '9999px' }} />
+            <div key={i} className="h-9 bg-edge rounded-full" style={{ width: `${70 + (i * 17) % 50}px` }} />
           ))}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-          {collections.map((col, idx) => {
-            const c = pillColor(idx)
-            const isSelected = col.id === selectedId
-            return (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2">
+            {collections.map((col, idx) => {
+              const c = pillColor(idx)
+              const isSelected = col.id === selectedId
+              const isEditing = editingId === col.id
+              const isConfirmingDelete = deletingId === col.id
+
+              if (managing && isEditing) {
+                return (
+                  <div key={col.id} className="flex items-center gap-1.5">
+                    <input
+                      autoFocus
+                      value={editingName}
+                      onChange={e => setEditingName(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') saveRename(col.id)
+                        if (e.key === 'Escape') setEditingId(null)
+                      }}
+                      className="px-3 py-1.5 rounded-full text-[0.875rem] font-semibold font-sans focus:outline-none"
+                      style={{
+                        border: `1.5px solid ${c.text}`,
+                        color: c.text,
+                        background: c.bg,
+                        minWidth: '7rem',
+                      }}
+                    />
+                    <button
+                      onClick={() => saveRename(col.id)}
+                      disabled={renameSaving}
+                      className="pressable rounded-full px-2.5 py-1 text-[0.75rem] font-bold text-white border-none cursor-pointer"
+                      style={{ background: c.text }}
+                    >
+                      {renameSaving ? '…' : '✓'}
+                    </button>
+                    <button
+                      onClick={() => setEditingId(null)}
+                      className="pressable rounded-full px-2.5 py-1 text-[0.75rem] font-bold bg-edge text-muted border-none cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )
+              }
+
+              if (managing && isConfirmingDelete) {
+                return (
+                  <div key={col.id} className="flex items-center gap-1.5">
+                    <span className="text-[0.82rem] text-[#b91c1c] font-medium">Delete "{col.name}"?</span>
+                    <button
+                      onClick={() => handleDelete(col.id)}
+                      className="pressable rounded-full px-3 py-1 text-[0.75rem] font-bold text-white bg-[#b91c1c] border-none cursor-pointer"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      onClick={() => setDeletingId(null)}
+                      className="pressable rounded-full px-2.5 py-1 text-[0.75rem] font-bold bg-edge text-muted border-none cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )
+              }
+
+              return (
+                <div key={col.id} className="inline-flex items-center gap-1">
+                  <button
+                    onClick={() => managing ? startEdit(col) : selectCollection(col.id)}
+                    className="pressable rounded-full px-4 py-1.5 text-[0.875rem] font-semibold font-sans cursor-pointer inline-flex items-center gap-1.5"
+                    style={{
+                      background: isSelected ? c.text : c.bg,
+                      color: isSelected ? 'white' : c.text,
+                      border: `1.5px solid ${isSelected ? c.text : c.border}`,
+                      boxShadow: isSelected ? `0 2px 8px ${c.border}` : 'none',
+                    }}
+                  >
+                    {managing && <span className="text-[0.75rem] opacity-70">✎</span>}
+                    {!managing && isSelected && <span className="text-[0.75rem]">✓</span>}
+                    {col.name}
+                    {!managing && col.gameCount > 0 && (
+                      <span
+                        className="text-[0.7rem] rounded-full px-[0.45rem] py-[0.05rem] font-bold"
+                        style={{
+                          background: isSelected ? 'rgba(255,255,255,0.25)' : c.border,
+                          color: isSelected ? 'white' : c.text,
+                        }}
+                      >
+                        {col.gameCount}
+                      </span>
+                    )}
+                  </button>
+                  {managing && (
+                    <button
+                      onClick={() => setDeletingId(col.id)}
+                      className="pressable w-[1.4rem] h-[1.4rem] rounded-full flex items-center justify-center text-[0.7rem] font-bold bg-[#fee2e2] text-[#b91c1c] border-none cursor-pointer shrink-0"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* New vibe form */}
+          {managing && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <input
+                ref={newNameRef}
+                value={newName}
+                onChange={e => { setNewName(e.target.value); setCreateError(null) }}
+                onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
+                placeholder="New vibe name…"
+                className="px-3 py-1.5 rounded-full text-[0.875rem] font-sans bg-parchment text-ink border border-edge focus:outline-none focus:border-accent"
+                style={{ minWidth: '10rem' }}
+              />
               <button
-                key={col.id}
-                onClick={() => selectCollection(col.id)}
-                className="pressable"
-                style={{
-                  background: isSelected ? c.text : c.bg,
-                  color: isSelected ? 'white' : c.text,
-                  border: `1.5px solid ${isSelected ? c.text : c.border}`,
-                  borderRadius: '9999px',
-                  padding: '0.4rem 1rem',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  fontFamily: 'var(--font-sans)',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.3rem',
-                  boxShadow: isSelected ? `0 2px 8px ${c.border}` : 'none',
-                }}
+                onClick={handleCreate}
+                disabled={creating || !newName.trim()}
+                className="pressable rounded-full px-4 py-1.5 text-[0.875rem] font-semibold font-sans bg-accent text-white border-none cursor-pointer disabled:opacity-50"
               >
-                {isSelected && <span style={{ fontSize: '0.75rem' }}>✓</span>}
-                {col.name}
-                {col.gameCount > 0 && (
-                  <span style={{
-                    fontSize: '0.7rem',
-                    background: isSelected ? 'rgba(255,255,255,0.25)' : c.border,
-                    color: isSelected ? 'white' : c.text,
-                    borderRadius: '9999px',
-                    padding: '0.05rem 0.45rem',
-                    fontWeight: 700,
-                  }}>
-                    {col.gameCount}
-                  </span>
-                )}
+                {creating ? '…' : '+ Add'}
               </button>
-            )
-          })}
+              {createError && (
+                <span className="text-[0.78rem] text-[#b91c1c]">{createError}</span>
+              )}
+            </div>
+          )}
         </div>
       )}
 
       {/* Results */}
       {selectedId !== null && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <div className="flex flex-col gap-2">
           {loadingGames ? (
             <>
-              <div style={{ height: '0.8rem', width: '40%', background: 'var(--color-edge)', borderRadius: '0.3rem' }} />
+              <div className="h-3 w-2/5 bg-edge rounded" />
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} style={{ height: '72px', background: 'var(--color-edge)', borderRadius: '0.875rem' }} />
+                <div key={i} className="h-[72px] bg-edge rounded-[0.875rem]" />
               ))}
             </>
           ) : (
             <>
-              <div style={{ fontSize: '0.8rem', color: 'var(--color-muted)' }}>
+              <div className="text-[0.8rem] text-muted">
                 {discoverTotal} {discoverTotal === 1 ? 'game' : 'games'} with "{selectedName}" vibe
               </div>
               {games.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--color-muted)' }}>
-                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🎲</div>
-                  <div style={{ fontFamily: 'var(--font-heading)', fontSize: '1rem' }}>No games found</div>
+                <div className="text-center py-12 text-muted">
+                  <div className="text-[2rem] mb-2">🎲</div>
+                  <div className="font-heading text-base">No games found</div>
                 </div>
               ) : (
                 games.map(g => <GameListItem key={g.id} game={g} />)
@@ -160,14 +318,10 @@ export default function VibesPage() {
 
       {/* Empty state */}
       {selectedId === null && !loadingCollections && (
-        <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--color-muted)' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>✦</div>
-          <div style={{ fontFamily: 'var(--font-heading)', fontSize: '1.05rem', marginBottom: '0.3rem' }}>
-            Choose a vibe above
-          </div>
-          <div style={{ fontSize: '0.82rem' }}>
-            See which games match your mood
-          </div>
+        <div className="text-center py-12 text-muted">
+          <div className="text-[2.5rem] mb-3">✦</div>
+          <div className="font-heading text-[1.05rem] mb-1">Choose a vibe above</div>
+          <div className="text-[0.82rem]">See which games match your mood</div>
         </div>
       )}
     </div>

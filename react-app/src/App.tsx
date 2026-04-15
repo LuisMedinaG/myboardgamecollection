@@ -4,6 +4,9 @@ import Layout from './components/Layout'
 import CollectionPage from './pages/CollectionPage'
 import GameDetailPage from './pages/GameDetailPage'
 import VibesPage from './pages/VibesPage'
+import ImportPage from './pages/ImportPage'
+import ImportCsvPage from './pages/ImportCsvPage'
+import ProfilePage from './pages/ProfilePage'
 import LoginPage from './pages/LoginPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -38,6 +41,9 @@ function AppRoutes() {
         <Route index element={<CollectionPage />} />
         <Route path="games/:id" element={<GameDetailPage />} />
         <Route path="vibes" element={<VibesPage />} />
+        <Route path="import" element={<ImportPage />} />
+        <Route path="import/csv" element={<ImportCsvPage />} />
+        <Route path="profile" element={<ProfilePage />} />
       </Route>
     </Routes>
   )

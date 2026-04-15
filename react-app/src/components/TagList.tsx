@@ -11,7 +11,7 @@ const CLASS_MAP = {
 }
 
 export default function TagList({ label, tags, variant }: Props) {
-  if (tags.length === 0) return null
+  if (!tags || tags.length === 0) return null
 
   return (
     <div>

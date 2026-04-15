@@ -7,6 +7,13 @@
       "runtimeArgs": ["ADMIN_USERNAME=admin", "ADMIN_PASSWORD=secret", "./boardgames"],
       "port": 8080,
       "autoPort": true
+    },
+    {
+      "name": "react",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "dev", "--port", "5173"],
+      "cwd": "react-app",
+      "port": 5173
     }
   ]
 }
