@@ -27,21 +27,26 @@ Packages under test:
 Requires the Go backend running first:
 
 ```sh
-# Terminal 1 — start backend
-make dev-go
+# Terminal 1 — start backend (creates test user automatically if TEST_USER set)
+TEST_USER=testuser TEST_PASSWORD=testpass123 make dev-go
 
-# Terminal 2 — run E2E suite
+# Terminal 2 — run E2E suite (auto-logins if no TEST_TOKEN provided)
 cd react-app
-TEST_TOKEN=<ephemeral-jwt> bun run test:e2e
+bun run test:e2e
 ```
 
 E2E suite covers: login → collection list → game detail → vibes/collections flow.
 
 Auth protocol: tests mock `/api/v1/auth/login` where possible. When a real
-session is required, pass an ephemeral JWT via `TEST_TOKEN` (optionally
-`TEST_REFRESH_TOKEN`). Never use static usernames/passwords. Never log the
-token. If neither mocking nor `TEST_TOKEN` is available, halt and report a
-blocker.
+session is required, use TEST_TOKEN if provided, otherwise auto-login with
+TEST_USER/TEST_PASSWORD (defaults: testuser/testpass123). Never use static
+usernames/passwords in TEST_TOKEN. The token is never logged.
+
+To generate a TEST_TOKEN manually:
+
+```sh
+TEST_USER=testuser TEST_PASSWORD=testpass123 make test-token
+```
 
 ## Before shipping
 

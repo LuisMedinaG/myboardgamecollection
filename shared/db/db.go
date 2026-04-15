@@ -2,13 +2,24 @@
 package db
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
 
+	"golang.org/x/crypto/argon2"
 	_ "modernc.org/sqlite"
+)
+
+const (
+	argon2idMemory      = 64 * 1024
+	argon2idTime        = 1
+	argon2idParallelism = 4
+	argon2idKeyLen      = 32
+	argon2idSaltLen     = 16
 )
 
 // Open opens (or creates) the SQLite database at path, applies all schema
@@ -35,6 +46,10 @@ func Open(path string) (*sql.DB, error) {
 		return nil, err
 	}
 	if err := migrateAdminUser(db); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if err := migrateTestUser(db); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -444,6 +459,52 @@ func migrateAdminUser(db *sql.DB) error {
 		admin, admin,
 	)
 	return err
+}
+
+func migrateTestUser(db *sql.DB) error {
+	testUser := strings.TrimSpace(os.Getenv("TEST_USER"))
+	if testUser == "" {
+		return nil
+	}
+	testPass := os.Getenv("TEST_PASSWORD")
+	if testPass == "" {
+		testPass = "testpass123"
+	}
+
+	// Check if test user already exists
+	var count int
+	if err := db.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", testUser).Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil // Already exists
+	}
+
+	// Create test user
+	hash, err := hashPassword(testPass)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec(
+		"INSERT INTO users (username, bgg_username, password_hash, email, is_admin) VALUES (?, ?, ?, ?, ?)",
+		testUser, testUser, hash, testUser+"@test.com", 0,
+	)
+	return err
+}
+
+func hashPassword(password string) (string, error) {
+	salt := make([]byte, argon2idSaltLen)
+	if _, err := rand.Read(salt); err != nil {
+		return "", err
+	}
+	hash := argon2.IDKey([]byte(password), salt, argon2idTime, argon2idMemory, argon2idParallelism, argon2idKeyLen)
+	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
+		argon2.Version,
+		argon2idMemory, argon2idTime, argon2idParallelism,
+		hex.EncodeToString(salt),
+		hex.EncodeToString(hash),
+	), nil
 }
 
 // migrateUserData assigns orphaned games/vibes (pre-multi-user) to the

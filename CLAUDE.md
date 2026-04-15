@@ -99,9 +99,11 @@ bun install           # install dependencies
 E2E tests (requires Go backend running):
 
 ```sh
-make dev-go  # in one terminal
-TEST_TOKEN=<ephemeral-jwt> bun run test:e2e  # in react-app/ (never log the token)
+make dev-go  # in one terminal (auto-creates test user if TEST_USER set)
+TEST_TOKEN=<optional-ephemeral-jwt> bun run test:e2e  # in react-app/ (auto-logins if no token)
 ```
+
+If TEST_TOKEN not provided, tests auto-login with TEST_USER/TEST_PASSWORD (defaults: testuser/testpass123).
 
 ## Branching
 

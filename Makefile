@@ -74,3 +74,6 @@ clean:
 
 bgg-login:
 	$(GO) run ./cmd/bgg-login
+
+test-token:
+	$(GO) run ./cmd/test-token
