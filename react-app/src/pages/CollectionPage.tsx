@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type { FilterState } from '../types/game'
-import { GAMES, ALL_CATEGORIES } from '../data/games'
-import { useFilteredGames } from '../hooks/useFilteredGames'
+import type { Game } from '../types/game'
+import { api } from '../lib/api'
 import FilterBar from '../components/FilterBar'
 import ActiveFilters from '../components/ActiveFilters'
 import GameListItem from '../components/GameListItem'
@@ -15,19 +15,83 @@ const EMPTY_FILTERS: FilterState = {
   weight: '',
 }
 
+function SkeletonRow() {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.75rem',
+      padding: '0.75rem',
+      background: 'var(--color-surface)',
+      border: '1px solid var(--color-edge)',
+      borderRadius: '0.875rem',
+      boxShadow: 'var(--shadow-card)',
+    }}>
+      <div style={{ width: 56, height: 56, borderRadius: '0.5rem', background: 'var(--color-edge)', flexShrink: 0 }} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+        <div style={{ height: '0.9rem', width: '60%', background: 'var(--color-edge)', borderRadius: '0.3rem' }} />
+        <div style={{ height: '0.7rem', width: '40%', background: 'var(--color-edge)', borderRadius: '0.3rem' }} />
+      </div>
+    </div>
+  )
+}
+
 export default function CollectionPage() {
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
+  const [games, setGames] = useState<Game[]>([])
+  const [total, setTotal] = useState(0)
+  const [categories, setCategories] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const fetchGames = useCallback((f: FilterState) => {
+    setLoading(true)
+    setError('')
+    api.listGames({
+      q:        f.search  || undefined,
+      category: f.category || undefined,
+      players:  f.players  || undefined,
+      playtime: f.playtime || undefined,
+      weight:   f.weight   || undefined,
+      limit: 50,
+      page: 1,
+    }).then(res => {
+      setGames(res.data)
+      setTotal(res.total)
+      if (res.categories.length > 0) setCategories(res.categories)
+    }).catch(() => {
+      setError('Failed to load games.')
+    }).finally(() => {
+      setLoading(false)
+    })
+  }, [])
+
+  // Initial load
+  useEffect(() => { fetchGames(EMPTY_FILTERS) }, [fetchGames])
 
   const updateFilter = useCallback((key: keyof FilterState, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }))
-  }, [])
+    setFilters(prev => {
+      const next = { ...prev, [key]: value }
+      if (key === 'search') {
+        // Debounce search input
+        if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+        searchTimerRef.current = setTimeout(() => fetchGames(next), 300)
+      } else {
+        fetchGames(next)
+      }
+      return next
+    })
+  }, [fetchGames])
 
   const removeFilter = useCallback((key: keyof FilterState) => {
-    setFilters(prev => ({ ...prev, [key]: '' }))
-  }, [])
-
-  const filteredGames = useFilteredGames(GAMES, filters)
+    setFilters(prev => {
+      const next = { ...prev, [key]: '' }
+      fetchGames(next)
+      return next
+    })
+  }, [fetchGames])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -43,12 +107,12 @@ export default function CollectionPage() {
           Board Game Collection
         </h1>
         <p style={{ fontSize: '0.82rem', color: 'var(--color-muted)' }}>
-          {GAMES.length} games · find your next play
+          {loading ? 'Loading…' : `${total} games · find your next play`}
         </p>
       </div>
 
       {/* Filters */}
-      <FilterBar filters={filters} categories={ALL_CATEGORIES} onChange={updateFilter} />
+      <FilterBar filters={filters} categories={categories} onChange={updateFilter} />
 
       {/* Active filter chips */}
       <ActiveFilters filters={filters} onRemove={removeFilter} />
@@ -56,7 +120,7 @@ export default function CollectionPage() {
       {/* Result count + view toggle */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: '0.8rem', color: 'var(--color-muted)' }}>
-          {filteredGames.length} {filteredGames.length === 1 ? 'game' : 'games'}
+          {loading ? '' : `${games.length} ${games.length === 1 ? 'game' : 'games'}`}
         </span>
 
         <div style={{ display: 'flex', gap: '0.25rem' }}>
@@ -103,33 +167,45 @@ export default function CollectionPage() {
         </div>
       </div>
 
-      {/* Game list / grid */}
-      {filteredGames.length === 0 ? (
-        <div style={{
-          textAlign: 'center',
-          padding: '3rem 1rem',
-          color: 'var(--color-muted)',
-        }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🎲</div>
-          <div style={{ fontFamily: 'var(--font-heading)', fontSize: '1.1rem', marginBottom: '0.4rem' }}>
-            No games found
-          </div>
-          <div style={{ fontSize: '0.85rem' }}>
-            Try adjusting your filters.
-          </div>
-        </div>
-      ) : viewMode === 'list' ? (
+      {/* Loading skeleton */}
+      {loading && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {filteredGames.map(g => <GameListItem key={g.id} game={g} />)}
+          {Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}
         </div>
-      ) : (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
-          gap: '0.75rem',
-        }}>
-          {filteredGames.map(g => <GameCard key={g.id} game={g} />)}
+      )}
+
+      {/* Error */}
+      {!loading && error && (
+        <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--color-danger, #b91c1c)' }}>
+          {error}
         </div>
+      )}
+
+      {/* Game list / grid */}
+      {!loading && !error && (
+        games.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--color-muted)' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🎲</div>
+            <div style={{ fontFamily: 'var(--font-heading)', fontSize: '1.1rem', marginBottom: '0.4rem' }}>
+              No games found
+            </div>
+            <div style={{ fontSize: '0.85rem' }}>
+              Try adjusting your filters.
+            </div>
+          </div>
+        ) : viewMode === 'list' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {games.map(g => <GameListItem key={g.id} game={g} />)}
+          </div>
+        ) : (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+            gap: '0.75rem',
+          }}>
+            {games.map(g => <GameCard key={g.id} game={g} />)}
+          </div>
+        )
       )}
     </div>
   )

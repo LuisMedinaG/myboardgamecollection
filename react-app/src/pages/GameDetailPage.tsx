@@ -1,25 +1,64 @@
-import { useState } from 'react'
-import { useParams, Navigate } from 'react-router-dom'
-import { GAMES } from '../data/games'
+import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { api, type GameDetail } from '../lib/api'
 import { playersStr, weightClass, weightLabel, imgFallback } from '../utils/gameFormatters'
 import TagList from '../components/TagList'
 
 export default function GameDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const game = GAMES.find(g => g.id === Number(id))
+  const navigate = useNavigate()
+  const [game, setGame] = useState<GameDetail | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [descExpanded, setDescExpanded] = useState(false)
 
-  if (!game) return <Navigate to="/" replace />
+  useEffect(() => {
+    if (!id) return
+    setLoading(true)
+    setError('')
+    api.getGame(Number(id))
+      .then(data => setGame(data))
+      .catch(() => setError('Game not found.'))
+      .finally(() => setLoading(false))
+  }, [id])
+
+  if (loading) {
+    return (
+      <div style={{ paddingBottom: '0.5rem' }}>
+        {/* Hero skeleton */}
+        <div style={{ margin: '0 -1rem', height: '240px', background: 'var(--color-edge)' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
+          {[1, 2, 3].map(i => (
+            <div key={i} style={{ height: '80px', background: 'var(--color-edge)', borderRadius: '0.875rem' }} />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !game) {
+    return (
+      <div style={{ textAlign: 'center', padding: '4rem 1rem', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🎲</div>
+        <div style={{ fontFamily: 'var(--font-heading)', fontSize: '1.1rem', marginBottom: '0.75rem' }}>
+          {error || 'Game not found.'}
+        </div>
+        <button
+          onClick={() => navigate(-1)}
+          className="btn btn-secondary pressable"
+          style={{ padding: '0.6rem 1.25rem' }}
+        >
+          ‹ Back
+        </button>
+      </div>
+    )
+  }
 
   const bggUrl = `https://boardgamegeek.com/boardgame/${game.bggId}`
 
   return (
     <div style={{ paddingBottom: '0.5rem' }}>
-      {/* iOS-style centered page title — rendered inside the header via a portal-less trick:
-          the Layout header shows "‹ Collection" on the left; we show the game name
-          as a centered heading right below the hero */}
-
-      {/* Hero image — edge-to-edge, negative margin to break out of content padding */}
+      {/* Hero image */}
       <div style={{
         position: 'relative',
         margin: '0 -1rem',
@@ -38,13 +77,7 @@ export default function GameDetailPage() {
           inset: 0,
           background: 'linear-gradient(to bottom, transparent 35%, rgba(0,0,0,0.6))',
         }} />
-        {/* Title overlaid on hero */}
-        <div style={{
-          position: 'absolute',
-          bottom: '1rem',
-          left: '1rem',
-          right: '1rem',
-        }}>
+        <div style={{ position: 'absolute', bottom: '1rem', left: '1rem', right: '1rem' }}>
           <h1 style={{
             fontSize: '1.6rem',
             fontWeight: 700,
@@ -194,6 +227,55 @@ export default function GameDetailPage() {
           <TagList label="Type" tags={game.types} variant="type" />
           <TagList label="Categories" tags={game.categories} variant="category" />
           <TagList label="Mechanics" tags={game.mechanics} variant="mechanic" />
+        </div>
+      )}
+
+      {/* Player aids */}
+      {game.playerAids.length > 0 && (
+        <div style={{
+          background: 'var(--color-surface)',
+          border: '1px solid var(--color-edge)',
+          borderRadius: '0.875rem',
+          boxShadow: 'var(--shadow-card)',
+          padding: '1rem',
+          marginBottom: '0.75rem',
+        }}>
+          <h2 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+            Player Aids
+          </h2>
+          <div style={{
+            display: 'flex',
+            gap: '0.75rem',
+            overflowX: 'auto',
+            paddingBottom: '0.25rem',
+          }}>
+            {game.playerAids.map(aid => (
+              <a
+                key={aid.id}
+                href={`/uploads/${aid.filename}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={aid.label}
+                className="pressable"
+                style={{ flexShrink: 0 }}
+              >
+                <img
+                  src={`/uploads/${aid.filename}`}
+                  alt={aid.label}
+                  style={{
+                    width: '120px',
+                    height: '90px',
+                    objectFit: 'cover',
+                    borderRadius: '0.5rem',
+                    border: '1px solid var(--color-edge)',
+                  }}
+                />
+                <div style={{ fontSize: '0.7rem', color: 'var(--color-muted)', marginTop: '0.25rem', textAlign: 'center', maxWidth: '120px' }}>
+                  {aid.label}
+                </div>
+              </a>
+            ))}
+          </div>
         </div>
       )}
 
