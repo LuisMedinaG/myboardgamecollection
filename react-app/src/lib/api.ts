@@ -122,9 +122,9 @@ interface GameAPI {
   min_players:          number
   max_players:          number
   play_time:            number
-  categories:           string[]
-  mechanics:            string[]
-  types:                string[]
+  categories:           string | string[]
+  mechanics:            string | string[]
+  types:                string | string[]
   weight:               number
   rating:               number
   language_dependence:  number
@@ -135,6 +135,12 @@ interface GameAPI {
 }
 
 // ── Mapper: snake_case API → camelCase Game ────────────────────────────────────
+function splitCsv(v: string | string[] | null | undefined): string[] {
+  if (Array.isArray(v)) return v
+  if (typeof v === 'string') return v.split(',').map(s => s.trim()).filter(Boolean)
+  return []
+}
+
 function mapGame(g: GameAPI): Game {
   return {
     id:                 g.id,
@@ -147,9 +153,9 @@ function mapGame(g: GameAPI): Game {
     minPlayers:         g.min_players,
     maxPlayers:         g.max_players,
     playTime:           g.play_time,
-    categories:         g.categories         ?? [],
-    mechanics:          g.mechanics          ?? [],
-    types:              g.types              ?? [],
+    categories:         splitCsv(g.categories),
+    mechanics:          splitCsv(g.mechanics),
+    types:              splitCsv(g.types),
     weight:             g.weight,
     rating:             g.rating,
     languageDependence: g.language_dependence,
