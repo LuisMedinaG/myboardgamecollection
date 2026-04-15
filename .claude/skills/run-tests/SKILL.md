@@ -32,11 +32,16 @@ make dev-go
 
 # Terminal 2 — run E2E suite
 cd react-app
-TEST_USERNAME=<user> TEST_PASSWORD=<pass> bun run test:e2e
+TEST_TOKEN=<ephemeral-jwt> bun run test:e2e
 ```
 
 E2E suite covers: login → collection list → game detail → vibes/collections flow.
-Credentials are never hardcoded — always use env vars.
+
+Auth protocol: tests mock `/api/v1/auth/login` where possible. When a real
+session is required, pass an ephemeral JWT via `TEST_TOKEN` (optionally
+`TEST_REFRESH_TOKEN`). Never use static usernames/passwords. Never log the
+token. If neither mocking nor `TEST_TOKEN` is available, halt and report a
+blocker.
 
 ## Before shipping
 

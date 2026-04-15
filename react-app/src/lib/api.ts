@@ -176,6 +176,7 @@ export interface PlayerAid {
 
 export interface GameDetail extends Game {
   playerAids: PlayerAid[]
+  vibeCollectionIds: number[]
 }
 
 export interface GamesListParams {
@@ -288,6 +289,7 @@ export const api = {
         filename: a.filename,
         label:    a.label,
       })),
+      vibeCollectionIds: (r.data.vibes ?? []).map(v => v.id),
     }
   },
 

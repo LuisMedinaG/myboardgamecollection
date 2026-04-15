@@ -56,7 +56,7 @@ src/
   types/game.ts        # Game interface + filter types
   index.css            # Tailwind v4 source + theme tokens + component classes
 e2e/
-  smoke.spec.ts        # Playwright E2E (TEST_USERNAME/TEST_PASSWORD env vars)
+  smoke.spec.ts        # Playwright E2E (TEST_TOKEN env var — ephemeral JWT, no static creds)
 ```
 
 ## Key Patterns
@@ -100,7 +100,7 @@ E2E tests (requires Go backend running):
 
 ```sh
 make dev-go  # in one terminal
-TEST_USERNAME=user TEST_PASSWORD=pass bun run test:e2e  # in react-app/
+TEST_TOKEN=<ephemeral-jwt> bun run test:e2e  # in react-app/ (never log the token)
 ```
 
 ## Branching

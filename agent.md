@@ -196,7 +196,7 @@ make cover-html     # HTML report
 E2E (requires backend running):
 ```sh
 make dev   # terminal 1
-cd react-app && TEST_USERNAME=u TEST_PASSWORD=p bun run test:e2e  # terminal 2
+cd react-app && TEST_TOKEN=<ephemeral-jwt> bun run test:e2e  # terminal 2 (no static creds)
 ```
 
 Current state: 88 unit tests (~52% coverage). Phase 2 targeting 200–240 tests.

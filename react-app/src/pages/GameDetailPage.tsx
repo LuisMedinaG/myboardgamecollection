@@ -1,31 +1,106 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { api, type GameDetail } from '../lib/api'
+import { api, type GameDetail, type Collection } from '../lib/api'
 import { playersStr, weightClass, weightLabel, imgFallback } from '../utils/gameFormatters'
 import TagList from '../components/TagList'
+import PlayerAidManager from '../components/PlayerAidManager'
+import RulesUrlEditor from '../components/RulesUrlEditor'
+
+const LANG_DEP = ['', 'No language', 'Some text', 'Moderate', 'Extensive', 'Unplayable']
+
+const cardStyle: React.CSSProperties = {
+  background: 'var(--color-surface)',
+  border: '1px solid var(--color-edge)',
+  borderRadius: '0.875rem',
+  boxShadow: 'var(--shadow-card)',
+  padding: '1rem',
+  marginBottom: '0.75rem',
+}
+
+const sectionLabel: React.CSSProperties = {
+  fontSize: '0.85rem',
+  fontWeight: 700,
+  marginBottom: '0.75rem',
+  color: 'var(--color-muted)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.07em',
+}
 
 export default function GameDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+
   const [game, setGame] = useState<GameDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [descExpanded, setDescExpanded] = useState(false)
+
+  // Collections for vibes editing
+  const [allCollections, setAllCollections] = useState<Collection[]>([])
+  const [selectedVibeIds, setSelectedVibeIds] = useState<Set<number>>(new Set())
+  const [editingVibes, setEditingVibes] = useState(false)
+  const [savingVibes, setSavingVibes] = useState(false)
+
+  // Delete
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     if (!id) return
     setLoading(true)
     setError('')
     api.getGame(Number(id))
-      .then(data => setGame(data))
+      .then(gameData => {
+        setGame(gameData)
+        setSelectedVibeIds(new Set(gameData.vibeCollectionIds))
+        // Load collections in the background — failure doesn't block the page
+        api.listCollections()
+          .then(setAllCollections)
+          .catch(() => {})
+      })
       .catch(() => setError('Game not found.'))
       .finally(() => setLoading(false))
   }, [id])
 
+  async function handleSaveVibes() {
+    if (!game) return
+    setSavingVibes(true)
+    try {
+      await api.setGameCollections(game.id, [...selectedVibeIds])
+      const savedNames = allCollections.filter(c => selectedVibeIds.has(c.id)).map(c => c.name)
+      setGame(prev => prev ? { ...prev, vibes: savedNames, vibeCollectionIds: [...selectedVibeIds] } : prev)
+      setEditingVibes(false)
+    } catch {
+      // silently ignore — could add error state
+    } finally {
+      setSavingVibes(false)
+    }
+  }
+
+  function toggleVibe(id: number) {
+    setSelectedVibeIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  async function handleDelete() {
+    if (!game) return
+    setDeleting(true)
+    try {
+      await api.deleteGame(game.id)
+      navigate('/')
+    } catch {
+      setDeleting(false)
+      setConfirmDelete(false)
+    }
+  }
+
   if (loading) {
     return (
       <div style={{ paddingBottom: '0.5rem' }}>
-        {/* Hero skeleton */}
         <div style={{ margin: '0 -1rem', height: '240px', background: 'var(--color-edge)' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
           {[1, 2, 3].map(i => (
@@ -110,6 +185,16 @@ export default function GameDetailPage() {
               </span>
             )}
             <span className={weightClass(game.weight)}>{weightLabel(game.weight)}</span>
+            {game.languageDependence > 0 && (
+              <span style={{
+                background: 'rgba(0,0,0,0.4)',
+                borderRadius: '0.3rem',
+                padding: '0.1rem 0.45rem',
+                fontSize: '0.75rem',
+              }}>
+                🗣 {LANG_DEP[game.languageDependence]}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -168,17 +253,8 @@ export default function GameDetailPage() {
 
       {/* Description */}
       {game.description && (
-        <div style={{
-          background: 'var(--color-surface)',
-          border: '1px solid var(--color-edge)',
-          borderRadius: '0.875rem',
-          boxShadow: 'var(--shadow-card)',
-          padding: '1rem',
-          marginBottom: '0.75rem',
-        }}>
-          <h2 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-            About
-          </h2>
+        <div style={cardStyle}>
+          <h2 style={sectionLabel}>About</h2>
           <p style={{
             fontSize: '0.875rem',
             lineHeight: 1.65,
@@ -213,117 +289,95 @@ export default function GameDetailPage() {
 
       {/* Game tags */}
       {(game.types.length > 0 || game.categories.length > 0 || game.mechanics.length > 0) && (
-        <div style={{
-          background: 'var(--color-surface)',
-          border: '1px solid var(--color-edge)',
-          borderRadius: '0.875rem',
-          boxShadow: 'var(--shadow-card)',
-          padding: '1rem',
-          marginBottom: '0.75rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.75rem',
-        }}>
+        <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <TagList label="Type" tags={game.types} variant="type" />
           <TagList label="Categories" tags={game.categories} variant="category" />
           <TagList label="Mechanics" tags={game.mechanics} variant="mechanic" />
         </div>
       )}
 
-      {/* Player aids */}
-      {game.playerAids.length > 0 && (
-        <div style={{
-          background: 'var(--color-surface)',
-          border: '1px solid var(--color-edge)',
-          borderRadius: '0.875rem',
-          boxShadow: 'var(--shadow-card)',
-          padding: '1rem',
-          marginBottom: '0.75rem',
-        }}>
-          <h2 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-            Player Aids
-          </h2>
-          <div style={{
-            display: 'flex',
-            gap: '0.75rem',
-            overflowX: 'auto',
-            paddingBottom: '0.25rem',
-          }}>
-            {game.playerAids.map(aid => (
-              <a
-                key={aid.id}
-                href={`/uploads/${aid.filename}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={aid.label}
-                className="pressable"
-                style={{ flexShrink: 0 }}
-              >
-                <img
-                  src={`/uploads/${aid.filename}`}
-                  alt={aid.label}
-                  style={{
-                    width: '120px',
-                    height: '90px',
-                    objectFit: 'cover',
-                    borderRadius: '0.5rem',
-                    border: '1px solid var(--color-edge)',
-                  }}
-                />
-                <div style={{ fontSize: '0.7rem', color: 'var(--color-muted)', marginTop: '0.25rem', textAlign: 'center', maxWidth: '120px' }}>
-                  {aid.label}
-                </div>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Player aids — always shown (upload available) */}
+      <PlayerAidManager gameId={game.id} initial={game.playerAids} />
 
-      {/* Vibes */}
-      {game.vibes.length > 0 && (
-        <div style={{
-          background: 'var(--color-accent-soft)',
-          border: '1px solid var(--color-edge)',
-          borderRadius: '0.875rem',
-          padding: '0.875rem 1rem',
-          marginBottom: '0.75rem',
-        }}>
-          <div style={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-accent)', marginBottom: '0.5rem' }}>
-            Vibes
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
-            {game.vibes.map(v => (
-              <span key={v} className="vibe-pill">{v}</span>
-            ))}
-          </div>
+      {/* Vibes / collections */}
+      <div style={cardStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+          <div style={{ ...sectionLabel, marginBottom: 0 }}>Vibes</div>
+          {!editingVibes && (
+            <button
+              onClick={() => { setSelectedVibeIds(new Set(game.vibeCollectionIds)); setEditingVibes(true) }}
+              className="pressable"
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '0.82rem',
+                color: 'var(--color-accent)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontFamily: 'var(--font-sans)',
+                padding: '0.2rem 0',
+              }}
+            >
+              Edit
+            </button>
+          )}
         </div>
-      )}
+
+        {editingVibes ? (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', marginBottom: '0.75rem' }}>
+              {allCollections.map(c => (
+                <label
+                  key={c.id}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', color: 'var(--color-ink)' }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedVibeIds.has(c.id)}
+                    onChange={() => toggleVibe(c.id)}
+                    style={{ width: '1rem', height: '1rem', accentColor: 'var(--color-accent)', cursor: 'pointer' }}
+                  />
+                  {c.name}
+                </label>
+              ))}
+              {allCollections.length === 0 && (
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>No collections yet.</div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                onClick={handleSaveVibes}
+                disabled={savingVibes}
+                className="btn btn-primary pressable"
+                style={{ padding: '0.4rem 0.875rem', fontSize: '0.85rem' }}
+              >
+                {savingVibes ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                onClick={() => setEditingVibes(false)}
+                className="btn btn-secondary pressable"
+                style={{ padding: '0.4rem 0.875rem', fontSize: '0.85rem' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </>
+        ) : (
+          game.vibes.length > 0 ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+              {game.vibes.map(v => (
+                <span key={v} className="vibe-pill">{v}</span>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>No vibes assigned.</div>
+          )
+        )}
+      </div>
 
       {/* External links */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {game.rulesUrl && (
-          <a
-            href={game.rulesUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="pressable"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              background: 'var(--color-surface)',
-              border: '1px solid var(--color-edge)',
-              borderRadius: '0.875rem',
-              padding: '0.875rem 1rem',
-              boxShadow: 'var(--shadow-card)',
-              color: 'var(--color-ink)',
-            }}
-          >
-            <span style={{ fontSize: '1.25rem' }}>📖</span>
-            <span style={{ flex: 1, fontSize: '0.9rem', fontWeight: 600 }}>Rulebook</span>
-            <span style={{ color: 'var(--color-muted)', fontSize: '1rem' }}>›</span>
-          </a>
-        )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.75rem' }}>
+        <RulesUrlEditor gameId={game.id} initial={game.rulesUrl} />
 
         <a
           href={bggUrl}
@@ -346,6 +400,64 @@ export default function GameDetailPage() {
           <span style={{ flex: 1, fontSize: '0.9rem', fontWeight: 600 }}>View on BoardGameGeek</span>
           <span style={{ color: 'var(--color-muted)', fontSize: '1rem' }}>↗</span>
         </a>
+      </div>
+
+      {/* Delete game */}
+      <div style={{
+        borderTop: '1px solid var(--color-edge)',
+        paddingTop: '1rem',
+        marginTop: '0.25rem',
+      }}>
+        {confirmDelete ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.875rem', color: 'var(--color-ink)', fontWeight: 600 }}>
+              Delete "{game.name}"?
+            </span>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="pressable"
+              style={{
+                padding: '0.45rem 0.875rem',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                borderRadius: '0.5rem',
+                background: '#dc2626',
+                color: 'white',
+                border: 'none',
+                cursor: deleting ? 'not-allowed' : 'pointer',
+                fontFamily: 'var(--font-sans)',
+                opacity: deleting ? 0.6 : 1,
+              }}
+            >
+              {deleting ? 'Deleting…' : 'Yes, delete'}
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="btn btn-secondary pressable"
+              style={{ padding: '0.45rem 0.875rem', fontSize: '0.85rem' }}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="pressable"
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              fontSize: '0.85rem',
+              color: '#dc2626',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-sans)',
+              fontWeight: 600,
+            }}
+          >
+            Delete game
+          </button>
+        )}
       </div>
     </div>
   )
