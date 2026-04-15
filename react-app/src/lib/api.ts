@@ -30,8 +30,29 @@ export class ApiError extends Error {
   }
 }
 
+// ── Auth failure hook (called when refresh token is also expired) ─────────────
+let onAuthFailureCb: (() => void) | null = null
+export function setOnAuthFailure(cb: () => void) { onAuthFailureCb = cb }
+
 // ── Core fetch with auto-refresh ───────────────────────────────────────────────
 let refreshPromise: Promise<void> | null = null
+
+function ensureRefreshPromise(refreshToken: string): Promise<void> {
+  if (!refreshPromise) {
+    refreshPromise = request<{ data: { access_token: string } }>(
+      'POST', '/auth/refresh', { refresh_token: refreshToken }, false,
+    ).then(r => {
+      tokens.setAccess(r.data.access_token)
+    }).catch(err => {
+      tokens.clear()
+      onAuthFailureCb?.()
+      throw err
+    }).finally(() => {
+      refreshPromise = null
+    })
+  }
+  return refreshPromise
+}
 
 async function request<T>(
   method: string,
@@ -54,16 +75,7 @@ async function request<T>(
     const refresh = tokens.getRefresh()
     if (!refresh) throw new ApiError(401, 'unauthorized')
 
-    if (!refreshPromise) {
-      refreshPromise = request<{ data: { access_token: string } }>(
-        'POST', '/auth/refresh', { refresh_token: refresh }, false,
-      ).then(r => {
-        tokens.setAccess(r.data.access_token)
-      }).finally(() => {
-        refreshPromise = null
-      })
-    }
-    await refreshPromise
+    await ensureRefreshPromise(refresh)
     return request<T>(method, path, body, false)
   }
 
@@ -74,9 +86,33 @@ async function request<T>(
   return json as T
 }
 
+// Multipart upload with auto-refresh (no Content-Type header — browser sets boundary)
+async function upload<T>(path: string, formData: FormData, retry = true): Promise<T> {
+  const headers: Record<string, string> = {}
+  const token = tokens.getAccess()
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const res = await fetch(BASE + path, { method: 'POST', headers, body: formData })
+
+  // Auto-refresh on 401 — coalesce concurrent requests into one refresh attempt
+  if (res.status === 401 && retry) {
+    const refresh = tokens.getRefresh()
+    if (!refresh) throw new ApiError(401, 'unauthorized')
+
+    await ensureRefreshPromise(refresh)
+    return upload<T>(path, formData, false)
+  }
+
+  if (res.status === 204) return undefined as T
+
+  const json = await res.json()
+  if (!res.ok) throw new ApiError(res.status, json.error ?? 'request failed')
+  return json as T
+}
+
 // ── API response types (Go → snake_case) ──────────────────────────────────────
-interface VibeAPI     { id: number; name: string }
-interface PlayerAidAPI { id: number; game_id: number; filename: string; label: string }
+interface CollectionAPI { id: number; name: string; description: string; game_count?: number }
+interface PlayerAidAPI  { id: number; game_id: number; filename: string; label: string }
 
 interface GameAPI {
   id:                   number
@@ -89,19 +125,31 @@ interface GameAPI {
   min_players:          number
   max_players:          number
   play_time:            number
-  categories:           string[]
-  mechanics:            string[]
-  types:                string[]
+  categories:           string | string[]
+  mechanics:            string | string[]
+  types:                string | string[]
   weight:               number
   rating:               number
   language_dependence:  number
-  recommended_players:  number[]
+  recommended_players:  string | number[]
   rules_url:            string
-  vibes:                VibeAPI[]
+  vibes:                CollectionAPI[]  // backend still sends "vibes" key for now
   player_aids?:         PlayerAidAPI[]
 }
 
 // ── Mapper: snake_case API → camelCase Game ────────────────────────────────────
+function splitCsv(v: string | string[] | null | undefined): string[] {
+  if (Array.isArray(v)) return v
+  if (typeof v === 'string') return v.split(',').map(s => s.trim()).filter(Boolean)
+  return []
+}
+
+function splitCsvNumbers(v: string | number[] | null | undefined): number[] {
+  if (Array.isArray(v)) return v
+  if (typeof v === 'string') return v.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n))
+  return []
+}
+
 function mapGame(g: GameAPI): Game {
   return {
     id:                 g.id,
@@ -114,22 +162,24 @@ function mapGame(g: GameAPI): Game {
     minPlayers:         g.min_players,
     maxPlayers:         g.max_players,
     playTime:           g.play_time,
-    categories:         g.categories         ?? [],
-    mechanics:          g.mechanics          ?? [],
-    types:              g.types              ?? [],
+    categories:         splitCsv(g.categories),
+    mechanics:          splitCsv(g.mechanics),
+    types:              splitCsv(g.types),
     weight:             g.weight,
     rating:             g.rating,
     languageDependence: g.language_dependence,
-    recommendedPlayers: g.recommended_players ?? [],
+    recommendedPlayers: splitCsvNumbers(g.recommended_players),
     rulesUrl:           g.rules_url,
     vibes:              (g.vibes ?? []).map(v => v.name),
   }
 }
 
 // ── Public types ───────────────────────────────────────────────────────────────
-export interface Vibe {
-  id: number
-  name: string
+export interface Collection {
+  id:          number
+  name:        string
+  description: string
+  gameCount:   number
 }
 
 export interface PlayerAid {
@@ -141,6 +191,7 @@ export interface PlayerAid {
 
 export interface GameDetail extends Game {
   playerAids: PlayerAid[]
+  vibeCollectionIds: number[]
 }
 
 export interface GamesListParams {
@@ -165,22 +216,45 @@ export interface GamesListResponse {
 }
 
 export interface DiscoverResponse {
-  data:  Game[]
-  total: number
-  vibe:  Vibe
+  data:       Game[]
+  total:      number
+  collection: Collection
+}
+
+export interface SyncResult {
+  added:   number
+  updated: number
+  total:   number
+}
+
+export interface CSVPreviewRow {
+  bgg_id:        number
+  name:          string
+  already_owned: boolean
+}
+
+export interface CSVPreviewResult {
+  rows:          CSVPreviewRow[]
+  total_rows:    number
+  preview_limit: number
+}
+
+export interface CSVImportResult {
+  imported: number
+  failed:   number
 }
 
 export interface DiscoverParams {
-  vibe_id:      number
-  type?:        string
-  category?:    string
-  mechanic?:    string
-  players?:     string
-  playtime?:    string
-  weight?:      string
-  rating?:      string
-  lang?:        string
-  rec_players?: string
+  collection_id: number
+  type?:         string
+  category?:     string
+  mechanic?:     string
+  players?:      string
+  playtime?:     string
+  weight?:       string
+  rating?:       string
+  lang?:         string
+  rec_players?:  string
 }
 
 // ── API methods ────────────────────────────────────────────────────────────────
@@ -230,6 +304,7 @@ export const api = {
         filename: a.filename,
         label:    a.label,
       })),
+      vibeCollectionIds: (r.data.vibes ?? []).map(v => v.id),
     }
   },
 
@@ -237,36 +312,41 @@ export const api = {
     return request('DELETE', `/games/${id}`)
   },
 
-  async setGameVibes(gameId: number, vibeIds: number[]) {
-    return request<{ data: { game_id: number; vibe_ids: number[] } }>(
-      'POST', `/games/${gameId}/vibes`, { vibe_ids: vibeIds },
+  async setGameCollections(gameId: number, collectionIds: number[]) {
+    return request<{ data: { game_id: number; collection_ids: number[] } }>(
+      'POST', `/games/${gameId}/collections`, { collection_ids: collectionIds },
     )
   },
 
-  async bulkVibes(gameIds: number[], vibeIds: number[]) {
+  async bulkCollections(gameIds: number[], collectionIds: number[]) {
     return request<{ data: { updated: number } }>(
-      'POST', '/games/bulk-vibes', { game_ids: gameIds, vibe_ids: vibeIds },
+      'POST', '/games/bulk-collections', { game_ids: gameIds, collection_ids: collectionIds },
     )
   },
 
-  // Vibes
-  async listVibes(): Promise<Vibe[]> {
-    const r = await request<{ data: VibeAPI[] }>('GET', '/vibes')
-    return r.data
+  // Collections
+  async listCollections(): Promise<Collection[]> {
+    const r = await request<{ data: CollectionAPI[] }>('GET', '/collections')
+    return r.data.map(c => ({
+      id:          c.id,
+      name:        c.name,
+      description: c.description,
+      gameCount:   c.game_count ?? 0,
+    }))
   },
 
-  async createVibe(name: string): Promise<Vibe> {
-    const r = await request<{ data: VibeAPI }>('POST', '/vibes', { name })
-    return r.data
+  async createCollection(name: string, description = ''): Promise<Collection> {
+    const r = await request<{ data: CollectionAPI }>('POST', '/collections', { name, description })
+    return { id: r.data.id, name: r.data.name, description: r.data.description, gameCount: 0 }
   },
 
-  async updateVibe(id: number, name: string): Promise<Vibe> {
-    const r = await request<{ data: VibeAPI }>('PUT', `/vibes/${id}`, { name })
-    return r.data
+  async updateCollection(id: number, name: string, description = ''): Promise<Collection> {
+    const r = await request<{ data: CollectionAPI }>('PUT', `/collections/${id}`, { name, description })
+    return { id: r.data.id, name: r.data.name, description: r.data.description, gameCount: 0 }
   },
 
-  async deleteVibe(id: number) {
-    return request('DELETE', `/vibes/${id}`)
+  async deleteCollection(id: number) {
+    return request('DELETE', `/collections/${id}`)
   },
 
   // Discover
@@ -275,10 +355,19 @@ export const api = {
     for (const [k, v] of Object.entries(params)) {
       if (v !== undefined && v !== '') qs.set(k, String(v))
     }
-    const r = await request<{ data: GameAPI[]; total: number; vibe: VibeAPI }>(
+    const r = await request<{ data: GameAPI[]; total: number; collection: CollectionAPI }>(
       'GET', `/discover?${qs}`,
     )
-    return { data: r.data.map(mapGame), total: r.total, vibe: r.vibe }
+    return {
+      data:  r.data.map(mapGame),
+      total: r.total,
+      collection: {
+        id:          r.collection.id,
+        name:        r.collection.name,
+        description: r.collection.description,
+        gameCount:   r.collection.game_count ?? 0,
+      },
+    }
   },
 
   // Profile
@@ -299,5 +388,43 @@ export const api = {
       current_password: currentPassword,
       new_password:     newPassword,
     })
+  },
+
+  // Files
+  async updateRulesUrl(gameId: number, rulesUrl: string) {
+    const r = await request<{ data: { game_id: number; rules_url: string } }>(
+      'PUT', `/games/${gameId}/rules-url`, { rules_url: rulesUrl },
+    )
+    return r.data
+  },
+
+  async uploadPlayerAid(gameId: number, file: File, label: string): Promise<PlayerAid> {
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('label', label)
+    const r = await upload<{ data: PlayerAidAPI }>(`/games/${gameId}/player-aids`, fd)
+    return { id: r.data.id, gameId: r.data.game_id, filename: r.data.filename, label: r.data.label }
+  },
+
+  async deletePlayerAid(gameId: number, aidId: number) {
+    return request('DELETE', `/games/${gameId}/player-aids/${aidId}`)
+  },
+
+  // Import
+  async syncBGG(fullRefresh = false): Promise<SyncResult> {
+    const r = await request<{ data: SyncResult }>('POST', '/import/sync', { full_refresh: fullRefresh })
+    return r.data
+  },
+
+  async csvPreview(file: File): Promise<CSVPreviewResult> {
+    const fd = new FormData()
+    fd.append('csv_file', file)
+    const r = await upload<{ data: CSVPreviewResult }>('/import/csv/preview', fd)
+    return r.data
+  },
+
+  async csvImport(bggIds: number[]): Promise<CSVImportResult> {
+    const r = await request<{ data: CSVImportResult }>('POST', '/import/csv', { bgg_ids: bggIds })
+    return r.data
   },
 }

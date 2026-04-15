@@ -10,41 +10,23 @@ export default function GameListItem({ game }: Props) {
   return (
     <Link
       to={`/games/${game.id}`}
-      className="pressable"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.75rem',
-        background: 'var(--color-surface)',
-        border: '1px solid var(--color-edge)',
-        borderRadius: '0.75rem',
-        padding: '0.75rem 1rem',
-        textDecoration: 'none',
-        color: 'var(--color-ink)',
-        boxShadow: 'var(--shadow-card)',
-      }}
+      className="pressable flex items-center gap-3 p-3 bg-surface border border-edge rounded-xl text-ink no-underline shadow-card"
     >
       <img
         src={game.thumbnail}
         alt={game.name}
         onError={e => { e.currentTarget.src = imgFallback(game.name) }}
-        style={{
-          width: '56px',
-          height: '56px',
-          borderRadius: '0.5rem',
-          objectFit: 'cover',
-          flexShrink: 0,
-        }}
+        className="w-14 h-14 rounded-md object-cover flex-shrink-0"
       />
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-sm overflow-hidden text-ellipsis whitespace-nowrap">
           {game.name}
         </div>
-        <div style={{ fontSize: '0.78rem', color: 'var(--color-muted)', marginTop: '0.15rem' }}>
+        <div className="text-xs text-muted mt-0.5">
           {playersStr(game)} players · {game.playTime} min
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', marginTop: '0.35rem', alignItems: 'center' }}>
+        <div className="flex flex-wrap gap-1 mt-1">
           <span className={weightClass(game.weight)}>{weightLabel(game.weight)}</span>
           {game.vibes.map(v => (
             <span key={v} className="vibe-pill">{v}</span>
@@ -52,7 +34,7 @@ export default function GameListItem({ game }: Props) {
         </div>
       </div>
 
-      <div style={{ fontSize: '1.2rem', color: 'var(--color-muted)', flexShrink: 0 }}>›</div>
+      <div className="text-muted text-lg flex-shrink-0">›</div>
     </Link>
   )
 }

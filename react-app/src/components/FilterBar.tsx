@@ -9,17 +9,13 @@ interface Props {
 
 export default function FilterBar({ filters, categories, onChange }: Props) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+    <div className="flex flex-col gap-2">
       <SearchInput
         value={filters.search}
         onChange={v => onChange('search', v)}
       />
 
-      <div style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '0.5rem',
-      }}>
+      <div className="flex flex-wrap gap-2">
         <select
           className="filter-select"
           value={filters.category}

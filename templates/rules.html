@@ -1,7 +1,0 @@
-{{ define "content" }}
-<a href="/games/{{ .Game.ID }}" class="inline-flex items-center gap-1 text-accent text-sm font-medium py-2 hover:underline" style="-webkit-tap-highlight-color:transparent">&#8592; {{ .Game.Name }}</a>
-<h2 class="text-[1.15rem] font-bold mt-1 mb-5">Rules &amp; Player Aids</h2>
-<div id="rules-content">
-    {{ template "rules_content" . }}
-</div>
-{{ end }}

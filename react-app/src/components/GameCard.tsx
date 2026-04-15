@@ -10,55 +10,29 @@ export default function GameCard({ game }: Props) {
   return (
     <Link
       to={`/games/${game.id}`}
-      className="pressable"
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'var(--color-surface)',
-        border: '1px solid var(--color-edge)',
-        borderRadius: '0.75rem',
-        overflow: 'hidden',
-        boxShadow: 'var(--shadow-card)',
-        textDecoration: 'none',
-        color: 'var(--color-ink)',
-      }}
+      className="pressable flex flex-col bg-surface border border-edge rounded-xl overflow-hidden no-underline text-ink shadow-card"
     >
-      <div style={{ aspectRatio: '1', overflow: 'hidden' }}>
+      <div className="aspect-square overflow-hidden">
         <img
           src={game.thumbnail}
           alt={game.name}
           onError={e => { e.currentTarget.src = imgFallback(game.name) }}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          className="w-full h-full object-cover block"
         />
       </div>
 
-      <div style={{ padding: '0.6rem 0.6rem 0.7rem', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-        <div style={{
-          fontFamily: 'var(--font-heading)',
-          fontWeight: 600,
-          fontSize: '0.85rem',
-          lineHeight: 1.2,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical',
-        }}>
+      <div className="p-3 flex-1 flex flex-col gap-1">
+        <div className="font-heading font-semibold text-sm line-clamp-2 leading-tight">
           {game.name}
         </div>
 
-        <div style={{ fontSize: '0.72rem', color: 'var(--color-muted)' }}>
+        <div className="text-xs text-muted">
           {playersStr(game)}p · {game.playTime}m
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: 'auto', paddingTop: '0.15rem' }}>
+        <div className="flex items-center gap-1 mt-auto pt-0.5">
           <span className={weightClass(game.weight)}>{weightLabel(game.weight)}</span>
-          <span style={{
-            marginLeft: 'auto',
-            fontSize: '0.72rem',
-            fontWeight: 700,
-            color: 'var(--color-rating)',
-          }}>
+          <span className="ml-auto text-xs font-bold text-rating">
             ★ {game.rating.toFixed(1)}
           </span>
         </div>
