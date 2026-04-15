@@ -113,6 +113,13 @@ func (s *Store) createTables() error {
 	}
 	// Migration: add types column if missing (for existing DBs).
 	_, _ = s.db.Exec("ALTER TABLE games ADD COLUMN types TEXT NOT NULL DEFAULT ''")
+	// Migration: add weight column for BGG average weight/complexity.
+	_, _ = s.db.Exec("ALTER TABLE games ADD COLUMN weight REAL NOT NULL DEFAULT 0.0")
+	// Migration: add BGG average rating, language dependence level, and
+	// community-recommended player counts.
+	_, _ = s.db.Exec("ALTER TABLE games ADD COLUMN rating REAL NOT NULL DEFAULT 0.0")
+	_, _ = s.db.Exec("ALTER TABLE games ADD COLUMN language_dependence INTEGER NOT NULL DEFAULT 0")
+	_, _ = s.db.Exec("ALTER TABLE games ADD COLUMN recommended_players TEXT NOT NULL DEFAULT ''")
 
 	// Normalized category and mechanic tables (used for filtering).
 	// The comma-string columns on games remain as a denormalized display cache.
@@ -378,21 +385,25 @@ func (s *Store) migrateGamesTableForPerUserUniqueness() error {
 
 	_, err = tx.Exec(`
 		CREATE TABLE games_new (
-			id             INTEGER PRIMARY KEY AUTOINCREMENT,
-			bgg_id         INTEGER NOT NULL,
-			name           TEXT    NOT NULL,
-			description    TEXT    NOT NULL DEFAULT '',
-			year_published INTEGER NOT NULL DEFAULT 0,
-			image          TEXT    NOT NULL DEFAULT '',
-			thumbnail      TEXT    NOT NULL DEFAULT '',
-			min_players    INTEGER NOT NULL DEFAULT 1,
-			max_players    INTEGER NOT NULL DEFAULT 4,
-			play_time      INTEGER NOT NULL DEFAULT 30,
-			categories     TEXT    NOT NULL DEFAULT '',
-			mechanics      TEXT    NOT NULL DEFAULT '',
-			rules_url      TEXT    NOT NULL DEFAULT '',
-			types          TEXT    NOT NULL DEFAULT '',
-			user_id        INTEGER,
+			id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+			bgg_id              INTEGER NOT NULL,
+			name                TEXT    NOT NULL,
+			description         TEXT    NOT NULL DEFAULT '',
+			year_published      INTEGER NOT NULL DEFAULT 0,
+			image               TEXT    NOT NULL DEFAULT '',
+			thumbnail           TEXT    NOT NULL DEFAULT '',
+			min_players         INTEGER NOT NULL DEFAULT 1,
+			max_players         INTEGER NOT NULL DEFAULT 4,
+			play_time           INTEGER NOT NULL DEFAULT 30,
+			categories          TEXT    NOT NULL DEFAULT '',
+			mechanics           TEXT    NOT NULL DEFAULT '',
+			rules_url           TEXT    NOT NULL DEFAULT '',
+			types               TEXT    NOT NULL DEFAULT '',
+			weight              REAL    NOT NULL DEFAULT 0.0,
+			rating              REAL    NOT NULL DEFAULT 0.0,
+			language_dependence INTEGER NOT NULL DEFAULT 0,
+			recommended_players TEXT    NOT NULL DEFAULT '',
+			user_id             INTEGER,
 			UNIQUE (user_id, bgg_id)
 		)
 	`)
@@ -404,12 +415,14 @@ func (s *Store) migrateGamesTableForPerUserUniqueness() error {
 		INSERT INTO games_new (
 			id, bgg_id, name, description, year_published, image, thumbnail,
 			min_players, max_players, play_time, categories, mechanics,
-			rules_url, types, user_id
+			rules_url, types, weight, rating, language_dependence, recommended_players, user_id
 		)
 		SELECT
 			id, bgg_id, name, description, year_published, image, thumbnail,
 			min_players, max_players, play_time, categories, mechanics,
-			rules_url, COALESCE(types, ''), user_id
+			rules_url, COALESCE(types, ''), COALESCE(weight, 0.0),
+			COALESCE(rating, 0.0), COALESCE(language_dependence, 0), COALESCE(recommended_players, ''),
+			user_id
 		FROM games
 	`)
 	if err != nil {
@@ -606,13 +619,14 @@ func splitTaxonomy(s string) []string {
 	return out
 }
 
-const gameColumns = "id, bgg_id, name, description, year_published, image, thumbnail, min_players, max_players, play_time, categories, mechanics, types, rules_url"
+const gameColumns = "id, bgg_id, name, description, year_published, image, thumbnail, min_players, max_players, play_time, categories, mechanics, types, weight, rules_url, rating, language_dependence, recommended_players"
 
 func scanGame(row interface{ Scan(...any) error }) (model.Game, error) {
 	var g model.Game
 	err := row.Scan(&g.ID, &g.BGGID, &g.Name, &g.Description, &g.YearPublished,
 		&g.Image, &g.Thumbnail, &g.MinPlayers, &g.MaxPlayers, &g.PlayTime,
-		&g.Categories, &g.Mechanics, &g.Types, &g.RulesURL)
+		&g.Categories, &g.Mechanics, &g.Types, &g.Weight, &g.RulesURL,
+		&g.Rating, &g.LanguageDependence, &g.RecommendedPlayers)
 	return g, err
 }
 

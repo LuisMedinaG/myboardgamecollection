@@ -1,6 +1,8 @@
 package store
 
 import (
+	"encoding/hex"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -35,13 +37,14 @@ func TestHashPasswordFormat(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			hash, err := hashPassword(c.password)
 			require.NoError(t, err)
+			// Format: $argon2id$v=<n>$m=<n>,t=<n>,p=<n>$<hex-salt>$<hex-hash>
 			parts := strings.Split(hash, "$")
-			require.Len(t, parts, 6, "hash must be $sha256$v=<n>$i=<n>$<salt>$<hash>")
-			assert.Equal(t, "sha256", parts[1])
-			assert.Equal(t, "v=2", parts[2])
-			assert.Equal(t, "i=120000", parts[3])
+			require.Len(t, parts, 6, "hash must be $argon2id$v=<n>$m=<n>,t=<n>,p=<n>$<salt>$<hash>")
+			assert.Equal(t, "argon2id", parts[1])
+			assert.Equal(t, "v=19", parts[2])
+			assert.Equal(t, "m=65536,t=1,p=4", parts[3])
 			assert.Len(t, parts[4], 32, "salt should be 16 bytes hex-encoded (32 chars)")
-			assert.Len(t, parts[5], 64, "sha256 hash should be 32 bytes hex-encoded (64 chars)")
+			assert.Len(t, parts[5], 64, "argon2id key should be 32 bytes hex-encoded (64 chars)")
 		})
 	}
 }
@@ -73,12 +76,57 @@ func TestCheckPasswordHashCorrect(t *testing.T) {
 			require.NoError(t, err)
 			match, legacy := checkPasswordHash(c.password, hash)
 			assert.True(t, match, "correct password must verify")
-			assert.False(t, legacy, "fresh hashes should not be treated as legacy")
+			assert.False(t, legacy, "fresh argon2id hashes should not be treated as legacy")
 
 			match, _ = checkPasswordHash(c.password+"x", hash)
 			assert.False(t, match, "wrong password must not verify")
 		})
 	}
+}
+
+func TestCheckPasswordHashSHA256Legacy(t *testing.T) {
+	// SHA-256 v2 hashes must still verify and be marked legacy for upgrade.
+	password := "correcthorse"
+	salt := []byte("0123456789abcdef")
+	hash := iterativeSHA256([]byte(password), salt, sha256IterationsV2)
+	encoded := fmt.Sprintf("$sha256$v=%d$i=%d$%s$%s",
+		sha256HashVersion, sha256IterationsV2,
+		hex.EncodeToString(salt), hex.EncodeToString(hash),
+	)
+
+	match, legacy := checkPasswordHash(password, encoded)
+	assert.True(t, match, "correct password must verify against sha256 v2 hash")
+	assert.True(t, legacy, "sha256 v2 hash must be flagged as legacy")
+
+	match, _ = checkPasswordHash("wrongpass", encoded)
+	assert.False(t, match, "wrong password must not verify")
+}
+
+func TestAuthenticateUserUpgradesLegacyHash(t *testing.T) {
+	// A user stored with a SHA-256 hash should have it upgraded to argon2id on login.
+	s := newTestStore(t)
+	id, err := s.RegisterUser("upgradeuser", "mypassword", "", "")
+	require.NoError(t, err)
+
+	// Force a SHA-256 v2 hash into the DB.
+	salt := []byte("0123456789abcdef")
+	h := iterativeSHA256([]byte("mypassword"), salt, sha256IterationsV2)
+	sha256Encoded := fmt.Sprintf("$sha256$v=%d$i=%d$%s$%s",
+		sha256HashVersion, sha256IterationsV2,
+		hex.EncodeToString(salt), hex.EncodeToString(h),
+	)
+	_, err = s.db.Exec("UPDATE users SET password_hash = ? WHERE id = ?", sha256Encoded, id)
+	require.NoError(t, err)
+
+	// Login should succeed and upgrade the hash to argon2id.
+	gotID, err := s.AuthenticateUser("upgradeuser", "mypassword")
+	require.NoError(t, err)
+	assert.Equal(t, id, gotID)
+
+	var storedHash string
+	err = s.db.QueryRow("SELECT password_hash FROM users WHERE id = ?", id).Scan(&storedHash)
+	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(storedHash, "$argon2id$"), "hash must be upgraded to argon2id after login")
 }
 
 func TestCheckPasswordHashMalformed(t *testing.T) {
@@ -101,8 +149,8 @@ func TestCheckPasswordHashMalformed(t *testing.T) {
 	}
 }
 
-// BenchmarkHashPassword guards against a DoS via slow password hashing.
-// SHA-256 should complete well under 1ms per hash.
+// BenchmarkHashPassword measures argon2id hashing throughput.
+// Argon2id is intentionally slow (~50-200ms per hash) to resist brute-force attacks.
 func BenchmarkHashPassword(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		hashPassword("benchmarkpassword123")

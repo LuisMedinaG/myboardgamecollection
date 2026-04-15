@@ -62,9 +62,10 @@ func (s *Store) GetThumbnailByBGGID(bggID int64) (string, error) {
 // CreateGame inserts a new game owned by userID, populates taxonomy, and returns its ID.
 func (s *Store) CreateGame(g model.Game, userID int64) (int64, error) {
 	res, err := s.db.Exec(
-		"INSERT INTO games (bgg_id, name, description, year_published, image, thumbnail, min_players, max_players, play_time, categories, mechanics, types, rules_url, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		"INSERT INTO games (bgg_id, name, description, year_published, image, thumbnail, min_players, max_players, play_time, categories, mechanics, types, weight, rules_url, rating, language_dependence, recommended_players, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		g.BGGID, g.Name, g.Description, g.YearPublished, g.Image, g.Thumbnail,
-		g.MinPlayers, g.MaxPlayers, g.PlayTime, g.Categories, g.Mechanics, g.Types, g.RulesURL,
+		g.MinPlayers, g.MaxPlayers, g.PlayTime, g.Categories, g.Mechanics, g.Types, g.Weight, g.RulesURL,
+		g.Rating, g.LanguageDependence, g.RecommendedPlayers,
 		userID,
 	)
 	if err != nil {
@@ -89,9 +90,10 @@ func (s *Store) UpdateGame(g model.Game, userID int64) error {
 	defer tx.Rollback()
 
 	res, err := tx.Exec(
-		"UPDATE games SET name=?, description=?, year_published=?, image=?, thumbnail=?, min_players=?, max_players=?, play_time=?, categories=?, mechanics=?, types=? WHERE bgg_id=? AND user_id=?",
+		"UPDATE games SET name=?, description=?, year_published=?, image=?, thumbnail=?, min_players=?, max_players=?, play_time=?, categories=?, mechanics=?, types=?, weight=?, rating=?, language_dependence=?, recommended_players=? WHERE bgg_id=? AND user_id=?",
 		g.Name, g.Description, g.YearPublished, g.Image, g.Thumbnail,
-		g.MinPlayers, g.MaxPlayers, g.PlayTime, g.Categories, g.Mechanics, g.Types,
+		g.MinPlayers, g.MaxPlayers, g.PlayTime, g.Categories, g.Mechanics, g.Types, g.Weight,
+		g.Rating, g.LanguageDependence, g.RecommendedPlayers,
 		g.BGGID, userID,
 	)
 	if err != nil {
@@ -176,7 +178,7 @@ const MaxPageSize = 300
 // buildGameConditions constructs the shared WHERE conditions and argument list
 // used by both FilterGames and the accompanying count query. userID is always
 // included so results are scoped to the requesting user.
-func buildGameConditions(q, category, players, playtime string, userID int64) ([]string, []any) {
+func buildGameConditions(q, category, players, playtime, weight, rating, lang, recPlayers string, userID int64) ([]string, []any) {
 	conditions := []string{"user_id = ?"}
 	args := []any{userID}
 
@@ -199,14 +201,26 @@ func buildGameConditions(q, category, players, playtime string, userID int64) ([
 	if cond := filter.PlaytimeCondition(playtime, ""); cond != "" {
 		conditions = append(conditions, cond)
 	}
+	if cond := filter.WeightCondition(weight, ""); cond != "" {
+		conditions = append(conditions, cond)
+	}
+	if cond := filter.RatingCondition(rating, ""); cond != "" {
+		conditions = append(conditions, cond)
+	}
+	if cond := filter.LanguageCondition(lang, ""); cond != "" {
+		conditions = append(conditions, cond)
+	}
+	if cond := filter.RecommendedPlayersCondition(recPlayers, ""); cond != "" {
+		conditions = append(conditions, cond)
+	}
 	return conditions, args
 }
 
 // FilterGames returns one page of games matching the given filters plus the
 // total number of matching games (for pagination). Page is 1-based.
 // pageSize controls how many results per page; use DefaultPageSize if unsure.
-func (s *Store) FilterGames(q, category, players, playtime string, page, pageSize int, userID int64) ([]model.Game, int, error) {
-	conditions, args := buildGameConditions(q, category, players, playtime, userID)
+func (s *Store) FilterGames(q, category, players, playtime, weight, rating, lang, recPlayers string, page, pageSize int, userID int64) ([]model.Game, int, error) {
+	conditions, args := buildGameConditions(q, category, players, playtime, weight, rating, lang, recPlayers, userID)
 	where := " WHERE " + strings.Join(conditions, " AND ")
 
 	var total int
@@ -230,7 +244,7 @@ func (s *Store) FilterGames(q, category, players, playtime string, page, pageSiz
 }
 
 // FilterGamesByVibe returns games tagged with the given vibe, scoped to userID.
-func (s *Store) FilterGamesByVibe(vibeID int64, typ, category, mechanic, players, playtime string, userID int64) ([]model.Game, error) {
+func (s *Store) FilterGamesByVibe(vibeID int64, typ, category, mechanic, players, playtime, weight, rating, lang, recPlayers string, userID int64) ([]model.Game, error) {
 	conditions := []string{
 		"g.user_id = ?",
 		"g.id IN (SELECT game_id FROM game_vibes WHERE vibe_id = ?)",
@@ -255,8 +269,20 @@ func (s *Store) FilterGamesByVibe(vibeID int64, typ, category, mechanic, players
 	if cond := filter.PlaytimeCondition(playtime, "g."); cond != "" {
 		conditions = append(conditions, cond)
 	}
+	if cond := filter.WeightCondition(weight, "g."); cond != "" {
+		conditions = append(conditions, cond)
+	}
+	if cond := filter.RatingCondition(rating, "g."); cond != "" {
+		conditions = append(conditions, cond)
+	}
+	if cond := filter.LanguageCondition(lang, "g."); cond != "" {
+		conditions = append(conditions, cond)
+	}
+	if cond := filter.RecommendedPlayersCondition(recPlayers, "g."); cond != "" {
+		conditions = append(conditions, cond)
+	}
 
-	query := "SELECT g.id, g.bgg_id, g.name, g.description, g.year_published, g.image, g.thumbnail, g.min_players, g.max_players, g.play_time, g.categories, g.mechanics, g.types, g.rules_url FROM games g"
+	query := "SELECT g.id, g.bgg_id, g.name, g.description, g.year_published, g.image, g.thumbnail, g.min_players, g.max_players, g.play_time, g.categories, g.mechanics, g.types, g.weight, g.rules_url, g.rating, g.language_dependence, g.recommended_players FROM games g"
 	query += " WHERE " + strings.Join(conditions, " AND ")
 	query += " ORDER BY g.name"
 

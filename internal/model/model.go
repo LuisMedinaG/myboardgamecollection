@@ -19,9 +19,13 @@ type Game struct {
 	PlayTime      int
 	Categories    string
 	Mechanics     string
-	Types         string // BGG subdomain (e.g. "Family Games, Strategy Games")
-	RulesURL      string // Google Drive link to rulebook PDF
-	Vibes         []Vibe // populated on demand; nil when not fetched
+	Types              string  // BGG subdomain (e.g. "Family Games, Strategy Games")
+	Weight             float64 // BGG average weight (complexity): 1.0=lightest, 5.0=heaviest
+	Rating             float64 // BGG community average rating (0.0 = unknown)
+	LanguageDependence int     // BGG language dependence poll level: 0=unknown, 1=no text … 5=unplayable
+	RecommendedPlayers string  // comma-separated counts recommended by BGG community, e.g. "1,2,3"
+	RulesURL           string  // Google Drive link to rulebook PDF
+	Vibes              []Vibe  // populated on demand; nil when not fetched
 }
 
 // PlayersStr returns a formatted player count string.

@@ -37,7 +37,7 @@ func TestNewMigratesLegacyGlobalUniquenessToPerUserConstraints(t *testing.T) {
 	assert.Equal(t, int64(30), aids[0].ID)
 	assert.Equal(t, "aid.png", aids[0].Filename)
 
-	results, total, err := s.FilterGames("Legacy", "", "", "", 1, DefaultPageSize, 1)
+	results, total, err := s.FilterGames("Legacy", "", "", "", "", "", "", "", 1, DefaultPageSize, 1)
 	require.NoError(t, err)
 	assert.Equal(t, 1, total)
 	require.Len(t, results, 1)

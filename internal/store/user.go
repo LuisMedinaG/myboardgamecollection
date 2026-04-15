@@ -11,6 +11,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/argon2"
 )
 
 // RegisterUser creates a new user with a hashed password.
@@ -87,27 +89,72 @@ func (s *Store) AuthenticateUser(username, password string) (int64, error) {
 }
 
 const (
-	passwordSaltLen       = 16
+	// Argon2id parameters (OWASP recommended minimums).
+	argon2idMemory      = 64 * 1024 // 64 MB
+	argon2idTime        = 1
+	argon2idParallelism = 4
+	argon2idKeyLen      = 32
+	argon2idSaltLen     = 16
+
+	// Legacy SHA-256 constants kept for verifying existing hashes.
 	sha256IterationsV2    = 120000
 	sha256HashVersion     = 2
 	sha256HashBytesLength = 32
 )
 
-// hashPassword returns an encoded salted+iterated SHA-256 hash string.
+// hashPassword returns an argon2id-encoded hash string.
 func hashPassword(password string) (string, error) {
-	salt := make([]byte, passwordSaltLen)
+	salt := make([]byte, argon2idSaltLen)
 	if _, err := rand.Read(salt); err != nil {
 		return "", err
 	}
-	hash := iterativeSHA256([]byte(password), salt, sha256IterationsV2)
-	return fmt.Sprintf("$sha256$v=%d$i=%d$%s$%s", sha256HashVersion, sha256IterationsV2, hex.EncodeToString(salt), hex.EncodeToString(hash)), nil
+	hash := argon2.IDKey([]byte(password), salt, argon2idTime, argon2idMemory, argon2idParallelism, argon2idKeyLen)
+	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
+		argon2.Version,
+		argon2idMemory, argon2idTime, argon2idParallelism,
+		hex.EncodeToString(salt),
+		hex.EncodeToString(hash),
+	), nil
 }
 
+// checkPasswordHash verifies password against encoded. Returns (match, legacy)
+// where legacy=true means the hash uses SHA-256 and should be upgraded.
 func checkPasswordHash(password, hash string) (match bool, legacy bool) {
+	if strings.HasPrefix(hash, "$argon2id$") {
+		return verifyArgon2idHash(password, hash), false
+	}
 	if strings.HasPrefix(hash, "$sha256$") {
-		return verifySHA256V2Hash(password, hash), false
+		return verifySHA256V2Hash(password, hash), true
 	}
 	return verifyLegacySHA256Hash(password, hash), true
+}
+
+func verifyArgon2idHash(password, encoded string) bool {
+	// Format: $argon2id$v=<version>$m=<mem>,t=<time>,p=<par>$<hex-salt>$<hex-hash>
+	parts := strings.Split(encoded, "$")
+	if len(parts) != 6 || parts[1] != "argon2id" {
+		return false
+	}
+	var version int
+	if _, err := fmt.Sscanf(parts[2], "v=%d", &version); err != nil {
+		return false
+	}
+	var memory uint32
+	var timeVal uint32
+	var parallelism uint8
+	if _, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &memory, &timeVal, &parallelism); err != nil {
+		return false
+	}
+	salt, err := hex.DecodeString(parts[4])
+	if err != nil {
+		return false
+	}
+	originalHash, err := hex.DecodeString(parts[5])
+	if err != nil || len(originalHash) == 0 {
+		return false
+	}
+	newHash := argon2.IDKey([]byte(password), salt, timeVal, memory, parallelism, uint32(len(originalHash)))
+	return subtle.ConstantTimeCompare(originalHash, newHash) == 1
 }
 
 func verifyLegacySHA256Hash(password, hash string) bool {

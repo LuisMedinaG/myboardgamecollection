@@ -56,7 +56,11 @@ func gameToAPI(g model.Game) map[string]any {
 		"categories":     g.Categories,
 		"mechanics":      g.Mechanics,
 		"types":          g.Types,
-		"rules_url":      g.RulesURL,
+		"weight":               g.Weight,
+		"rating":               g.Rating,
+		"language_dependence":  g.LanguageDependence,
+		"recommended_players":  g.RecommendedPlayers,
+		"rules_url":            g.RulesURL,
 		"vibes":          vibesToAPI(g.Vibes),
 	}
 }
