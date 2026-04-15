@@ -1,50 +1,79 @@
-.PHONY: build run dev clean bgg-login test test-v cover cover-html vet check
+.PHONY: build run dev dev-go dev-all clean \
+        bgg-login test test-v cover cover-html vet check \
+        react-dev react-build react-install react-lint react-test
 
 GOCACHE ?= /tmp/go-build-cache
 GOENV = env GOCACHE=$(GOCACHE)
 GO = $(GOENV) go
 
-# Build the binary
+REACT_DIR = react-app
+
+# ── Go ───────────────────────────────────────────────────────────────
+
 build:
 	$(GO) build -o boardgames .
 
-# Build and run
 run: build
 	./boardgames
 
-# Development: build and run
 dev:
 	$(GO) run .
 
-# Run all tests
+dev-go: dev
+
+# ── Tests & quality ──────────────────────────────────────────────────
+
 test:
 	$(GO) test ./...
 
-# Run all tests with verbose output
 test-v:
 	$(GO) test ./... -v
 
-# Run tests with coverage report
 cover:
 	$(GO) test ./... -cover
 
-# Run tests and generate HTML coverage report
 cover-html:
 	$(GO) test ./... -coverprofile=/tmp/coverage.out && \
 	$(GO) tool cover -html=/tmp/coverage.out -o /tmp/coverage.html && \
 	echo "Coverage report: /tmp/coverage.html"
 
-# Run static analysis
 vet:
 	$(GO) vet ./...
 
-# Standard verification suite for local and CI usage
 check: build test vet
 
-# Remove build artifacts and database
+# ── Combined ─────────────────────────────────────────────────────────
+
+dev-all:
+	@trap 'kill 0' INT TERM; \
+	$(GO) run . & \
+	cd $(REACT_DIR) && bun dev; \
+	wait
+
+# ── React frontend ────────────────────────────────────────────────────
+
+react-dev:
+	cd $(REACT_DIR) && bun dev
+
+react-build:
+	cd $(REACT_DIR) && bun run build
+
+react-install:
+	cd $(REACT_DIR) && bun install
+
+react-lint:
+	cd $(REACT_DIR) && bun run lint
+
+react-test:
+	cd $(REACT_DIR) && bun run playwright test
+
+# ── Maintenance ───────────────────────────────────────────────────────
+
 clean:
 	rm -f boardgames games.db
 
-# Print BGG Cookie header (reads ADMIN_* from .env if present, else environment). Run from repo root.
 bgg-login:
 	$(GO) run ./cmd/bgg-login
+
+test-token:
+	$(GO) run ./cmd/test-token

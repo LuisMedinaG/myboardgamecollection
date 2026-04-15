@@ -1,0 +1,62 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "Back to collection" [ref=e149] [cursor=pointer]:
+        - /url: "#/"
+        - text: ←
+      - link "🎲 My Collection" [ref=e6] [cursor=pointer]:
+        - /url: "#/"
+        - generic [ref=e7]: 🎲
+        - generic [ref=e8]: My Collection
+  - main [ref=e9]:
+    - generic [ref=e150]:
+      - img "Catan" [ref=e152]
+      - generic [ref=e154]:
+        - heading "Catan" [level=1] [ref=e155]
+        - generic [ref=e156]:
+          - generic [ref=e157]: "1995"
+          - generic [ref=e158]: ★ 7.2 BGG
+          - generic [ref=e159]: Medium complexity
+      - generic [ref=e160]:
+        - generic [ref=e161]:
+          - generic [ref=e162]: 3–4
+          - generic [ref=e163]: Players
+          - generic [ref=e164]: players
+        - generic [ref=e165]:
+          - generic [ref=e166]: "90"
+          - generic [ref=e167]: Playtime
+          - generic [ref=e168]: minutes
+        - generic [ref=e169]:
+          - generic [ref=e170]: "2.3"
+          - generic [ref=e171]: Complexity
+          - generic [ref=e172]: out of 5
+      - generic [ref=e173]:
+        - heading "About" [level=2] [ref=e174]
+        - paragraph [ref=e175]: In Catan, you try to be the dominant force on the island of Catan by building settlements, cities, and roads. On each turn dice are rolled to determine what resources the island produces. Then players build, by spending resources (sheep, wheat, wood, brick and ore), and earn victory points for their buildings. The first to 10 victory points wins.
+        - button "Read more ↓" [ref=e176] [cursor=pointer]
+      - generic [ref=e177]:
+        - generic [ref=e178]:
+          - generic [ref=e179]: Type
+          - generic [ref=e181]: Strategy Games
+        - generic [ref=e182]:
+          - generic [ref=e183]: Categories
+          - generic [ref=e184]:
+            - generic [ref=e185]: Negotiation
+            - generic [ref=e186]: Territory Building
+        - generic [ref=e187]:
+          - generic [ref=e188]: Mechanics
+          - generic [ref=e189]:
+            - generic [ref=e190]: Dice Rolling
+            - generic [ref=e191]: Trading
+            - generic [ref=e192]: Modular Board
+      - generic [ref=e193]:
+        - generic [ref=e194]: Vibes
+        - generic [ref=e195]:
+          - generic [ref=e196]: Social
+          - generic [ref=e197]: Competitive
+      - generic [ref=e198]:
+        - link "View on BoardGameGeek ↗" [ref=e199] [cursor=pointer]:
+          - /url: https://boardgamegeek.com/boardgame/13
+        - link "← Back to Collection" [ref=e200] [cursor=pointer]:
+          - /url: "#/"
+  - contentinfo [ref=e148]: Board game data via BoardGameGeek

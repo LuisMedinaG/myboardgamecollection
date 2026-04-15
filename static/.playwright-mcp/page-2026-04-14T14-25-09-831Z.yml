@@ -1,0 +1,198 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - link "🎲 My Collection" [ref=e6] [cursor=pointer]:
+      - /url: "#/"
+      - generic [ref=e7]: 🎲
+      - generic [ref=e8]: My Collection
+  - main [ref=e9]:
+    - generic [ref=e201]:
+      - generic [ref=e202]:
+        - heading "Board Game Collection" [level=1] [ref=e203]
+        - paragraph [ref=e204]: 12 games · find your next play
+      - generic [ref=e205]:
+        - generic [ref=e206]:
+          - generic: 🔍
+          - searchbox "Search games…" [ref=e207]
+        - generic [ref=e208]:
+          - combobox [ref=e209] [cursor=pointer]:
+            - option "All categories" [selected]
+            - option "Abstract Strategy"
+            - option "Adventure"
+            - option "Ancient"
+            - option "Animals"
+            - option "Card Game"
+            - option "City Building"
+            - option "Civilization"
+            - option "Co-operative Play"
+            - option "Deduction"
+            - option "Economic"
+            - option "Exploration"
+            - option "Fantasy"
+            - option "Farming"
+            - option "Medical"
+            - option "Medieval"
+            - option "Nature"
+            - option "Negotiation"
+            - option "Party Game"
+            - option "Science Fiction"
+            - option "Territory Building"
+            - option "Tile Placement"
+            - option "Trains"
+            - option "Word Game"
+          - combobox [ref=e210] [cursor=pointer]:
+            - option "Any players" [selected]
+            - option "Solo (1)"
+            - option "Up to 2"
+            - option "Exactly 2"
+            - option "Up to 3"
+            - option "Up to 4"
+            - option "5+"
+          - combobox [active] [ref=e211] [cursor=pointer]:
+            - option "Any duration" [selected]
+            - option "< 30 min"
+            - option "30–60 min"
+            - option "> 60 min"
+          - combobox [ref=e212] [cursor=pointer]:
+            - option "Any complexity" [selected]
+            - option "Light"
+            - option "Medium"
+            - option "Heavy"
+      - generic [ref=e213]:
+        - generic [ref=e214]: 12 games
+        - generic [ref=e215]:
+          - button "List view" [ref=e216] [cursor=pointer]: ☰
+          - button "Grid view" [ref=e217] [cursor=pointer]: ⊞
+      - generic [ref=e218]:
+        - link "Catan Catan 3–4 players · 90 min Medium Social Competitive ›" [ref=e343] [cursor=pointer]:
+          - /url: "#/games/1"
+          - img "Catan" [ref=e344]
+          - generic [ref=e345]:
+            - generic [ref=e346]: Catan
+            - generic [ref=e347]: 3–4 players · 90 min
+            - generic [ref=e348]:
+              - generic [ref=e349]: Medium
+              - generic [ref=e350]: Social
+              - generic [ref=e351]: Competitive
+          - generic [ref=e352]: ›
+        - link "Ticket to Ride Ticket to Ride 2–5 players · 75 min Light Chill Family-Friendly ›" [ref=e353] [cursor=pointer]:
+          - /url: "#/games/2"
+          - img "Ticket to Ride" [ref=e354]
+          - generic [ref=e355]:
+            - generic [ref=e356]: Ticket to Ride
+            - generic [ref=e357]: 2–5 players · 75 min
+            - generic [ref=e358]:
+              - generic [ref=e359]: Light
+              - generic [ref=e360]: Chill
+              - generic [ref=e361]: Family-Friendly
+          - generic [ref=e362]: ›
+        - link "Pandemic Pandemic 2–4 players · 45 min Medium Tense Co-op ›" [ref=e363] [cursor=pointer]:
+          - /url: "#/games/3"
+          - img "Pandemic" [ref=e364]
+          - generic [ref=e365]:
+            - generic [ref=e366]: Pandemic
+            - generic [ref=e367]: 2–4 players · 45 min
+            - generic [ref=e368]:
+              - generic [ref=e369]: Medium
+              - generic [ref=e370]: Tense
+              - generic [ref=e371]: Co-op
+          - generic [ref=e372]: ›
+        - link "Carcassonne Carcassonne 2–5 players · 45 min Light Relaxing Strategic ›" [ref=e373] [cursor=pointer]:
+          - /url: "#/games/4"
+          - img "Carcassonne" [ref=e374]
+          - generic [ref=e375]:
+            - generic [ref=e376]: Carcassonne
+            - generic [ref=e377]: 2–5 players · 45 min
+            - generic [ref=e378]:
+              - generic [ref=e379]: Light
+              - generic [ref=e380]: Relaxing
+              - generic [ref=e381]: Strategic
+          - generic [ref=e382]: ›
+        - link "7 Wonders 7 Wonders 2–7 players · 30 min Medium Fast Competitive ›" [ref=e383] [cursor=pointer]:
+          - /url: "#/games/5"
+          - img "7 Wonders" [ref=e384]
+          - generic [ref=e385]:
+            - generic [ref=e386]: 7 Wonders
+            - generic [ref=e387]: 2–7 players · 30 min
+            - generic [ref=e388]:
+              - generic [ref=e389]: Medium
+              - generic [ref=e390]: Fast
+              - generic [ref=e391]: Competitive
+          - generic [ref=e392]: ›
+        - link "Agricola Agricola 1–5 players · 120 min Heavy Tense Solo-Friendly ›" [ref=e393] [cursor=pointer]:
+          - /url: "#/games/6"
+          - img "Agricola" [ref=e394]
+          - generic [ref=e395]:
+            - generic [ref=e396]: Agricola
+            - generic [ref=e397]: 1–5 players · 120 min
+            - generic [ref=e398]:
+              - generic [ref=e399]: Heavy
+              - generic [ref=e400]: Tense
+              - generic [ref=e401]: Solo-Friendly
+          - generic [ref=e402]: ›
+        - link "Terraforming Mars Terraforming Mars 1–5 players · 120 min Heavy Cerebral Epic ›" [ref=e403] [cursor=pointer]:
+          - /url: "#/games/7"
+          - img "Terraforming Mars" [ref=e404]
+          - generic [ref=e405]:
+            - generic [ref=e406]: Terraforming Mars
+            - generic [ref=e407]: 1–5 players · 120 min
+            - generic [ref=e408]:
+              - generic [ref=e409]: Heavy
+              - generic [ref=e410]: Cerebral
+              - generic [ref=e411]: Epic
+          - generic [ref=e412]: ›
+        - link "Wingspan Wingspan 1–5 players · 70 min Medium Chill Beautiful ›" [ref=e413] [cursor=pointer]:
+          - /url: "#/games/8"
+          - img "Wingspan" [ref=e414]
+          - generic [ref=e415]:
+            - generic [ref=e416]: Wingspan
+            - generic [ref=e417]: 1–5 players · 70 min
+            - generic [ref=e418]:
+              - generic [ref=e419]: Medium
+              - generic [ref=e420]: Chill
+              - generic [ref=e421]: Beautiful
+          - generic [ref=e422]: ›
+        - link "Gloomhaven Gloomhaven 1–4 players · 120 min Heavy Epic Co-op ›" [ref=e423] [cursor=pointer]:
+          - /url: "#/games/9"
+          - img "Gloomhaven" [ref=e424]
+          - generic [ref=e425]:
+            - generic [ref=e426]: Gloomhaven
+            - generic [ref=e427]: 1–4 players · 120 min
+            - generic [ref=e428]:
+              - generic [ref=e429]: Heavy
+              - generic [ref=e430]: Epic
+              - generic [ref=e431]: Co-op
+          - generic [ref=e432]: ›
+        - link "Azul Azul 2–4 players · 45 min Light Beautiful Chill ›" [ref=e433] [cursor=pointer]:
+          - /url: "#/games/10"
+          - img "Azul" [ref=e434]
+          - generic [ref=e435]:
+            - generic [ref=e436]: Azul
+            - generic [ref=e437]: 2–4 players · 45 min
+            - generic [ref=e438]:
+              - generic [ref=e439]: Light
+              - generic [ref=e440]: Beautiful
+              - generic [ref=e441]: Chill
+          - generic [ref=e442]: ›
+        - link "Codenames Codenames 2–8 players · 15 min Light Social Party ›" [ref=e319] [cursor=pointer]:
+          - /url: "#/games/11"
+          - img "Codenames" [ref=e320]
+          - generic [ref=e321]:
+            - generic [ref=e322]: Codenames
+            - generic [ref=e323]: 2–8 players · 15 min
+            - generic [ref=e324]:
+              - generic [ref=e325]: Light
+              - generic [ref=e326]: Social
+              - generic [ref=e327]: Party
+          - generic [ref=e328]: ›
+        - link "Dominion Dominion 2–4 players · 30 min Medium Competitive Cerebral ›" [ref=e443] [cursor=pointer]:
+          - /url: "#/games/12"
+          - img "Dominion" [ref=e444]
+          - generic [ref=e445]:
+            - generic [ref=e446]: Dominion
+            - generic [ref=e447]: 2–4 players · 30 min
+            - generic [ref=e448]:
+              - generic [ref=e449]: Medium
+              - generic [ref=e450]: Competitive
+              - generic [ref=e451]: Cerebral
+          - generic [ref=e452]: ›
+  - contentinfo [ref=e148]: Board game data via BoardGameGeek

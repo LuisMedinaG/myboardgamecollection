@@ -1,138 +1,154 @@
-# My Board Game Collection — CLAUDE.md
+# My Board Game Collection
 
-Personal app to manage a board game collection — track owned games, store rulebook links,
-upload player aids, and import games from BoardGameGeek (BGG).
+Personal app — track board games, store rulebook links, upload player aids, import from BoardGameGeek (BGG).
+
+## Rules
+
+- **Never `git push`** without the user explicitly saying "push" or "make a PR".
+- **Commit workflow** — always ask before committing so the user can review the diff first.
+- **React CSS workflow** — edit `react-app/src/index.css` (Tailwind v4 source). The `@tailwindcss/vite` plugin handles compilation automatically during `bun dev`/`bun build`.
+- **Tailwind-first UI** — use Tailwind utility classes. No new CSS files or custom classes unless unavoidable. Shared CSS utility classes in `index.css` @layer components: `.section-label` (uppercase section header), `.field-label` (form field label), `.form-input` (standard full-width input), `.alert-error` (inline error message). Use these before reaching for inline styles.
+- **React package manager** — use `bun` (not `npm`) inside `react-app/`. Run `bun dev`, `bun build`, `bun install`.
+- **React API calls** — all data fetching goes through `react-app/src/lib/api.ts`. Never call `fetch()` directly in components.
+- **DB migrations** — new column: append to `addCols` in `shared/db/db.go`. New table: append to `createTables()` stmts. Both are idempotent (run on every startup). Use `/add-migration` skill.
+- **Multi-tenancy** — every SQL query must pass `user_id`. No exceptions.
+- **Error handling** — use `apierr.ErrDuplicate`, `apierr.ErrWrongPassword`, `apierr.ErrForeignOwnership`. Never expose raw DB errors.
+- **BGG client** — `bgg.New(token)` for token auth, `bgg.NewWithCookies(cookie)` for cookie fallback. Token takes priority.
 
 ## Stack
 
-- **Language:** Go 1.25 (standard library HTTP server)
-- **Frontend:** Go HTML templates + HTMX — no JS framework
-- **Database:** SQLite (`modernc.org/sqlite`, pure Go)
-- **Auth:** Session-based (username/password, SHA-256 + salt — upgrade to argon2 is planned)
-- **Deployment:** Docker + Fly.io (persistent volume at `/data`)
+**Go backend:** Go 1.25 · stdlib HTTP · REST/JSON API · SQLite (`modernc.org/sqlite`) · Fly.io
 
-## Commands
-
-```sh
-# Development
-make dev        # go run .
-make run        # build + run
-make build      # outputs ./boardgames binary
-make clean      # remove binary and database
-
-# Testing
-make test       # run all tests
-make test-v     # run tests with verbose output
-make cover      # run tests with coverage report
-make cover-html # generate HTML coverage report
-
-# Utilities
-make bgg-login  # grab BGG auth headers
-```
-
-## Game Model — Key Fields
-
-| Field | Type | DB column | Source |
-|---|---|---|---|
-| `Weight` | `float64` | `weight` | BGG `averageweight` stat |
-| `Rating` | `float64` | `rating` | BGG `average` rating stat |
-| `LanguageDependence` | `int` | `language_dependence` | BGG `language_dependence` poll — winning level (0=unknown, 1–5) |
-| `RecommendedPlayers` | `string` | `recommended_players` | BGG `suggested_numplayers` poll — comma-separated counts where Best+Rec > Not Rec (e.g. `"2,3,4"`) |
-
-### BGG Import
-
-`internal/bgg/bgg.go` uses a **custom XML fetch** (`fetchThingsParsed`) instead of gobgg's `GetThings`. This is required because gobgg's `ThingResult` doesn't expose raw poll data. Both use the same authenticated, throttled `http.Client` so rate limiting is shared. gobgg is still used for `GetCollection`.
-
-- **Full Refresh required** to backfill `weight`, `rating`, `language_dependence`, `recommended_players` on existing games. Normal sync only fetches newly added games.
-- Full Refresh is admin-only — UI checkbox on the Import page, or `POST /api/v1/import` with `{"full_refresh": true}`.
-
-### Filters
-
-All filters are wired through `internal/filter/filter.go`, `store.FilterGames`, `store.FilterGamesByVibe`, and all HTMX + REST API handlers.
-
-| URL param | Filter function | Values |
-|---|---|---|
-| `players` | `PlayerCondition` | `1`, `2`, `2only`, `3`, `4`, `5plus` |
-| `playtime` | `PlaytimeCondition` | `short`, `medium`, `long` |
-| `weight` | `WeightCondition` | `light`, `medium`, `heavy` |
-| `rating` | `RatingCondition` | `good` (≥6), `great` (≥7), `excellent` (≥8) |
-| `lang` | `LanguageCondition` | `free` (level 1), `low` (2), `moderate` (3), `high` (≥4) |
-| `rec_players` | `RecommendedPlayersCondition` | `1`–`5` — sentinel-comma LIKE match |
-
-`RecommendedPlayersCondition` embeds validated digit-only values directly in SQL (same pattern as other filter conditions that embed literals). Input validation rejects anything non-numeric.
-
-### DB Migration Pattern
-
-New columns are added via `ALTER TABLE games ADD COLUMN … DEFAULT …` in `store.createTables()`. These are idempotent (SQLite silently ignores `ADD COLUMN` if it already exists). The legacy table-recreation function `migrateGamesTableForPerUserUniqueness` must also be updated whenever a new column is added (both the `CREATE TABLE games_new` DDL and the `INSERT INTO … SELECT` list).
-
-## Test Suite
-
-**66 tests** across `internal/store` and `internal/httpx`.
-
-### Coverage by Phase
-1. ✅ **Phase 1:** Password hashing, sessions, JWT, CSRF, rate limiting, multi-user ownership (100% critical functions)
-2. 🔄 **Phase 2:** HTTP handlers (httptest + Playwright e2e)
-3. ⏳ **Phase 3:** Store layer (CRUD, filtering, taxonomy)
-4. ⏳ **Phase 4:** External integrations (BGG, file uploads)
+**React frontend:** React 19 · React Router v7 · Vite · Tailwind CSS v4 · TypeScript · Bun
 
 ## Project Structure
 
+### Go backend
+
 ```
 main.go              # Server setup, routes, middleware wiring
+services/
+  auth/              # Login, logout, JWT refresh, sessions
+  games/             # Game CRUD, filtering, player aids
+  collections/       # Collections (vibes), discovery
+  files/             # Player aid uploads, rules URL
+  importer/          # BGG sync, CSV import
+  profile/           # User profile, BGG username, password change
+shared/
+  db/db.go           # Schema + all migrations (createTables, addCols, FTS5)
+  httpx/httpx.go     # Middleware: RequireJWT, MethodGuard, Chain, CORS, SecurityHeaders
+  apierr/errors.go   # Sentinel errors + IsDuplicate() helper
 internal/
-  handler/           # HTTP handlers — HTMX (auth, games, import, vibes, rules, discover)
-                     #                  API  (api_auth, api_games, api_vibes, api_rules,
-                     #                        api_discover, api_import, api_profile)
-  store/             # SQLite data access layer
-  httpx/             # Middleware (auth, CSRF, rate-limit, security headers, JWT)
-  bgg/               # BGG API client wrapper
-  render/            # Template renderer (pre-parses all templates on startup)
-  model/             # Domain structs
-  viewmodel/         # View-layer data passed to templates
-  filter/            # Game filtering logic
-templates/           # Embedded HTML templates
-static/              # Embedded CSS
+  bgg/               # BGG API client (token + cookie auth transports)
+  model/             # Domain structs shared across services
 ```
 
-## Branching Strategy
+Each `services/<domain>/` has `handler.go` (HTTP) + `store.go` (SQL). Routes are registered in `main.go`.
+
+### React frontend (`react-app/`)
 
 ```
-main       <- production, stable
-staging    <- pre-production / QA sign-off gate
-dev        <- integration branch — all feature branches target this
+src/
+  lib/api.ts           # Centralized API client (JWT, auto-refresh)
+  contexts/AuthContext.tsx
+  components/          # Layout, FilterBar, GameListItem, GameCard, TagList, …
+  pages/               # LoginPage, CollectionPage, GameDetailPage, VibesPage
+  types/game.ts        # Game interface + filter types
+  index.css            # Tailwind v4 source + theme tokens + component classes
+e2e/
+  smoke.spec.ts        # Playwright E2E (TEST_TOKEN env var — ephemeral JWT, no static creds)
 ```
 
-**Promotion flow:** `feature/*` → PR → `dev` → PR → `staging` → PR → `main`
+## Key Patterns
 
-### Branch protection
+**Auth** — JWT only (no session cookies). `shared/httpx.RequireJWT(secret)` middleware guards all protected routes. User ID extracted with `requireUserID(w, r)` inside each handler.
 
-| Branch | Direct push | Force push | Deletion | PR required | Source enforced |
-|--------|------------|------------|----------|-------------|-----------------|
-| `dev` | allowed | blocked | blocked | no | — |
-| `staging` | blocked | blocked | blocked | yes (0 approvals) | must be `dev` |
-| `main` | blocked | blocked | blocked | yes (0 approvals) | must be `staging` |
+**Routes** — registered in `main.go` using `protected(method, handler)` or `pub(method, handler)` wrappers.
 
-- Enforced by two GitHub rulesets ("Protect dev", "Protect main and staging")
-- Source branch restriction enforced by `.github/workflows/enforce-merge-direction.yml` — PRs to `staging`/`main` fail if source is wrong
-- Admin bypass is **always on** — you are never locked out for emergency fixes
-- Never push directly to `main` or `staging` (admin bypass exists for emergencies only)
+**Middleware** — `httpx.Chain(handler, A, B, C)` executes A → B → C → handler (reversed internally).
 
-## JWT REST API
+**Error flow** — use `apierr.IsDuplicate(err)` to detect constraint violations; use sentinel errors for all others.
 
-A parallel JSON REST API lives under `/api/v1/` alongside the existing HTMX app.
-The HTMX frontend and all existing routes remain untouched.
+## Commands
 
-- **Auth:** `github.com/golang-jwt/jwt/v5` — access tokens (15 min) + refresh tokens (30 day, stored in sessions table)
-- **Middleware:** `RequireJWT(secret)` in `internal/httpx/` — reads `Authorization: Bearer`, returns 401 JSON on failure
-- **Handlers:** `internal/handler/api_*.go` — auth, games, vibes, import, profile, rules, discovery
-- **Helpers:** `api_helpers.go` — `requireAPIUserID`, `requireAPIID`, `writeAPIJSON`, model→snake_case converters
-- **Responses:** `{ "data": ... }` for success, `{ "error": "..." }` for failures; paginated lists include `total`, `page`, `per_page` at top level
-- **Error handling:** Sentinel errors (`store.ErrDuplicate`, `store.ErrWrongPassword` in `store/errors.go`) — never expose raw DB errors to clients
+### Go backend
 
-See `agent_docs/` for routes, env vars, and key patterns.
+```sh
+make dev        # go run . (recommended for development)
+make build      # build binary → ./boardgames
+make run        # build + run
+make test       # run all tests
+make test-v     # verbose tests
+make cover      # per-package coverage %
+make cover-html # HTML coverage report
+make check      # build + test + vet
+make dev-all    # Go + React concurrently (trap INT/TERM)
+make bgg-login  # fetch BGG auth headers
+```
 
-Never run `git push` without the user explicitly asking to push.
+### React frontend
 
-**Why:** User was surprised when a push happened as part of a "commit" request — they only wanted a commit, not a push.
+```sh
+bun dev               # Vite dev server at localhost:5173
+bun build             # type-check + production build → dist/
+bun run lint          # ESLint
+bun run preview       # preview production build
+bun install           # install dependencies
+```
 
-**How to apply:** After committing, stop and tell the user the commit is ready. Only push if they separately say "push" or "make a PR" (which requires a push). When in doubt, ask.
+E2E tests (requires Go backend running):
+
+```sh
+make dev-go  # in one terminal (auto-creates test user if TEST_USER set)
+TEST_TOKEN=<optional-ephemeral-jwt> bun run test:e2e  # in react-app/ (auto-logins if no token)
+```
+
+If TEST_TOKEN not provided, tests auto-login with TEST_USER/TEST_PASSWORD (defaults: testuser/testpass123).
+
+## Branching
+
+`feature/*` → `dev` (direct push OK) → PR → `staging` → PR → `main`
+
+Enforced by GitHub rulesets. Never use admin bypass.
+
+## Project Skills
+
+Stored in `.claude/skills/` — auto-loaded by Claude Code. Use these for common workflows:
+
+| Skill | Trigger |
+|-------|---------|
+| `/add-feature` | Adding a new API endpoint to a service |
+| `/add-migration` | Adding a new DB table or column |
+| `/ship` | Full test → commit → push → PR workflow |
+| `/run-tests` | Running Go unit tests and/or E2E tests |
+
+## Plugins & Skills
+
+### Installed Plugins
+
+- **gopls-lsp** — Go LSP (code nav, hover, definitions)
+- **claude-mem** — Persistent cross-session memory
+- **code-review** — PR code review
+- **code-simplifier** — Refactor review for changed code
+- **playwright** — E2E browser automation (`e2e/smoke.spec.ts`)
+- **ralph-loop** — `/loop` recurring prompts
+- **security-guidance** — Security analysis
+- **commit-commands** — `/commit`, `/commit-push-pr`
+
+### MCP Servers
+
+- **sqlite** — Direct DB queries on `games.db`
+- **github-official** — PRs, issues, Actions, code search
+- **brave-search** — Web search in-context
+- **fetch** — Web content to markdown
+- **fly** — Fly.io deploy/monitor
+
+### Global Skills
+
+`/commit` · `/review-pr` · `/loop` · `/simplify` · `/update-config` · `/schedule` · `/claude-api`
+`/claude-mem:make-plan` · `/claude-mem:do` · `/claude-mem:smart-explore` · `/claude-mem:knowledge-agent`
+
+## Deep Reference
+
+- `agent_docs/ARCHITECTURE-GUIDE.md` — design decisions, request pipeline
+- `agent_docs/ARCHITECTURE-REF.md` — env vars, route table

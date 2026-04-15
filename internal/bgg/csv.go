@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"myboardgamecollection/internal/store"
 )
 
 // CSVRow is a single parsed row from a BGG collection CSV export. Only the
@@ -112,7 +111,7 @@ func ParseCollectionCSV(r io.Reader) (CSVParseResult, error) {
 //
 // This mirrors ImportCollection but is driven by an explicit ID list instead
 // of a BGG collection-API call, so it can back the CSV import path.
-func (c *Client) ImportByBGGIDs(ctx context.Context, s *store.Store, ids []int64, userID int64) (added, skipped, failed int, err error) {
+func (c *Client) ImportByBGGIDs(ctx context.Context, s GameStore, ids []int64, userID int64) (added, skipped, failed int, err error) {
 	if len(ids) == 0 {
 		return 0, 0, 0, nil
 	}
