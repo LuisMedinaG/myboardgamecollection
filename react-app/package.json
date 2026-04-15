@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "playwright": "playwright test"
+    "playwright": "playwright test",
+    "test:e2e": "playwright test"
   },
   "packageManager": "bun@1.3.12",
   "dependencies": {
