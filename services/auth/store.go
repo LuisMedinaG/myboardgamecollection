@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -31,13 +30,9 @@ func (s *Store) RegisterUser(username, password, bggUsername, email string) (int
 	if err != nil {
 		return 0, err
 	}
-	isAdmin := 0
-	if admin := strings.TrimSpace(os.Getenv("ADMIN_USERNAME")); admin != "" && strings.EqualFold(username, admin) {
-		isAdmin = 1
-	}
 	res, err := s.db.Exec(
-		"INSERT INTO users (username, bgg_username, password_hash, email, is_admin) VALUES (?, ?, ?, ?, ?)",
-		username, bggUsername, hash, email, isAdmin,
+		"INSERT INTO users (username, bgg_username, password_hash, email, is_admin) VALUES (?, ?, ?, ?, 0)",
+		username, bggUsername, hash, email,
 	)
 	if err != nil {
 		if apierr.IsDuplicate(err) {

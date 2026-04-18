@@ -45,10 +45,6 @@ func Open(path string) (*sql.DB, error) {
 		db.Close()
 		return nil, err
 	}
-	if err := migrateAdminUser(db); err != nil {
-		db.Close()
-		return nil, err
-	}
 	if err := migrateTestUser(db); err != nil {
 		db.Close()
 		return nil, err
@@ -447,18 +443,6 @@ func migrateVibesTableForPerUserUniqueness(db *sql.DB) error {
 		return err
 	}
 	return tx.Commit()
-}
-
-func migrateAdminUser(db *sql.DB) error {
-	admin := strings.TrimSpace(os.Getenv("ADMIN_USERNAME"))
-	if admin == "" {
-		return nil
-	}
-	_, err := db.Exec(
-		"UPDATE users SET is_admin = 1 WHERE username = ? OR bgg_username = ?",
-		admin, admin,
-	)
-	return err
 }
 
 func migrateTestUser(db *sql.DB) error {
