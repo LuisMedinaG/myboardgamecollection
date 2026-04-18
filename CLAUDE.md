@@ -1,29 +1,28 @@
-# My Board Game Collection
+# My Board Game Collection — Monolith (Go backend only)
 
 Personal app — track board games, store rulebook links, upload player aids, import from BoardGameGeek (BGG).
+
+> **Migration in progress.** Frontend lives in `mbgc-web` (deployed at `lumedina.dev`).
+> This repo is the Go monolith backend — being incrementally decomposed into microservices.
+> See GitHub issues #113–#120 for the migration roadmap.
 
 ## Rules
 
 - **Never `git push`** without the user explicitly saying "push" or "make a PR".
 - **Commit workflow** — always ask before committing so the user can review the diff first.
-- **React CSS workflow** — edit `react-app/src/index.css` (Tailwind v4 source). The `@tailwindcss/vite` plugin handles compilation automatically during `bun dev`/`bun build`.
-- **Tailwind-first UI** — use Tailwind utility classes. No new CSS files or custom classes unless unavoidable. Shared CSS utility classes in `index.css` @layer components: `.section-label` (uppercase section header), `.field-label` (form field label), `.form-input` (standard full-width input), `.alert-error` (inline error message). Use these before reaching for inline styles.
-- **React package manager** — use `bun` (not `npm`) inside `react-app/`. Run `bun dev`, `bun build`, `bun install`.
-- **React API calls** — all data fetching goes through `react-app/src/lib/api.ts`. Never call `fetch()` directly in components.
 - **DB migrations** — new column: append to `addCols` in `shared/db/db.go`. New table: append to `createTables()` stmts. Both are idempotent (run on every startup). Use `/add-migration` skill.
 - **Multi-tenancy** — every SQL query must pass `user_id`. No exceptions.
 - **Error handling** — use `apierr.ErrDuplicate`, `apierr.ErrWrongPassword`, `apierr.ErrForeignOwnership`. Never expose raw DB errors.
 - **BGG client** — `bgg.New(token)` for token auth, `bgg.NewWithCookies(cookie)` for cookie fallback. Token takes priority.
+- **CORS** — `REACT_ORIGIN` env var (comma-separated). Prod value: `https://lumedina.dev`.
 
 ## Stack
 
-**Go backend:** Go 1.25 · stdlib HTTP · REST/JSON API · SQLite (`modernc.org/sqlite`) · Fly.io
+**Go backend:** Go 1.25 · stdlib HTTP · REST/JSON API · SQLite (`modernc.org/sqlite`) · Fly.io (`myboardgamecollection`)
 
-**React frontend:** React 19 · React Router v7 · Vite · Tailwind CSS v4 · TypeScript · Bun
+**Frontend:** React 19 · Cloudflare Pages · repo: `LuisMedinaG/mbgc-web`
 
 ## Project Structure
-
-### Go backend
 
 ```
 main.go              # Server setup, routes, middleware wiring
@@ -45,20 +44,6 @@ internal/
 
 Each `services/<domain>/` has `handler.go` (HTTP) + `store.go` (SQL). Routes are registered in `main.go`.
 
-### React frontend (`react-app/`)
-
-```
-src/
-  lib/api.ts           # Centralized API client (JWT, auto-refresh)
-  contexts/AuthContext.tsx
-  components/          # Layout, FilterBar, GameListItem, GameCard, TagList, …
-  pages/               # LoginPage, CollectionPage, GameDetailPage, VibesPage
-  types/game.ts        # Game interface + filter types
-  index.css            # Tailwind v4 source + theme tokens + component classes
-e2e/
-  smoke.spec.ts        # Playwright E2E (TEST_TOKEN env var — ephemeral JWT, no static creds)
-```
-
 ## Key Patterns
 
 **Auth** — JWT only (no session cookies). `shared/httpx.RequireJWT(secret)` middleware guards all protected routes. User ID extracted with `requireUserID(w, r)` inside each handler.
@@ -71,8 +56,6 @@ e2e/
 
 ## Commands
 
-### Go backend
-
 ```sh
 make dev        # go run . (recommended for development)
 make build      # build binary → ./boardgames
@@ -82,28 +65,8 @@ make test-v     # verbose tests
 make cover      # per-package coverage %
 make cover-html # HTML coverage report
 make check      # build + test + vet
-make dev-all    # Go + React concurrently (trap INT/TERM)
 make bgg-login  # fetch BGG auth headers
 ```
-
-### React frontend
-
-```sh
-bun dev               # Vite dev server at localhost:5173
-bun build             # type-check + production build → dist/
-bun run lint          # ESLint
-bun run preview       # preview production build
-bun install           # install dependencies
-```
-
-E2E tests (requires Go backend running):
-
-```sh
-make dev-go  # in one terminal (auto-creates test user if TEST_USER set)
-TEST_TOKEN=<optional-ephemeral-jwt> bun run test:e2e  # in react-app/ (auto-logins if no token)
-```
-
-If TEST_TOKEN not provided, tests auto-login with TEST_USER/TEST_PASSWORD (defaults: testuser/testpass123).
 
 ## Branching
 
@@ -112,8 +75,6 @@ If TEST_TOKEN not provided, tests auto-login with TEST_USER/TEST_PASSWORD (defau
 Enforced by GitHub rulesets. Never use admin bypass.
 
 ## Project Skills
-
-Stored in `.claude/skills/` — auto-loaded by Claude Code. Use these for common workflows:
 
 | Skill | Trigger |
 |-------|---------|
@@ -130,7 +91,6 @@ Stored in `.claude/skills/` — auto-loaded by Claude Code. Use these for common
 - **claude-mem** — Persistent cross-session memory
 - **code-review** — PR code review
 - **code-simplifier** — Refactor review for changed code
-- **playwright** — E2E browser automation (`e2e/smoke.spec.ts`)
 - **ralph-loop** — `/loop` recurring prompts
 - **security-guidance** — Security analysis
 - **commit-commands** — `/commit`, `/commit-push-pr`
