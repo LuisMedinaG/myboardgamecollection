@@ -169,13 +169,22 @@ func SecurityHeaders() Middleware {
 	}
 }
 
-// CORS adds permissive CORS headers for the React dev server and production origin.
-// allowedOrigin should be the React app's URL (e.g. "http://localhost:5173" in dev).
-func CORS(allowedOrigin string) Middleware {
+// CORS adds permissive CORS headers for allowed origins.
+// allowedOrigins is a comma-separated list of allowed origins (e.g. "http://localhost:5173,https://app.lumedina.dev").
+// A single "*" allows all origins.
+func CORS(allowedOrigins string) Middleware {
+	set := make(map[string]struct{})
+	for o := range strings.SplitSeq(allowedOrigins, ",") {
+		if t := strings.TrimSpace(o); t != "" {
+			set[t] = struct{}{}
+		}
+	}
+	wildcard := allowedOrigins == "*"
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
-			if origin == allowedOrigin || allowedOrigin == "*" {
+			_, allowed := set[origin]
+			if wildcard || allowed {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
 				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
