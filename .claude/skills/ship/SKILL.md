@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Full ship workflow — test, CSS build, commit, push, open PR to dev. Use when a feature is ready to ship.
+description: Full ship workflow — test, commit, push, open PR to dev. Use when a feature is ready to ship.
 ---
 
 # Ship
@@ -20,40 +20,30 @@ make test
 
 Fix any failures before continuing. Do not skip.
 
-### 2. CSS (only if Go templates changed)
+### 2. Commit
 
-This project is React-only on the current branch — Go templates and their CSS are removed.
-Skip this step unless you're on a branch that still has `static/input.css`.
+Ask the user to review the diff (`git diff --staged` or `git status`) before committing. Per CLAUDE.md: always ask before committing.
 
-```sh
-# Only if static/input.css exists and was modified:
-make css
-```
-
-### 3. Commit
-
-Ask the user to review the diff (`git diff --staged` or `git status`) before committing.
-
-Use the `/commit` skill or:
+Use the `/commit` skill, or:
 
 ```sh
 git add <specific files>   # never git add -A blindly
-git commit -m "type: description
-
-Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+git commit -m "type: description"
 ```
 
 Commit types: `feat` | `fix` | `refactor` | `docs` | `chore` | `test`
 
-### 4. Push
+### 3. Push
+
+Only push when the user explicitly says "push" (see CLAUDE.md rules).
 
 ```sh
-git push origin <branch>
+git push -u origin <branch>
 ```
 
-Never push to `main` or `staging` directly. Feature branches push to `feature/*` only.
+Never push directly to `main` or `staging`. Feature branches push to `feature/*`; `dev` accepts direct pushes.
 
-### 5. PR to dev
+### 4. PR to dev
 
 ```sh
 gh pr create --base dev --title "type: description" --body "$(cat <<'EOF'
@@ -64,8 +54,6 @@ gh pr create --base dev --title "type: description" --body "$(cat <<'EOF'
 ## Test plan
 - [ ] `make test` passes
 - [ ] Manually verified <key flow>
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
 ```
@@ -84,7 +72,6 @@ feature/*  →  dev  →  (PR to) staging  →  (PR to) main
 ## Checklist
 
 - [ ] `make test` passes
-- [ ] CSS rebuilt if Go templates touched
 - [ ] User reviewed diff before commit
 - [ ] PR targets `dev` (not `main` or `staging`)
 - [ ] No secrets or sensitive data in commit
