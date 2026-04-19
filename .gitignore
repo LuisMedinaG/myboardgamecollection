@@ -19,6 +19,8 @@ data/images/
 *.out
 coverage.html
 
+static/.playwright-mcp
+
 # Go workspace / tooling
 bin/
 
